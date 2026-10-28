@@ -3,4 +3,5 @@ extend type Query {
     testNotFound: String
     testServerError: String
     testUnexpected: String
+    testValidation(name: String): String
 }

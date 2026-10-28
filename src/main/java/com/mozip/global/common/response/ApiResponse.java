@@ -23,7 +23,12 @@ public record ApiResponse<T>(
 	}
 
 	public static <T> ApiResponse<T> fail(String code, String message) {
-		return new ApiResponse<>(false, code, message, null, MDC.get(TraceIdFilter.TRACE_ID_KEY));
+		return fail(code, message, null);
+	}
+
+	// 검증 실패처럼 실패 상세가 필요할 때만 data를 담음
+	public static <T> ApiResponse<T> fail(String code, String message, T data) {
+		return new ApiResponse<>(false, code, message, data, MDC.get(TraceIdFilter.TRACE_ID_KEY));
 	}
 
 }

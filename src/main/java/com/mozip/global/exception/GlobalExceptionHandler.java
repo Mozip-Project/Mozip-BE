@@ -1,16 +1,21 @@
 package com.mozip.global.exception;
 
+import java.util.List;
+
 import org.springframework.http.HttpHeaders;
 import org.springframework.http.HttpStatusCode;
 import org.springframework.http.ResponseEntity;
+import org.springframework.validation.FieldError;
 import org.springframework.web.bind.MethodArgumentNotValidException;
 import org.springframework.web.bind.annotation.ExceptionHandler;
 import org.springframework.web.bind.annotation.RestControllerAdvice;
 import org.springframework.web.context.request.ServletWebRequest;
 import org.springframework.web.context.request.WebRequest;
+import org.springframework.web.method.annotation.HandlerMethodValidationException;
 import org.springframework.web.servlet.mvc.method.annotation.ResponseEntityExceptionHandler;
 
 import com.mozip.global.common.response.ApiResponse;
+import com.mozip.global.common.response.FieldErrorResponse;
 
 import jakarta.servlet.http.HttpServletResponse;
 import jakarta.validation.ConstraintViolationException;
@@ -35,12 +40,11 @@ public class GlobalExceptionHandler extends ResponseEntityExceptionHandler {
 
 	// 서비스 계층의 @Validated 검증 실패
 	@ExceptionHandler(ConstraintViolationException.class)
-	public ResponseEntity<ApiResponse<Void>> handleConstraintViolationException(ConstraintViolationException e) {
-		String message = e.getConstraintViolations().stream()
-			.findFirst()
-			.map(violation -> violation.getPropertyPath() + ": " + violation.getMessage())
-			.orElse(CommonErrorCode.INVALID_INPUT.getMessage());
-		return toResponse(CommonErrorCode.INVALID_INPUT, message);
+	public ResponseEntity<Object> handleConstraintViolationException(ConstraintViolationException e) {
+		List<FieldErrorResponse> fieldErrors = e.getConstraintViolations().stream()
+			.map(FieldErrorResponse::from)
+			.toList();
+		return toValidationResponse(fieldErrors);
 	}
 
 	@ExceptionHandler(Exception.class)
@@ -52,12 +56,26 @@ public class GlobalExceptionHandler extends ResponseEntityExceptionHandler {
 	@Override
 	protected ResponseEntity<Object> handleMethodArgumentNotValid(MethodArgumentNotValidException ex,
 		HttpHeaders headers, HttpStatusCode status, WebRequest request) {
-		String message = ex.getBindingResult().getFieldErrors().stream()
-			.findFirst()
-			.map(error -> error.getField() + ": " + error.getDefaultMessage())
-			.orElse(CommonErrorCode.INVALID_INPUT.getMessage());
-		return ResponseEntity.status(status).headers(headers)
-			.body(ApiResponse.fail(CommonErrorCode.INVALID_INPUT.getCode(), message));
+		List<FieldErrorResponse> fieldErrors = ex.getBindingResult().getAllErrors().stream()
+			.map(error -> new FieldErrorResponse(
+				error instanceof FieldError fieldError ? fieldError.getField() : null, error.getDefaultMessage()))
+			.toList();
+		return toValidationResponse(fieldErrors);
+	}
+
+	// @PathVariable, @RequestParam 등 메서드 파라미터 검증 실패
+	@Override
+	protected ResponseEntity<Object> handleHandlerMethodValidationException(HandlerMethodValidationException ex,
+		HttpHeaders headers, HttpStatusCode status, WebRequest request) {
+		List<FieldErrorResponse> fieldErrors = ex.getParameterValidationResults().stream()
+			.flatMap(result -> result.getResolvableErrors().stream()
+				.map(error -> new FieldErrorResponse(
+					error instanceof FieldError fieldError
+						? fieldError.getField()
+						: result.getMethodParameter().getParameterName(),
+					error.getDefaultMessage())))
+			.toList();
+		return toValidationResponse(fieldErrors);
 	}
 
 	// HTTP 상태는 Spring이 정한 값(405의 Allow 헤더 포함)을 그대로 쓰고, code/message만 공통 코드로 맞춤
@@ -89,6 +107,16 @@ public class GlobalExceptionHandler extends ResponseEntityExceptionHandler {
 			case 415 -> CommonErrorCode.UNSUPPORTED_MEDIA_TYPE;
 			default -> statusCode.is4xxClientError() ? CommonErrorCode.INVALID_INPUT : CommonErrorCode.INTERNAL_SERVER_ERROR;
 		};
+	}
+
+	// message에는 첫 번째 에러를, data에는 프론트가 필드별로 표시할 전체 목록을 담음
+	private ResponseEntity<Object> toValidationResponse(List<FieldErrorResponse> fieldErrors) {
+		String message = fieldErrors.stream()
+			.findFirst()
+			.map(FieldErrorResponse::toMessage)
+			.orElse(CommonErrorCode.INVALID_INPUT.getMessage());
+		return ResponseEntity.status(CommonErrorCode.INVALID_INPUT.getStatus())
+			.body(ApiResponse.fail(CommonErrorCode.INVALID_INPUT.getCode(), message, fieldErrors));
 	}
 
 	private ResponseEntity<ApiResponse<Void>> toResponse(ErrorCode errorCode, String message) {

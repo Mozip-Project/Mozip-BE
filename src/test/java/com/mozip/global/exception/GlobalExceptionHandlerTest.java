@@ -1,6 +1,8 @@
 package com.mozip.global.exception;
 
 import static org.assertj.core.api.Assertions.assertThat;
+import static org.hamcrest.Matchers.containsInAnyOrder;
+import static org.hamcrest.Matchers.hasSize;
 import static org.hamcrest.Matchers.nullValue;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.post;
@@ -28,6 +30,7 @@ import jakarta.validation.ConstraintViolationException;
 import jakarta.validation.Valid;
 import jakarta.validation.Validation;
 import jakarta.validation.constraints.NotBlank;
+import jakarta.validation.constraints.NotNull;
 import jakarta.validation.constraints.Positive;
 
 @ExtendWith(OutputCaptureExtension.class)
@@ -67,14 +70,29 @@ class GlobalExceptionHandlerTest {
 	}
 
 	@Test
-	@DisplayName("요청 값 검증에 실패하면 400과 필드 에러 메시지로 응답한다")
+	@DisplayName("요청 값 검증에 실패하면 400과 필드 에러 메시지, data에 필드별 에러 목록으로 응답한다")
 	void handleValidationException() throws Exception {
 		mockMvc.perform(post("/test/validation")
 				.contentType(MediaType.APPLICATION_JSON)
 				.content("{\"name\": \"\"}"))
 			.andExpect(status().isBadRequest())
 			.andExpect(jsonPath("$.code").value("COMMON_400"))
-			.andExpect(jsonPath("$.message").value("name: 이름은 필수입니다."));
+			.andExpect(jsonPath("$.message").value("name: 이름은 필수입니다."))
+			.andExpect(jsonPath("$.data", hasSize(1)))
+			.andExpect(jsonPath("$.data[0].field").value("name"))
+			.andExpect(jsonPath("$.data[0].message").value("이름은 필수입니다."));
+	}
+
+	@Test
+	@DisplayName("여러 필드가 검증에 실패하면 data에 모든 필드 에러를 담는다")
+	void handleMultipleFieldErrors() throws Exception {
+		mockMvc.perform(post("/test/validation-multi")
+				.contentType(MediaType.APPLICATION_JSON)
+				.content("{}"))
+			.andExpect(status().isBadRequest())
+			.andExpect(jsonPath("$.data", hasSize(2)))
+			.andExpect(jsonPath("$.data[*].field", containsInAnyOrder("name", "age")))
+			.andExpect(jsonPath("$.data[*].message", containsInAnyOrder("이름은 필수입니다.", "나이는 필수입니다.")));
 	}
 
 	@Test
@@ -102,7 +120,8 @@ class GlobalExceptionHandlerTest {
 			.andExpect(status().isBadRequest())
 			.andExpect(jsonPath("$.success").value(false))
 			.andExpect(jsonPath("$.code").value("COMMON_400"))
-			.andExpect(jsonPath("$.message").value("잘못된 요청입니다."));
+			.andExpect(jsonPath("$.message").value("잘못된 요청입니다."))
+			.andExpect(jsonPath("$.data").value(nullValue()));
 
 		assertThat(output).doesNotContain("ERROR");
 	}
@@ -116,20 +135,23 @@ class GlobalExceptionHandlerTest {
 	}
 
 	@Test
-	@DisplayName("경로 변수 검증에 실패하면 400으로 응답한다")
+	@DisplayName("경로 변수 검증에 실패하면 400과 파라미터 이름을 field로 담아 응답한다")
 	void handleHandlerMethodValidation() throws Exception {
 		mockMvc.perform(get("/test/path/-1"))
 			.andExpect(status().isBadRequest())
-			.andExpect(jsonPath("$.code").value("COMMON_400"));
+			.andExpect(jsonPath("$.code").value("COMMON_400"))
+			.andExpect(jsonPath("$.data[0].field").value("id"))
+			.andExpect(jsonPath("$.message").value("id: ID는 양수여야 합니다."));
 	}
 
 	@Test
-	@DisplayName("서비스 계층 검증에 실패하면 400과 첫 번째 위반 메시지로 응답한다")
+	@DisplayName("서비스 계층 검증에 실패하면 400과 위반 목록으로 응답한다")
 	void handleConstraintViolation() throws Exception {
 		mockMvc.perform(get("/test/constraint-violation"))
 			.andExpect(status().isBadRequest())
 			.andExpect(jsonPath("$.code").value("COMMON_400"))
-			.andExpect(jsonPath("$.message").value("name: 이름은 필수입니다."));
+			.andExpect(jsonPath("$.message").value("name: 이름은 필수입니다."))
+			.andExpect(jsonPath("$.data[0].field").value("name"));
 	}
 
 	@Test
@@ -169,12 +191,16 @@ class GlobalExceptionHandlerTest {
 		void validation(@Valid @RequestBody TestRequest request) {
 		}
 
+		@PostMapping("/test/validation-multi")
+		void validationMulti(@Valid @RequestBody TestMultiRequest request) {
+		}
+
 		@GetMapping("/test/param")
 		void param(@RequestParam int page) {
 		}
 
 		@GetMapping("/test/path/{id}")
-		void path(@PathVariable @Positive Long id) {
+		void path(@PathVariable @Positive(message = "ID는 양수여야 합니다.") Long id) {
 		}
 
 		@GetMapping("/test/constraint-violation")
@@ -192,6 +218,12 @@ class GlobalExceptionHandlerTest {
 	}
 
 	record TestRequest(@NotBlank(message = "이름은 필수입니다.") String name) {
+	}
+
+	record TestMultiRequest(
+		@NotBlank(message = "이름은 필수입니다.") String name,
+		@NotNull(message = "나이는 필수입니다.") Integer age
+	) {
 	}
 
 }

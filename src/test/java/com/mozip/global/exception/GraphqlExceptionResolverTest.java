@@ -12,6 +12,7 @@ import org.springframework.boot.test.system.CapturedOutput;
 import org.springframework.boot.test.system.OutputCaptureExtension;
 import org.springframework.boot.webmvc.test.autoconfigure.AutoConfigureMockMvc;
 import org.springframework.context.annotation.Import;
+import org.springframework.graphql.data.method.annotation.Argument;
 import org.springframework.graphql.data.method.annotation.QueryMapping;
 import org.springframework.graphql.execution.ErrorType;
 import org.springframework.graphql.test.tester.HttpGraphQlTester;
@@ -19,6 +20,8 @@ import org.springframework.stereotype.Controller;
 
 import com.mozip.TestcontainersConfiguration;
 import com.mozip.global.logging.TraceIdFilter;
+
+import jakarta.validation.constraints.NotBlank;
 
 @Import({TestcontainersConfiguration.class, GraphqlExceptionResolverTest.TestController.class})
 @SpringBootTest(properties = "spring.graphql.schema.locations=classpath:graphql/,classpath:graphql-test/")
@@ -81,6 +84,27 @@ class GraphqlExceptionResolverTest {
 			});
 	}
 
+	@Test
+	@DisplayName("인자 검증에 실패하면 BAD_REQUEST로 바꾸고, extensions에 필드별 에러 목록을 담는다")
+	void resolveConstraintViolation() {
+		withTraceId().document("{ testValidation(name: \"\") }")
+			.execute()
+			.errors()
+			.satisfy(errors -> {
+				assertThat(errors).hasSize(1);
+				assertThat(errors.getFirst().getErrorType()).isEqualTo(ErrorType.BAD_REQUEST);
+				assertThat(errors.getFirst().getMessage()).isEqualTo("name: 이름은 필수입니다.");
+				assertThat(errors.getFirst().getExtensions())
+					.containsEntry("code", "COMMON_400")
+					.containsEntry("traceId", TRACE_ID);
+				assertThat(errors.getFirst().getExtensions().get("fieldErrors"))
+					.asList()
+					.singleElement()
+					.hasFieldOrPropertyWithValue("field", "name")
+					.hasFieldOrPropertyWithValue("message", "이름은 필수입니다.");
+			});
+	}
+
 	private HttpGraphQlTester withTraceId() {
 		return graphQlTester.mutate()
 			.header(TraceIdFilter.TRACE_ID_HEADER, TRACE_ID)
@@ -99,6 +123,11 @@ class GraphqlExceptionResolverTest {
 		@QueryMapping
 		public String testServerError() {
 			throw new BusinessException(CommonErrorCode.INTERNAL_SERVER_ERROR);
+		}
+
+		@QueryMapping
+		public String testValidation(@Argument @NotBlank(message = "이름은 필수입니다.") String name) {
+			return name;
 		}
 
 		@QueryMapping
