@@ -7,11 +7,18 @@ import org.springframework.security.config.annotation.web.configurers.AbstractHt
 import org.springframework.security.config.http.SessionCreationPolicy;
 import org.springframework.security.web.SecurityFilterChain;
 
+import com.mozip.global.security.SecurityErrorHandler;
+
+import lombok.RequiredArgsConstructor;
+
 /**
  * 기본 보안 설정 · JWT 필터는 인증 기능 구현 때 추가
  */
 @Configuration
+@RequiredArgsConstructor
 public class SecurityConfig {
+
+	private final SecurityErrorHandler securityErrorHandler;
 
 	private static final String[] PUBLIC_URLS = {
 		"/swagger-ui.html",
@@ -30,7 +37,10 @@ public class SecurityConfig {
 			.sessionManagement(session -> session.sessionCreationPolicy(SessionCreationPolicy.STATELESS))
 			.authorizeHttpRequests(auth -> auth
 				.requestMatchers(PUBLIC_URLS).permitAll()
-				.anyRequest().authenticated());
+				.anyRequest().authenticated())
+			.exceptionHandling(exception -> exception
+				.authenticationEntryPoint(securityErrorHandler)
+				.accessDeniedHandler(securityErrorHandler));
 		return http.build();
 	}
 
