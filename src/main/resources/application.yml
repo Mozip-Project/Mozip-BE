@@ -23,3 +23,8 @@ management:
     web:
       exposure:
         include: health
+
+logging:
+  pattern:
+    # 모든 로그 줄에 traceId 출력 (TraceIdFilter가 MDC에 넣은 값)
+    correlation: "[%X{traceId:-}] "
