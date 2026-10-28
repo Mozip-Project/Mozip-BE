@@ -26,29 +26,29 @@ public class GlobalExceptionHandler {
 		String message = e.getBindingResult().getFieldErrors().stream()
 			.findFirst()
 			.map(error -> error.getField() + ": " + error.getDefaultMessage())
-			.orElse(ErrorCode.INVALID_INPUT.getMessage());
-		return toResponse(ErrorCode.INVALID_INPUT, message);
+			.orElse(CommonErrorCode.INVALID_INPUT.getMessage());
+		return toResponse(CommonErrorCode.INVALID_INPUT, message);
 	}
 
 	@ExceptionHandler(HttpMessageNotReadableException.class)
 	public ResponseEntity<ApiResponse<Void>> handleNotReadableException(HttpMessageNotReadableException e) {
-		return toResponse(ErrorCode.INVALID_INPUT, ErrorCode.INVALID_INPUT.getMessage());
+		return toResponse(CommonErrorCode.INVALID_INPUT, CommonErrorCode.INVALID_INPUT.getMessage());
 	}
 
 	@ExceptionHandler(HttpRequestMethodNotSupportedException.class)
 	public ResponseEntity<ApiResponse<Void>> handleMethodNotSupportedException(HttpRequestMethodNotSupportedException e) {
-		return toResponse(ErrorCode.METHOD_NOT_ALLOWED, ErrorCode.METHOD_NOT_ALLOWED.getMessage());
+		return toResponse(CommonErrorCode.METHOD_NOT_ALLOWED, CommonErrorCode.METHOD_NOT_ALLOWED.getMessage());
 	}
 
 	@ExceptionHandler(NoResourceFoundException.class)
 	public ResponseEntity<ApiResponse<Void>> handleNoResourceFoundException(NoResourceFoundException e) {
-		return toResponse(ErrorCode.NOT_FOUND, ErrorCode.NOT_FOUND.getMessage());
+		return toResponse(CommonErrorCode.NOT_FOUND, CommonErrorCode.NOT_FOUND.getMessage());
 	}
 
 	@ExceptionHandler(Exception.class)
 	public ResponseEntity<ApiResponse<Void>> handleException(Exception e) {
 		log.error("Unhandled exception", e);
-		return toResponse(ErrorCode.INTERNAL_SERVER_ERROR, ErrorCode.INTERNAL_SERVER_ERROR.getMessage());
+		return toResponse(CommonErrorCode.INTERNAL_SERVER_ERROR, CommonErrorCode.INTERNAL_SERVER_ERROR.getMessage());
 	}
 
 	private ResponseEntity<ApiResponse<Void>> toResponse(ErrorCode errorCode, String message) {
