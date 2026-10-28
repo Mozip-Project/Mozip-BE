@@ -1,0 +1,6 @@
+plugins {
+	// 로컬에 JDK 없을 경우에 자동으로 다운로드 됨
+	id 'org.gradle.toolchains.foojay-resolver-convention' version '1.0.0'
+}
+
+rootProject.name = 'mozip'

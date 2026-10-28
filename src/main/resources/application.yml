@@ -1,0 +1,25 @@
+spring:
+  application:
+    name: mozip
+  profiles:
+    active: local
+
+  jpa:
+    open-in-view: false
+    properties:
+      hibernate:
+        jdbc:
+          time_zone: Asia/Seoul
+        default_batch_fetch_size: 100
+
+springdoc:
+  swagger-ui:
+    path: /swagger-ui.html
+  api-docs:
+    path: /v3/api-docs
+
+management:
+  endpoints:
+    web:
+      exposure:
+        include: health
