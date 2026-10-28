@@ -18,8 +18,14 @@ public class GlobalExceptionHandler {
 
 	@ExceptionHandler(BusinessException.class)
 	public ResponseEntity<ApiResponse<Void>> handleBusinessException(BusinessException e) {
-		log.warn("Business exception: code={}, context={}", e.getErrorCode().getCode(), e.getContext());
-		return toResponse(e.getErrorCode(), e.getMessage());
+		ErrorCode errorCode = e.getErrorCode();
+		// 4xx는 warn, 5xx는 장애 발생이므로 error
+		if (errorCode.getStatus().is5xxServerError()) {
+			log.error("Business exception: code={}, context={}", errorCode.getCode(), e.getContext(), e);
+		} else {
+			log.warn("Business exception: code={}, context={}", errorCode.getCode(), e.getContext());
+		}
+		return toResponse(errorCode, e.getMessage());
 	}
 
 	@ExceptionHandler(MethodArgumentNotValidException.class)
