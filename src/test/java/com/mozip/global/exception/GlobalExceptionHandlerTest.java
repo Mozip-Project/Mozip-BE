@@ -16,14 +16,19 @@ import org.springframework.http.MediaType;
 import org.springframework.test.web.servlet.MockMvc;
 import org.springframework.test.web.servlet.setup.MockMvcBuilders;
 import org.springframework.web.bind.annotation.GetMapping;
+import org.springframework.web.bind.annotation.PathVariable;
 import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.RequestBody;
+import org.springframework.web.bind.annotation.RequestParam;
 import org.springframework.web.bind.annotation.RestController;
 
 import com.mozip.global.logging.TraceIdFilter;
 
+import jakarta.validation.ConstraintViolationException;
 import jakarta.validation.Valid;
+import jakarta.validation.Validation;
 import jakarta.validation.constraints.NotBlank;
+import jakarta.validation.constraints.Positive;
 
 @ExtendWith(OutputCaptureExtension.class)
 class GlobalExceptionHandlerTest {
@@ -91,6 +96,54 @@ class GlobalExceptionHandlerTest {
 	}
 
 	@Test
+	@DisplayName("필수 요청 파라미터가 없으면 500이 아니라 400으로 응답하고 ERROR 로그를 남기지 않는다")
+	void handleMissingRequestParameter(CapturedOutput output) throws Exception {
+		mockMvc.perform(get("/test/param"))
+			.andExpect(status().isBadRequest())
+			.andExpect(jsonPath("$.success").value(false))
+			.andExpect(jsonPath("$.code").value("COMMON_400"))
+			.andExpect(jsonPath("$.message").value("잘못된 요청입니다."));
+
+		assertThat(output).doesNotContain("ERROR");
+	}
+
+	@Test
+	@DisplayName("요청 파라미터 타입이 맞지 않으면 400으로 응답한다")
+	void handleTypeMismatch() throws Exception {
+		mockMvc.perform(get("/test/param").param("page", "abc"))
+			.andExpect(status().isBadRequest())
+			.andExpect(jsonPath("$.code").value("COMMON_400"));
+	}
+
+	@Test
+	@DisplayName("경로 변수 검증에 실패하면 400으로 응답한다")
+	void handleHandlerMethodValidation() throws Exception {
+		mockMvc.perform(get("/test/path/-1"))
+			.andExpect(status().isBadRequest())
+			.andExpect(jsonPath("$.code").value("COMMON_400"));
+	}
+
+	@Test
+	@DisplayName("서비스 계층 검증에 실패하면 400과 첫 번째 위반 메시지로 응답한다")
+	void handleConstraintViolation() throws Exception {
+		mockMvc.perform(get("/test/constraint-violation"))
+			.andExpect(status().isBadRequest())
+			.andExpect(jsonPath("$.code").value("COMMON_400"))
+			.andExpect(jsonPath("$.message").value("name: 이름은 필수입니다."));
+	}
+
+	@Test
+	@DisplayName("지원하지 않는 Content-Type은 415로 응답한다")
+	void handleMediaTypeNotSupported() throws Exception {
+		mockMvc.perform(post("/test/validation")
+				.contentType(MediaType.TEXT_PLAIN)
+				.content("name"))
+			.andExpect(status().isUnsupportedMediaType())
+			.andExpect(jsonPath("$.code").value("COMMON_415"))
+			.andExpect(jsonPath("$.traceId").exists());
+	}
+
+	@Test
 	@DisplayName("예상하지 못한 예외는 내부 메시지를 숨기고 500으로 응답한다")
 	void handleUnexpectedException() throws Exception {
 		mockMvc.perform(get("/test/unexpected"))
@@ -114,6 +167,21 @@ class GlobalExceptionHandlerTest {
 
 		@PostMapping("/test/validation")
 		void validation(@Valid @RequestBody TestRequest request) {
+		}
+
+		@GetMapping("/test/param")
+		void param(@RequestParam int page) {
+		}
+
+		@GetMapping("/test/path/{id}")
+		void path(@PathVariable @Positive Long id) {
+		}
+
+		@GetMapping("/test/constraint-violation")
+		void constraintViolation() {
+			try (var factory = Validation.buildDefaultValidatorFactory()) {
+				throw new ConstraintViolationException(factory.getValidator().validate(new TestRequest("")));
+			}
 		}
 
 		@GetMapping("/test/unexpected")
