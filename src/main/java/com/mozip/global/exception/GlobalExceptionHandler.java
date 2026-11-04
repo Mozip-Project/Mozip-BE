@@ -5,6 +5,8 @@ import java.util.List;
 import org.springframework.http.HttpHeaders;
 import org.springframework.http.HttpStatusCode;
 import org.springframework.http.ResponseEntity;
+import org.springframework.security.access.AccessDeniedException;
+import org.springframework.security.core.AuthenticationException;
 import org.springframework.validation.FieldError;
 import org.springframework.web.bind.MethodArgumentNotValidException;
 import org.springframework.web.bind.annotation.ExceptionHandler;
@@ -45,6 +47,12 @@ public class GlobalExceptionHandler extends ResponseEntityExceptionHandler {
 			.map(FieldErrorResponse::from)
 			.toList();
 		return toValidationResponse(fieldErrors);
+	}
+
+	// 메서드 권한 검사 실패는 다시 SecurityErrorHandler가 응답 (토큰 없음 401, 권한 부족 403)
+	@ExceptionHandler({AccessDeniedException.class, AuthenticationException.class})
+	public void rethrowSecurityException(RuntimeException e) {
+		throw e;
 	}
 
 	@ExceptionHandler(Exception.class)
