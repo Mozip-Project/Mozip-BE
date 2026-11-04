@@ -25,9 +25,10 @@ import com.mozip.global.security.jwt.TokenErrorCode;
 
 import lombok.extern.slf4j.Slf4j;
 
+// 로그인, 재발급, 로그아웃은 트랜잭션 없이 실행
+// BCrypt 비교(수십~수백 ms) 동안 DB 커넥션을 붙잡지 않도록 하며, JPA 쓰기가 있는 가입만 @Transactional
 @Slf4j
 @Service
-@Transactional(readOnly = true)
 public class AuthService {
 
 	private final UserRepository userRepository;
