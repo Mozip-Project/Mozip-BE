@@ -157,6 +157,27 @@ class AuthIntegrationTest {
 			.andExpect(jsonPath("$.code").value("AUTH_004"));
 	}
 
+	@Test
+	@DisplayName("비밀번호에 한글 등 ASCII 외 문자가 있으면 BCrypt까지 가지 않고 400으로 응답한다")
+	void nonAsciiPassword() throws Exception {
+		// 64자 이내지만 UTF-8로 77바이트라 BCrypt 72바이트 제한을 넘는 값
+		String password = "a1" + "가".repeat(25);
+
+		mockMvc.perform(post("/auth/signup")
+				.contentType(MediaType.APPLICATION_JSON)
+				.content(signupJson(randomPhone(), password, true)))
+			.andExpect(status().isBadRequest());
+	}
+
+	@Test
+	@DisplayName("로그인 비밀번호가 64자를 넘으면 400으로 응답한다")
+	void tooLongLoginPassword() throws Exception {
+		mockMvc.perform(post("/auth/login")
+				.contentType(MediaType.APPLICATION_JSON)
+				.content(loginJson(signup(), "a".repeat(65))))
+			.andExpect(status().isBadRequest());
+	}
+
 	private String signup() throws Exception {
 		String phone = randomPhone();
 		mockMvc.perform(post("/auth/signup")
@@ -180,9 +201,13 @@ class AuthIntegrationTest {
 	}
 
 	private static String signupJson(String phone, boolean termsAgreed) {
+		return signupJson(phone, PASSWORD, termsAgreed);
+	}
+
+	private static String signupJson(String phone, String password, boolean termsAgreed) {
 		return """
 			{"phone": "%s", "password": "%s", "name": "김모집", "termsAgreed": %s, "marketingAgreed": false}
-			""".formatted(phone, PASSWORD, termsAgreed);
+			""".formatted(phone, password, termsAgreed);
 	}
 
 	private static String loginJson(String phone, String password) {
