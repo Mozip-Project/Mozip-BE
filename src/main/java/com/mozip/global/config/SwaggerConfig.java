@@ -3,6 +3,8 @@ package com.mozip.global.config;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
 
+import com.mozip.global.security.cookie.AuthCookieManager;
+
 import io.swagger.v3.oas.models.Components;
 import io.swagger.v3.oas.models.OpenAPI;
 import io.swagger.v3.oas.models.info.Info;
@@ -12,21 +14,24 @@ import io.swagger.v3.oas.models.security.SecurityScheme;
 @Configuration
 public class SwaggerConfig {
 
-	private static final String JWT_SCHEME = "JWT";
+	private static final String ACCESS_TOKEN_SCHEME = "accessTokenCookie";
 
+	// 로그인 API를 호출하면 이후 요청에 access_token 쿠키가 자동으로 실림
 	@Bean
 	public OpenAPI openAPI() {
 		return new OpenAPI()
 			.info(new Info()
 				.title("MOZIP API")
-				.description("동아리 · 학회 · 학생회 모집 플랫폼 MOZIP 백엔드 API")
+				.description("동아리 · 학회 · 학생회 모집 플랫폼 MOZIP 백엔드 API\n\n"
+					+ "인증이 필요한 API는 먼저 `POST /auth/login`을 호출하세요. "
+					+ "응답의 `access_token` 쿠키가 이후 요청에 자동으로 실립니다.")
 				.version("v1"))
-			.addSecurityItem(new SecurityRequirement().addList(JWT_SCHEME))
+			.addSecurityItem(new SecurityRequirement().addList(ACCESS_TOKEN_SCHEME))
 			.components(new Components()
-				.addSecuritySchemes(JWT_SCHEME, new SecurityScheme()
-					.type(SecurityScheme.Type.HTTP)
-					.scheme("bearer")
-					.bearerFormat("JWT")));
+				.addSecuritySchemes(ACCESS_TOKEN_SCHEME, new SecurityScheme()
+					.type(SecurityScheme.Type.APIKEY)
+					.in(SecurityScheme.In.COOKIE)
+					.name(AuthCookieManager.ACCESS_TOKEN_COOKIE)));
 	}
 
 }

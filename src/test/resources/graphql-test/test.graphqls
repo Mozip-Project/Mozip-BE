@@ -1,7 +1,8 @@
 # GraphqlExceptionResolverTest 전용 (메인 graphql/을 가리지 않게 폴더 분리)
+# 예외 처리만 검증하므로 인증 없이 호출할 수 있게 @public
 extend type Query {
-    testNotFound: String
-    testServerError: String
-    testUnexpected: String
-    testValidation(name: String): String
+    testNotFound: String @public
+    testServerError: String @public
+    testUnexpected: String @public
+    testValidation(name: String): String @public
 }

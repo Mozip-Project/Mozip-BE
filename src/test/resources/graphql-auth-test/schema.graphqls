@@ -1,0 +1,6 @@
+# GraphqlAuthIntegrationTest 전용
+extend type Query {
+    testPublic: String @public
+    testSecured: String
+    testAdminOnly: String
+}
