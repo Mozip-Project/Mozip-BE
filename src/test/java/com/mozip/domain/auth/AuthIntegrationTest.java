@@ -135,6 +135,30 @@ class AuthIntegrationTest {
 	}
 
 	@Test
+	@DisplayName("이미 사용한 리프레시 토큰이 다시 들어오면 탈취로 보고 그 회원의 다른 기기 세션도 모두 끊는다")
+	void reusedRefreshTokenRevokesAllSessions() throws Exception {
+		String phone = signup();
+		Cookie deviceA = login(phone).getCookie(AuthCookieManager.REFRESH_TOKEN_COOKIE);
+		Cookie deviceB = login(phone).getCookie(AuthCookieManager.REFRESH_TOKEN_COOKIE);
+		Cookie deviceARotated = mockMvc.perform(post("/auth/reissue").cookie(deviceA))
+			.andExpect(status().isOk())
+			.andReturn().getResponse().getCookie(AuthCookieManager.REFRESH_TOKEN_COOKIE);
+
+		// 이미 폐기된 deviceA 토큰 재사용
+		mockMvc.perform(post("/auth/reissue").cookie(deviceA))
+			.andExpect(status().isUnauthorized())
+			.andExpect(jsonPath("$.code").value("AUTH_004"));
+
+		// 재사용 전까지 유효했던 토큰들도 모두 폐기됨
+		mockMvc.perform(post("/auth/reissue").cookie(deviceARotated))
+			.andExpect(status().isUnauthorized())
+			.andExpect(jsonPath("$.code").value("AUTH_004"));
+		mockMvc.perform(post("/auth/reissue").cookie(deviceB))
+			.andExpect(status().isUnauthorized())
+			.andExpect(jsonPath("$.code").value("AUTH_004"));
+	}
+
+	@Test
 	@DisplayName("리프레시 토큰 쿠키 없이 재발급하면 AUTH_004로 응답한다")
 	void reissueWithoutCookie() throws Exception {
 		mockMvc.perform(post("/auth/reissue"))

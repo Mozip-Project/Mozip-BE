@@ -23,6 +23,9 @@ import com.mozip.global.security.jwt.JwtProvider;
 import com.mozip.global.security.jwt.RefreshTokenClaims;
 import com.mozip.global.security.jwt.TokenErrorCode;
 
+import lombok.extern.slf4j.Slf4j;
+
+@Slf4j
 @Service
 @Transactional(readOnly = true)
 public class AuthService {
@@ -82,8 +85,7 @@ public class AuthService {
 		}
 		RefreshTokenClaims claims = jwtProvider.parseRefreshToken(refreshToken);
 		Long storedUserId = refreshTokenRepository.consume(claims.tokenId())
-			.orElseThrow(() -> new BusinessException(TokenErrorCode.INVALID_REFRESH_TOKEN)
-				.addContext("userId", claims.userId()));
+			.orElseThrow(() -> revokeAllSessions(claims));
 		if (!storedUserId.equals(claims.userId())) {
 			throw new BusinessException(TokenErrorCode.INVALID_REFRESH_TOKEN).addContext("userId", claims.userId());
 		}
@@ -93,6 +95,16 @@ public class AuthService {
 			throw new BusinessException(AuthErrorCode.INACTIVE_USER).addContext("userId", user.getId());
 		}
 		return issueTokens(user);
+	}
+
+	// 서명은 유효한데 저장소에 없는 토큰은 이미 사용됐거나 폐기된 토큰이 재사용된 것
+	// 탈취로 보고 그 회원의 모든 기기 세션을 끊어 먼저 재발급받은 쪽도 다시 로그인하게 함
+	private BusinessException revokeAllSessions(RefreshTokenClaims claims) {
+		refreshTokenRepository.deleteAllByUserId(claims.userId());
+		log.warn("리프레시 토큰 재사용 감지로 전체 세션 폐기: userId={}", claims.userId());
+		return new BusinessException(TokenErrorCode.INVALID_REFRESH_TOKEN)
+			.addContext("userId", claims.userId())
+			.addContext("reason", "reused");
 	}
 
 	// 토큰이 없거나 잘못돼도 로그아웃은 성공 처리
