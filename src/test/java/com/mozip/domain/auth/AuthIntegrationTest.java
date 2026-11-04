@@ -7,6 +7,12 @@ import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.jsonPath;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
 
+import java.util.ArrayList;
+import java.util.List;
+import java.util.concurrent.CountDownLatch;
+import java.util.concurrent.ExecutorService;
+import java.util.concurrent.Executors;
+import java.util.concurrent.Future;
 import java.util.concurrent.ThreadLocalRandom;
 
 import org.junit.jupiter.api.DisplayName;
@@ -159,6 +165,35 @@ class AuthIntegrationTest {
 
 		mockMvc.perform(post("/auth/reissue").cookie(deviceARotated))
 			.andExpect(status().isOk());
+		mockMvc.perform(post("/auth/reissue").cookie(deviceB))
+			.andExpect(status().isOk());
+	}
+
+	@Test
+	@DisplayName("같은 리프레시 토큰으로 정말 동시에 재발급해도 하나만 성공하고 나머지는 AUTH_007이며 다른 세션은 유지된다")
+	void concurrentReissue() throws Exception {
+		String phone = signup();
+		Cookie deviceA = login(phone).getCookie(AuthCookieManager.REFRESH_TOKEN_COOKIE);
+		Cookie deviceB = login(phone).getCookie(AuthCookieManager.REFRESH_TOKEN_COOKIE);
+		int requests = 4;
+		CountDownLatch start = new CountDownLatch(1);
+		List<Future<Integer>> results = new ArrayList<>();
+		try (ExecutorService executor = Executors.newFixedThreadPool(requests)) {
+			for (int i = 0; i < requests; i++) {
+				results.add(executor.submit(() -> {
+					start.await();
+					return mockMvc.perform(post("/auth/reissue").cookie(deviceA)).andReturn().getResponse().getStatus();
+				}));
+			}
+			// 모든 스레드가 준비된 뒤 한 번에 출발시켜 소비 구간이 겹치게 함
+			start.countDown();
+		}
+		List<Integer> statuses = new ArrayList<>();
+		for (Future<Integer> result : results) {
+			statuses.add(result.get());
+		}
+
+		assertThat(statuses).containsOnly(200, 409).containsOnlyOnce(200);
 		mockMvc.perform(post("/auth/reissue").cookie(deviceB))
 			.andExpect(status().isOk());
 	}

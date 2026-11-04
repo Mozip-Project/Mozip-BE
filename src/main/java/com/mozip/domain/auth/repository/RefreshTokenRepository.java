@@ -1,12 +1,14 @@
 package com.mozip.domain.auth.repository;
 
 import java.time.Duration;
+import java.util.List;
 import java.util.Optional;
 import java.util.Set;
 import java.util.function.Supplier;
 
 import org.springframework.dao.DataAccessException;
 import org.springframework.data.redis.core.StringRedisTemplate;
+import org.springframework.data.redis.core.script.RedisScript;
 import org.springframework.stereotype.Repository;
 
 import com.mozip.global.exception.BusinessException;
@@ -30,6 +32,17 @@ public class RefreshTokenRepository {
 	private static final String USER_KEY_PREFIX = "auth:user:";
 	private static final String USER_KEY_SUFFIX = ":refresh";
 
+	// KEYS[1]=토큰 키, KEYS[2]=소비 마커 키, ARGV[1]=마커 TTL(ms), 반환=회원 ID 또는 nil
+	private static final RedisScript<String> CONSUME_SCRIPT = RedisScript.of("""
+		local userId = redis.call('GET', KEYS[1])
+		if not userId then
+			return nil
+		end
+		redis.call('DEL', KEYS[1])
+		redis.call('SET', KEYS[2], userId, 'PX', ARGV[1])
+		return userId
+		""", String.class);
+
 	private final StringRedisTemplate redisTemplate;
 
 	public void save(String tokenId, Long userId, Duration ttl) {
@@ -43,20 +56,15 @@ public class RefreshTokenRepository {
 		});
 	}
 
-	// GETDEL로 조회와 동시에 삭제 (같은 토큰은 한 번만 사용 가능)
+	// 조회, 삭제, 소비 마커 저장을 Lua 스크립트 하나로 실행 (같은 토큰은 한 번만 사용 가능)
+	// 세 명령 사이에 다른 요청이 끼어들면 마커가 없어 중복 요청이 탈취로 판정되므로 원자적으로 묶음
 	public Optional<Long> consume(String tokenId) {
-		String userId = execute(() -> redisTemplate.opsForValue().getAndDelete(tokenKey(tokenId)));
+		String userId = execute(() -> redisTemplate.execute(CONSUME_SCRIPT,
+			List.of(tokenKey(tokenId), consumedKey(tokenId)), String.valueOf(CONSUMED_GRACE.toMillis())));
 		if (userId == null) {
 			return Optional.empty();
 		}
-		// 토큰은 이미 지워졌으므로 뒤의 정리가 실패해도 소비는 성공으로 처리
-		// (Set 항목은 TTL로 만료되고, 마커가 없으면 중복 요청이 재사용으로 판정되는 정도)
-		try {
-			redisTemplate.opsForSet().remove(userKey(Long.valueOf(userId)), tokenId);
-			redisTemplate.opsForValue().set(consumedKey(tokenId), userId, CONSUMED_GRACE);
-		} catch (DataAccessException e) {
-			log.warn("리프레시 토큰 소비 후 정리 실패: tokenId={}, cause={}", tokenId, e.getClass().getSimpleName());
-		}
+		removeFromUserSet(userId, tokenId);
 		return Optional.of(Long.valueOf(userId));
 	}
 
@@ -67,13 +75,20 @@ public class RefreshTokenRepository {
 
 	// 로그아웃용 삭제 (소비 마커를 남기지 않아 이후 재사용은 탈취로 판정)
 	public void delete(String tokenId) {
-		execute(() -> {
-			String userId = redisTemplate.opsForValue().getAndDelete(tokenKey(tokenId));
-			if (userId != null) {
-				redisTemplate.opsForSet().remove(userKey(Long.valueOf(userId)), tokenId);
-			}
-			return null;
-		});
+		String userId = execute(() -> redisTemplate.opsForValue().getAndDelete(tokenKey(tokenId)));
+		if (userId != null) {
+			removeFromUserSet(userId, tokenId);
+		}
+	}
+
+	// 토큰은 이미 지워진 뒤라 Set 정리 실패는 삭제 성공을 뒤집지 않음 (남은 항목은 TTL로 만료)
+	// 덕분에 AUTH_006은 토큰을 지우기 전의 실패에서만 발생
+	private void removeFromUserSet(String userId, String tokenId) {
+		try {
+			redisTemplate.opsForSet().remove(userKey(Long.valueOf(userId)), tokenId);
+		} catch (DataAccessException e) {
+			log.warn("리프레시 토큰 Set 정리 실패: tokenId={}, cause={}", tokenId, e.getClass().getSimpleName());
+		}
 	}
 
 	// 회원의 모든 기기 세션 폐기 (토큰 재사용 감지, 전체 로그아웃 등)
