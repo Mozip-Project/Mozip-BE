@@ -1,7 +1,9 @@
 package com.mozip.global.security;
 
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.options;
+import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.post;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.header;
+import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.jsonPath;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
 
 import org.junit.jupiter.api.DisplayName;
@@ -49,6 +51,28 @@ class CorsIntegrationTest {
 	void mockRoleHeaderNotAllowed() throws Exception {
 		mockMvc.perform(preflight(ALLOWED_ORIGIN).header(HttpHeaders.ACCESS_CONTROL_REQUEST_HEADERS, "X-Mock-Role"))
 			.andExpect(status().isForbidden());
+	}
+
+	@Test
+	@DisplayName("허용되지 않은 출처에서 보낸 POST는 Origin이든 Referer든 COMMON_403으로 거부한다")
+	void disallowedSourcePost() throws Exception {
+		mockMvc.perform(post("/auth/logout").header(HttpHeaders.ORIGIN, "https://evil.test"))
+			.andExpect(status().isForbidden());
+		mockMvc.perform(post("/auth/logout").header(HttpHeaders.REFERER, "https://evil.test/attack.html"))
+			.andExpect(status().isForbidden())
+			.andExpect(jsonPath("$.code").value("COMMON_403"));
+	}
+
+	@Test
+	@DisplayName("허용된 출처나 백엔드 자신의 주소에서 보낸 POST는 출처 검사를 통과한다")
+	void allowedSourcePost() throws Exception {
+		mockMvc.perform(post("/auth/logout").header(HttpHeaders.ORIGIN, ALLOWED_ORIGIN))
+			.andExpect(status().isOk());
+		mockMvc.perform(post("/auth/logout").header(HttpHeaders.REFERER, ALLOWED_ORIGIN + "/mypage"))
+			.andExpect(status().isOk());
+		// MockMvc 요청의 기본 주소는 http://localhost
+		mockMvc.perform(post("/auth/logout").header(HttpHeaders.ORIGIN, "http://localhost"))
+			.andExpect(status().isOk());
 	}
 
 	private static MockHttpServletRequestBuilder preflight(String origin) {

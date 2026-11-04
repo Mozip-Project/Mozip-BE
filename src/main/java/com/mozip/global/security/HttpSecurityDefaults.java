@@ -6,7 +6,10 @@ import org.springframework.security.config.annotation.web.configurers.AbstractHt
 import org.springframework.security.config.http.SessionCreationPolicy;
 import org.springframework.security.web.authentication.UsernamePasswordAuthenticationFilter;
 import org.springframework.stereotype.Component;
+import org.springframework.web.filter.CorsFilter;
 
+import com.mozip.global.common.response.ApiResponseWriter;
+import com.mozip.global.config.CorsProperties;
 import com.mozip.global.security.jwt.JwtAuthenticationFilter;
 import com.mozip.global.security.jwt.JwtProvider;
 
@@ -37,16 +40,20 @@ public class HttpSecurityDefaults {
 
 	private final SecurityErrorHandler securityErrorHandler;
 	private final JwtProvider jwtProvider;
+	private final CorsProperties corsProperties;
+	private final ApiResponseWriter apiResponseWriter;
 
 	public HttpSecurity apply(HttpSecurity http) throws Exception {
 		return http
-			// CSRF는 SameSite 쿠키로 방어 (다른 사이트 POST에는 쿠키 미전송)
+			// CSRF 토큰 대신 SameSite 쿠키(다른 사이트 POST에는 쿠키 미전송)와 OriginVerificationFilter로 방어
 			.csrf(AbstractHttpConfigurer::disable)
 			.cors(Customizer.withDefaults())
 			.formLogin(AbstractHttpConfigurer::disable)
 			.httpBasic(AbstractHttpConfigurer::disable)
 			.logout(AbstractHttpConfigurer::disable)
 			.sessionManagement(session -> session.sessionCreationPolicy(SessionCreationPolicy.STATELESS))
+			.addFilterAfter(new OriginVerificationFilter(corsProperties.normalizedAllowedOrigins(), apiResponseWriter),
+				CorsFilter.class)
 			.addFilterBefore(new JwtAuthenticationFilter(jwtProvider), UsernamePasswordAuthenticationFilter.class)
 			.exceptionHandling(exception -> exception
 				.authenticationEntryPoint(securityErrorHandler)
