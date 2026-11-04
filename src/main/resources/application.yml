@@ -18,6 +18,21 @@ springdoc:
   api-docs:
     path: /v3/api-docs
 
+jwt:
+  # HS256 서명 키 (32바이트 이상), 운영에서는 환경변수로 주입
+  secret: ${JWT_SECRET}
+  access-token-expiration: 30m
+  refresh-token-expiration: 14d
+
+auth:
+  cookie:
+    # HTTPS에서만 쿠키 전송
+    secure: true
+    # 다른 사이트에서 보낸 POST에는 쿠키 미전송 (CSRF 방어)
+    same-site: Lax
+  cors:
+    allowed-origins: ${CORS_ALLOWED_ORIGINS:}
+
 management:
   endpoints:
     web:

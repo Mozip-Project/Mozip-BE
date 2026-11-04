@@ -12,6 +12,7 @@ import org.springframework.stereotype.Component;
 import com.mozip.global.common.response.ApiResponse;
 import com.mozip.global.exception.CommonErrorCode;
 import com.mozip.global.exception.ErrorCode;
+import com.mozip.global.security.jwt.JwtAuthenticationFilter;
 
 import jakarta.servlet.http.HttpServletRequest;
 import jakarta.servlet.http.HttpServletResponse;
@@ -26,10 +27,13 @@ public class SecurityErrorHandler implements AuthenticationEntryPoint, AccessDen
 	private final ObjectMapper objectMapper;
 
 	// 인증 정보가 없거나 유효하지 않을 때 (401)
+	// 토큰 만료 AUTH_002, 위조 AUTH_003, 토큰 없음 COMMON_401
 	@Override
 	public void commence(HttpServletRequest request, HttpServletResponse response,
 		AuthenticationException authException) throws IOException {
-		writeErrorResponse(response, CommonErrorCode.UNAUTHORIZED);
+		ErrorCode errorCode = request.getAttribute(JwtAuthenticationFilter.AUTH_ERROR_ATTRIBUTE) instanceof ErrorCode
+			authError ? authError : CommonErrorCode.UNAUTHORIZED;
+		writeErrorResponse(response, errorCode);
 	}
 
 	// 인증은 됐지만 권한이 없을 때 (403)

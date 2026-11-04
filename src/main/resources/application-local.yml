@@ -20,6 +20,15 @@ spring:
       # GraphiQL(/graphiql)은 로컬에서만 사용
       enabled: true
 
+jwt:
+  secret: local-only-mozip-jwt-secret-key-change-me-0123456789
+
+auth:
+  cookie:
+    secure: false
+  cors:
+    allowed-origins: http://localhost:3000
+
 logging:
   level:
     org.hibernate.SQL: debug
