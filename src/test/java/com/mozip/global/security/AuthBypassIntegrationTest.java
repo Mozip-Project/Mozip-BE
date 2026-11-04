@@ -2,6 +2,7 @@ package com.mozip.global.security;
 
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get;
+import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.post;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.jsonPath;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
 
@@ -11,6 +12,7 @@ import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.context.SpringBootTest;
 import org.springframework.boot.webmvc.test.autoconfigure.AutoConfigureMockMvc;
 import org.springframework.context.annotation.Import;
+import org.springframework.http.MediaType;
 import org.springframework.test.web.servlet.MockMvc;
 
 import com.mozip.TestcontainersConfiguration;
@@ -53,6 +55,18 @@ class AuthBypassIntegrationTest {
 			assertThat(user.getAuthority()).isEqualTo(role.getAuthority());
 			assertThat(user.getLastRole()).isEqualTo(role.getLastRole());
 		}
+	}
+
+	@Test
+	@DisplayName("개발용 회원은 비밀번호가 무작위라 로그인 API로는 로그인할 수 없다")
+	void devUserCannotLogin() throws Exception {
+		mockMvc.perform(post("/auth/login")
+				.contentType(MediaType.APPLICATION_JSON)
+				.content("""
+					{"phone": "%s", "password": "mozip1234"}
+					""".formatted(MockRole.ADMIN.getPhone())))
+			.andExpect(status().isUnauthorized())
+			.andExpect(jsonPath("$.code").value("AUTH_001"));
 	}
 
 	@Test

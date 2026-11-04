@@ -6,7 +6,7 @@ import com.mozip.domain.user.entity.Role;
 import lombok.Getter;
 import lombok.RequiredArgsConstructor;
 
-// X-Mock-Role 헤더로 고르는 개발용 회원 (비밀번호: MockUserRegistry.DEV_PASSWORD)
+// X-Mock-Role 헤더로 고르는 개발용 회원 (비밀번호는 무작위라 /auth/login 불가)
 // OPERATOR는 단체 소속(members) 없음, 단체 기능 구현 시 추가 필요
 @Getter
 @RequiredArgsConstructor

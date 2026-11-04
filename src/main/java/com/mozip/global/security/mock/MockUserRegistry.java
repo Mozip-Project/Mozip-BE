@@ -3,6 +3,7 @@ package com.mozip.global.security.mock;
 import java.time.LocalDateTime;
 import java.util.EnumMap;
 import java.util.Map;
+import java.util.UUID;
 
 import org.springframework.boot.ApplicationArguments;
 import org.springframework.boot.ApplicationRunner;
@@ -24,9 +25,6 @@ import lombok.extern.slf4j.Slf4j;
 @ConditionalOnAuthBypass
 public class MockUserRegistry implements ApplicationRunner {
 
-	// 개발용 회원 로그인 비밀번호
-	public static final String DEV_PASSWORD = "mozip1234";
-
 	private final UserRepository userRepository;
 	private final PasswordEncoder passwordEncoder;
 
@@ -35,10 +33,11 @@ public class MockUserRegistry implements ApplicationRunner {
 	@Override
 	public void run(ApplicationArguments args) {
 		for (MockRole role : MockRole.values()) {
+			// 비밀번호를 무작위로 만들어 /auth/login으로는 로그인할 수 없게 함 (우회 중에는 X-Mock-Role로 인증)
 			User user = userRepository.findByPhone(role.getPhone())
 				.orElseGet(() -> userRepository.save(User.createDevUser(role.getPhone(),
-					passwordEncoder.encode(DEV_PASSWORD), role.getUserName(), role.getAuthority(), role.getLastRole(),
-					LocalDateTime.now())));
+					passwordEncoder.encode(UUID.randomUUID().toString()), role.getUserName(), role.getAuthority(),
+					role.getLastRole(), LocalDateTime.now())));
 			users.put(role, new AuthUser(user.getId(), user.getAuthority()));
 			log.warn("개발용 회원 준비: role={}, userId={}, phone={}", role, user.getId(), role.getPhone());
 		}
