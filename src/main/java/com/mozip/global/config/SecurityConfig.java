@@ -43,7 +43,7 @@ public class SecurityConfig {
 	private final CorsProperties corsProperties;
 	private final AuthBypassProperties authBypassProperties;
 	private final Environment environment;
-	// auth.bypass.enabled=true일 때만 존재하는 빈
+	// auth.bypass.enabled가 켜져 있을 때만 존재하는 빈
 	private final ObjectProvider<MockUserRegistry> mockUserRegistry;
 	private final ObjectMapper objectMapper;
 

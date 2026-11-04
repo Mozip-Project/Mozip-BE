@@ -6,13 +6,13 @@ import java.util.Map;
 
 import org.springframework.boot.ApplicationArguments;
 import org.springframework.boot.ApplicationRunner;
-import org.springframework.boot.autoconfigure.condition.ConditionalOnProperty;
 import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.stereotype.Component;
 
 import com.mozip.domain.user.entity.User;
 import com.mozip.domain.user.repository.UserRepository;
 import com.mozip.global.security.AuthUser;
+import com.mozip.global.security.ConditionalOnAuthBypass;
 
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
@@ -21,7 +21,7 @@ import lombok.extern.slf4j.Slf4j;
 @Slf4j
 @Component
 @RequiredArgsConstructor
-@ConditionalOnProperty(prefix = "auth.bypass", name = "enabled", havingValue = "true")
+@ConditionalOnAuthBypass
 public class MockUserRegistry implements ApplicationRunner {
 
 	// 개발용 회원 로그인 비밀번호

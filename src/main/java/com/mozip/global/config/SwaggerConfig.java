@@ -3,10 +3,10 @@ package com.mozip.global.config;
 import java.util.Arrays;
 
 import org.springdoc.core.customizers.OperationCustomizer;
-import org.springframework.boot.autoconfigure.condition.ConditionalOnProperty;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
 
+import com.mozip.global.security.ConditionalOnAuthBypass;
 import com.mozip.global.security.cookie.AuthCookieManager;
 import com.mozip.global.security.mock.MockAuthenticationFilter;
 import com.mozip.global.security.mock.MockRole;
@@ -44,7 +44,7 @@ public class SwaggerConfig {
 
 	// 인증 우회 중에만 모든 API에 X-Mock-Role 헤더 입력칸 추가
 	@Bean
-	@ConditionalOnProperty(prefix = "auth.bypass", name = "enabled", havingValue = "true")
+	@ConditionalOnAuthBypass
 	public OperationCustomizer mockRoleHeaderCustomizer() {
 		StringSchema schema = new StringSchema();
 		schema.setEnum(Arrays.stream(MockRole.values()).map(Enum::name).toList());
