@@ -83,7 +83,7 @@ public class JwtProvider {
 		try {
 			return converter.get();
 		} catch (IllegalArgumentException | NullPointerException e) {
-			throw new BusinessException(invalidError);
+			throw invalid(invalidError, e.getClass().getSimpleName());
 		}
 	}
 
@@ -95,12 +95,17 @@ public class JwtProvider {
 		} catch (ExpiredJwtException e) {
 			throw new BusinessException(expiredError);
 		} catch (JwtException | IllegalArgumentException e) {
-			throw new BusinessException(invalidError);
+			throw invalid(invalidError, e.getClass().getSimpleName());
 		}
 		if (!expectedType.name().equals(claims.get(CLAIM_TOKEN_TYPE, String.class))) {
-			throw new BusinessException(invalidError);
+			throw invalid(invalidError, "TokenTypeMismatch");
 		}
 		return claims;
+	}
+
+	// 응답 코드는 같지만 로그에서 위조, 형식 오류, 클레임 변환 실패를 구분할 수 있게 원인을 남김
+	private static BusinessException invalid(TokenErrorCode invalidError, String cause) {
+		return new BusinessException(invalidError).addContext("cause", cause);
 	}
 
 	private Date expiresAt(Duration expiration) {

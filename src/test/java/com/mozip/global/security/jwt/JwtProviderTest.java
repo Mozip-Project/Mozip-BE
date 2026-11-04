@@ -59,9 +59,14 @@ class JwtProviderTest {
 	}
 
 	@Test
-	@DisplayName("형식이 잘못된 토큰은 AUTH_003으로 거부한다")
+	@DisplayName("형식이 잘못된 토큰은 AUTH_003으로 거부하고 로그용 컨텍스트에 원인 예외를 남긴다")
 	void malformedAccessToken() {
-		assertErrorCode(() -> jwtProvider.parseAccessToken("not-a-jwt"), TokenErrorCode.INVALID_ACCESS_TOKEN);
+		assertThatThrownBy(() -> jwtProvider.parseAccessToken("not-a-jwt"))
+			.isInstanceOf(BusinessException.class)
+			.satisfies(e -> {
+				assertThat(((BusinessException)e).getErrorCode()).isEqualTo(TokenErrorCode.INVALID_ACCESS_TOKEN);
+				assertThat(((BusinessException)e).getContext()).containsEntry("cause", "MalformedJwtException");
+			});
 	}
 
 	@Test
