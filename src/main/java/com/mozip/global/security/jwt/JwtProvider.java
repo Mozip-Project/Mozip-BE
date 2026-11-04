@@ -4,6 +4,7 @@ import java.nio.charset.StandardCharsets;
 import java.time.Duration;
 import java.util.Date;
 import java.util.UUID;
+import java.util.function.Supplier;
 
 import javax.crypto.SecretKey;
 
@@ -65,15 +66,25 @@ public class JwtProvider {
 	public AccessTokenClaims parseAccessToken(String token) {
 		Claims claims = parse(token, TokenType.ACCESS,
 			TokenErrorCode.EXPIRED_ACCESS_TOKEN, TokenErrorCode.INVALID_ACCESS_TOKEN);
-		return new AccessTokenClaims(
+		return convert(() -> new AccessTokenClaims(
 			Long.valueOf(claims.getSubject()),
-			Authority.valueOf(claims.get(CLAIM_AUTHORITY, String.class)));
+			Authority.valueOf(claims.get(CLAIM_AUTHORITY, String.class))), TokenErrorCode.INVALID_ACCESS_TOKEN);
 	}
 
 	public RefreshTokenClaims parseRefreshToken(String token) {
 		Claims claims = parse(token, TokenType.REFRESH,
 			TokenErrorCode.INVALID_REFRESH_TOKEN, TokenErrorCode.INVALID_REFRESH_TOKEN);
-		return new RefreshTokenClaims(Long.valueOf(claims.getSubject()), claims.getId());
+		return convert(() -> new RefreshTokenClaims(Long.valueOf(claims.getSubject()), claims.getId()),
+			TokenErrorCode.INVALID_REFRESH_TOKEN);
+	}
+
+	// 서명은 맞지만 클레임 형식이 다른 토큰(배포 중 enum 이름 변경 등)도 500이 아닌 401로 응답
+	private static <T> T convert(Supplier<T> converter, TokenErrorCode invalidError) {
+		try {
+			return converter.get();
+		} catch (IllegalArgumentException | NullPointerException e) {
+			throw new BusinessException(invalidError);
+		}
 	}
 
 	private Claims parse(String token, TokenType expectedType, TokenErrorCode expiredError,

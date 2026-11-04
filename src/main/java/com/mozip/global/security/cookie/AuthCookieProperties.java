@@ -7,7 +7,7 @@ import org.springframework.boot.context.properties.bind.DefaultValue;
 @ConfigurationProperties("auth.cookie")
 public record AuthCookieProperties(
 	@DefaultValue("true") boolean secure,
-	@DefaultValue("Lax") String sameSite,
+	@DefaultValue("LAX") CookieSameSite sameSite,
 	String domain
 ) {
 }

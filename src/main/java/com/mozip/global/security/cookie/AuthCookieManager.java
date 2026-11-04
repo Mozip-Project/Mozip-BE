@@ -55,7 +55,7 @@ public class AuthCookieManager {
 		ResponseCookie.ResponseCookieBuilder builder = ResponseCookie.from(name, value)
 			.httpOnly(true)
 			.secure(cookieProperties.secure())
-			.sameSite(cookieProperties.sameSite())
+			.sameSite(cookieProperties.sameSite().getAttributeValue())
 			.path(path)
 			.maxAge(maxAge);
 		if (StringUtils.hasText(cookieProperties.domain())) {
