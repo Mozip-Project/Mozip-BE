@@ -27,7 +27,7 @@ public interface AuthControllerApi {
 		토큰은 응답 body에 담지 않으며, 이후 요청에는 브라우저가 쿠키를 자동으로 보냅니다.
 		(프론트엔드가 다른 주소라면 요청에 `credentials: 'include'`가 필요합니다.)""")
 	@SecurityRequirements
-	@ApiErrorCodes({"COMMON_400", "AUTH_001", "AUTH_005"})
+	@ApiErrorCodes({"COMMON_400", "AUTH_001", "AUTH_005", "AUTH_006"})
 	ApiResponse<LoginResponse> login(LoginRequest request, HttpServletResponse response);
 
 	@Operation(summary = "토큰 재발급", description = """
@@ -35,7 +35,7 @@ public interface AuthControllerApi {
 		API가 `AUTH_002`(액세스 토큰 만료)로 응답하면 이 API를 호출한 뒤 원래 요청을 다시 보내세요.
 		실패하면 쿠키를 지우고 `AUTH_004`로 응답하므로 로그인 화면으로 이동하면 됩니다.""")
 	@SecurityRequirements
-	@ApiErrorCodes({"AUTH_004", "AUTH_005"})
+	@ApiErrorCodes({"AUTH_004", "AUTH_005", "AUTH_006"})
 	ApiResponse<Void> reissue(@Parameter(hidden = true) String refreshToken, HttpServletResponse response);
 
 	@Operation(summary = "로그아웃", description = "리프레시 토큰을 폐기하고 토큰 쿠키를 삭제합니다. 토큰이 없거나 만료돼도 성공으로 응답합니다.")

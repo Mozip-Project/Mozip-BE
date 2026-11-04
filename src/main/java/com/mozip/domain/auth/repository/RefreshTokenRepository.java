@@ -3,9 +3,14 @@ package com.mozip.domain.auth.repository;
 import java.time.Duration;
 import java.util.Optional;
 import java.util.Set;
+import java.util.function.Supplier;
 
+import org.springframework.dao.DataAccessException;
 import org.springframework.data.redis.core.StringRedisTemplate;
 import org.springframework.stereotype.Repository;
+
+import com.mozip.global.exception.BusinessException;
+import com.mozip.global.security.jwt.TokenErrorCode;
 
 import lombok.RequiredArgsConstructor;
 
@@ -22,21 +27,26 @@ public class RefreshTokenRepository {
 	private final StringRedisTemplate redisTemplate;
 
 	public void save(String tokenId, Long userId, Duration ttl) {
-		redisTemplate.opsForValue().set(tokenKey(tokenId), String.valueOf(userId), ttl);
-		String userKey = userKey(userId);
-		redisTemplate.opsForSet().add(userKey, tokenId);
-		// 가장 최근 토큰 기준으로 Set 만료를 연장 (만료된 tokenId가 남아 있어도 삭제 시 무시됨)
-		redisTemplate.expire(userKey, ttl);
+		execute(() -> {
+			redisTemplate.opsForValue().set(tokenKey(tokenId), String.valueOf(userId), ttl);
+			String userKey = userKey(userId);
+			redisTemplate.opsForSet().add(userKey, tokenId);
+			// 가장 최근 토큰 기준으로 Set 만료를 연장 (만료된 tokenId가 남아 있어도 삭제 시 무시됨)
+			redisTemplate.expire(userKey, ttl);
+			return null;
+		});
 	}
 
 	// GETDEL로 조회와 동시에 삭제 (같은 토큰은 한 번만 사용 가능)
 	public Optional<Long> consume(String tokenId) {
-		String userId = redisTemplate.opsForValue().getAndDelete(tokenKey(tokenId));
-		if (userId == null) {
-			return Optional.empty();
-		}
-		redisTemplate.opsForSet().remove(userKey(Long.valueOf(userId)), tokenId);
-		return Optional.of(Long.valueOf(userId));
+		return execute(() -> {
+			String userId = redisTemplate.opsForValue().getAndDelete(tokenKey(tokenId));
+			if (userId == null) {
+				return Optional.empty();
+			}
+			redisTemplate.opsForSet().remove(userKey(Long.valueOf(userId)), tokenId);
+			return Optional.of(Long.valueOf(userId));
+		});
 	}
 
 	public void delete(String tokenId) {
@@ -45,12 +55,25 @@ public class RefreshTokenRepository {
 
 	// 회원의 모든 기기 세션 폐기 (토큰 재사용 감지, 전체 로그아웃 등)
 	public void deleteAllByUserId(Long userId) {
-		String userKey = userKey(userId);
-		Set<String> tokenIds = redisTemplate.opsForSet().members(userKey);
-		if (tokenIds != null && !tokenIds.isEmpty()) {
-			redisTemplate.delete(tokenIds.stream().map(RefreshTokenRepository::tokenKey).toList());
+		execute(() -> {
+			String userKey = userKey(userId);
+			Set<String> tokenIds = redisTemplate.opsForSet().members(userKey);
+			if (tokenIds != null && !tokenIds.isEmpty()) {
+				redisTemplate.delete(tokenIds.stream().map(RefreshTokenRepository::tokenKey).toList());
+			}
+			redisTemplate.delete(userKey);
+			return null;
+		});
+	}
+
+	// Redis 연결 실패 등은 500 대신 503(AUTH_006)으로 응답해 프론트가 재시도를 안내할 수 있게 함
+	private static <T> T execute(Supplier<T> action) {
+		try {
+			return action.get();
+		} catch (DataAccessException e) {
+			throw new BusinessException(TokenErrorCode.TOKEN_STORE_UNAVAILABLE)
+				.addContext("cause", e.getClass().getSimpleName());
 		}
-		redisTemplate.delete(userKey);
 	}
 
 	private static String tokenKey(String tokenId) {
