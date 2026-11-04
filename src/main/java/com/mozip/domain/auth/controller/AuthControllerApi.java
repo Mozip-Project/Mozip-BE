@@ -41,8 +41,11 @@ public interface AuthControllerApi {
 	@ApiErrorCodes({"AUTH_004", "AUTH_005", "AUTH_006", "AUTH_007"})
 	ApiResponse<Void> reissue(@Parameter(hidden = true) String refreshToken, HttpServletResponse response);
 
-	@Operation(summary = "로그아웃", description = "리프레시 토큰을 폐기하고 토큰 쿠키를 삭제합니다. 토큰이 없거나 만료돼도 성공으로 응답합니다.")
+	@Operation(summary = "로그아웃", description = """
+		리프레시 토큰을 폐기하고 토큰 쿠키를 삭제합니다. 토큰이 없거나 만료돼도 성공으로 응답합니다.
+		`AUTH_006`이면 토큰을 폐기하지 못한 것이므로 쿠키를 유지합니다. 잠시 후 다시 호출해 주세요.""")
 	@SecurityRequirements
+	@ApiErrorCodes({"AUTH_006"})
 	ApiResponse<Void> logout(@Parameter(hidden = true) String refreshToken, HttpServletResponse response);
 
 }

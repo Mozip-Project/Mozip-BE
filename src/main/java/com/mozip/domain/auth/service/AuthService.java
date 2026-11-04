@@ -134,14 +134,18 @@ public class AuthService {
 	}
 
 	// 토큰이 없거나 잘못돼도 로그아웃은 성공 처리
+	// 단 Redis 장애로 토큰을 지우지 못했으면 토큰이 살아 있으므로 503을 그대로 올려 쿠키도 지우지 않게 함
 	public void logout(String refreshToken) {
 		if (refreshToken == null) {
 			return;
 		}
 		try {
 			refreshTokenRepository.delete(jwtProvider.parseRefreshToken(refreshToken).tokenId());
-		} catch (BusinessException ignored) {
-			// 쿠키 삭제만 진행
+		} catch (BusinessException e) {
+			if (e.getErrorCode() == TokenErrorCode.TOKEN_STORE_UNAVAILABLE) {
+				throw e;
+			}
+			// 만료, 위조 등은 쿠키 삭제만 진행
 		}
 	}
 

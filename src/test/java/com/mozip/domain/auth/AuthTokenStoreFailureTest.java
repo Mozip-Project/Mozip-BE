@@ -28,11 +28,11 @@ import com.mozip.global.security.jwt.TokenErrorCode;
 
 import jakarta.servlet.http.Cookie;
 
-// Redis 장애(AUTH_006)가 토큰 소비 전에 났는지 후에 났는지에 따라 쿠키 처리가 달라지는지 검증
+// Redis 장애(AUTH_006)가 토큰을 지우기 전에 났는지 후에 났는지에 따라 쿠키 처리가 달라지는지 검증
 @Import(TestcontainersConfiguration.class)
 @SpringBootTest
 @AutoConfigureMockMvc
-class AuthReissueStoreFailureTest {
+class AuthTokenStoreFailureTest {
 
 	@Autowired
 	private MockMvc mockMvc;
@@ -66,6 +66,20 @@ class AuthReissueStoreFailureTest {
 			.andExpect(jsonPath("$.code").value("AUTH_006"))
 			.andExpect(cookie().maxAge(AuthCookieManager.ACCESS_TOKEN_COOKIE, 0))
 			.andExpect(cookie().maxAge(AuthCookieManager.REFRESH_TOKEN_COOKIE, 0));
+	}
+
+	@Test
+	@DisplayName("로그아웃 중 Redis가 실패하면 토큰이 살아 있으므로 503으로 응답하고 쿠키를 지우지 않는다")
+	void logoutFailureKeepsCookies() throws Exception {
+		Cookie refresh = login();
+		doThrow(new BusinessException(TokenErrorCode.TOKEN_STORE_UNAVAILABLE))
+			.when(refreshTokenRepository).delete(anyString());
+
+		mockMvc.perform(post("/auth/logout").cookie(refresh))
+			.andExpect(status().isServiceUnavailable())
+			.andExpect(jsonPath("$.code").value("AUTH_006"))
+			.andExpect(cookie().doesNotExist(AuthCookieManager.ACCESS_TOKEN_COOKIE))
+			.andExpect(cookie().doesNotExist(AuthCookieManager.REFRESH_TOKEN_COOKIE));
 	}
 
 	private Cookie login() throws Exception {
