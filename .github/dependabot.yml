@@ -1,0 +1,35 @@
+# 의존성 업데이트 PR 자동 생성 (매주 월요일, develop 대상)
+version: 2
+updates:
+  - package-ecosystem: gradle
+    directory: /
+    target-branch: develop
+    schedule:
+      interval: weekly
+      day: monday
+      time: '09:00'
+      timezone: Asia/Seoul
+    open-pull-requests-limit: 5
+    labels:
+      - '🔧 chore'
+    commit-message:
+      prefix: chore
+    groups:
+      # Spring Boot와 함께 버전이 관리되는 의존성은 한 PR로 묶음
+      spring:
+        patterns:
+          - 'org.springframework*'
+          - 'io.spring*'
+
+  - package-ecosystem: github-actions
+    directory: /
+    target-branch: develop
+    schedule:
+      interval: weekly
+      day: monday
+      time: '09:00'
+      timezone: Asia/Seoul
+    labels:
+      - '🔧 chore'
+    commit-message:
+      prefix: chore

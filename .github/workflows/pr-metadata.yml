@@ -1,0 +1,38 @@
+# PR 제목의 [FEAT], [FIX] 등으로 라벨 추가, 담당자가 없으면 작성자를 assignee로 지정
+# PR 코드를 checkout하지 않으므로 pull_request_target 사용 (Dependabot PR에서도 쓰기 권한 필요)
+name: PR Metadata
+
+on:
+  pull_request_target:
+    types: [opened, reopened, edited]
+
+permissions:
+  pull-requests: write
+  issues: write
+
+jobs:
+  label-and-assign:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/github-script@v9
+        with:
+          script: |
+            const pr = context.payload.pull_request;
+            const labels = {
+              FEAT: '✨ feat',
+              FIX: '🐛 fix',
+              REFACTOR: '♻️ refactor',
+              CHORE: '🔧 chore',
+              DOCS: '📝 docs',
+              TEST: '✅ test',
+            };
+
+            const match = pr.title.match(/^\[(\w+)\]/);
+            const label = match && labels[match[1].toUpperCase()];
+            if (label && !pr.labels.some(existing => existing.name === label)) {
+              await github.rest.issues.addLabels({ ...context.repo, issue_number: pr.number, labels: [label] });
+            }
+
+            if (pr.assignees.length === 0 && pr.user.type !== 'Bot') {
+              await github.rest.issues.addAssignees({ ...context.repo, issue_number: pr.number, assignees: [pr.user.login] });
+            }

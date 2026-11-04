@@ -1,0 +1,54 @@
+# 이슈 생성 시 develop 기준으로 <type>/#<번호>-<영문 이름> 브랜치 생성 후 이슈에 댓글로 안내
+# type은 제목의 [FEAT], [FIX] 등, 영문 이름은 본문 "🌿 브랜치 이름" 항목 (비우면 <type>/#<번호>)
+name: Issue Branch
+
+on:
+  issues:
+    types: [opened]
+
+permissions:
+  contents: write
+  issues: write
+
+jobs:
+  create-branch:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/github-script@v9
+        with:
+          script: |
+            const issue = context.payload.issue;
+            const match = issue.title.match(/^\[(FEAT|FIX|REFACTOR|CHORE|DOCS|TEST)\]/i);
+            if (!match) {
+              core.info('제목에 [TYPE] 접두사가 없어 건너뜀');
+              return;
+            }
+            const type = match[1].toLowerCase();
+
+            const section = (issue.body || '').match(/##\s*🌿\s*브랜치[^\n]*\n([\s\S]*?)(?=\n##|$)/);
+            const slug = section
+              ? section[1].replace(/<!--[\s\S]*?-->/g, '').trim().toLowerCase()
+                .replace(/[^a-z0-9]+/g, '-').replace(/^-+|-+$/g, '')
+              : '';
+            const branch = `${type}/#${issue.number}${slug ? `-${slug}` : ''}`;
+            const base = 'develop';
+
+            const { data: baseRef } = await github.rest.git.getRef({ ...context.repo, ref: `heads/${base}` });
+            try {
+              await github.rest.git.createRef({ ...context.repo, ref: `refs/heads/${branch}`, sha: baseRef.object.sha });
+            } catch (error) {
+              if (error.status !== 422) throw error;
+              core.info(`이미 있는 브랜치: ${branch}`);
+            }
+
+            await github.rest.issues.createComment({
+              ...context.repo,
+              issue_number: issue.number,
+              body: [
+                `🌿 브랜치를 만들었습니다: \`${branch}\` (기준: \`${base}\`)`,
+                '',
+                '```bash',
+                `git fetch origin && git switch ${branch}`,
+                '```',
+              ].join('\n'),
+            });
