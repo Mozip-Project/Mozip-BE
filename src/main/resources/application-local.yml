@@ -1,4 +1,4 @@
-# 로컬 개발 환경 · compose.yaml 값과 맞춤
+# 로컬 개발 환경이며, compose.yaml 값과 맞춤
 spring:
   datasource:
     url: jdbc:postgresql://localhost:5432/mozip
@@ -15,6 +15,10 @@ spring:
     properties:
       hibernate:
         format_sql: true
+  graphql:
+    graphiql:
+      # GraphiQL(/graphiql)은 로컬에서만 사용
+      enabled: true
 
 logging:
   level:

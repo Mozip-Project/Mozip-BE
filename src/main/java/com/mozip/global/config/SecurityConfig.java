@@ -7,17 +7,26 @@ import org.springframework.security.config.annotation.web.configurers.AbstractHt
 import org.springframework.security.config.http.SessionCreationPolicy;
 import org.springframework.security.web.SecurityFilterChain;
 
-/**
- * 기본 보안 설정 · JWT 필터는 인증 기능 구현 때 추가
- */
+import com.mozip.global.security.SecurityErrorHandler;
+
+import lombok.RequiredArgsConstructor;
+
+// 기본 보안 설정이며, JWT 필터는 인증 기능 구현 때 추가
 @Configuration
+@RequiredArgsConstructor
 public class SecurityConfig {
+
+	private final SecurityErrorHandler securityErrorHandler;
 
 	private static final String[] PUBLIC_URLS = {
 		"/swagger-ui.html",
 		"/swagger-ui/**",
 		"/v3/api-docs/**",
 		"/actuator/health",
+		"/api/health",
+		// 엔드포인트가 하나라 URL로 막지 않고 Query/Mutation별로 인증 검사
+		"/graphql",
+		"/graphiql",
 		"/error"
 	};
 
@@ -30,7 +39,10 @@ public class SecurityConfig {
 			.sessionManagement(session -> session.sessionCreationPolicy(SessionCreationPolicy.STATELESS))
 			.authorizeHttpRequests(auth -> auth
 				.requestMatchers(PUBLIC_URLS).permitAll()
-				.anyRequest().authenticated());
+				.anyRequest().authenticated())
+			.exceptionHandling(exception -> exception
+				.authenticationEntryPoint(securityErrorHandler)
+				.accessDeniedHandler(securityErrorHandler));
 		return http.build();
 	}
 

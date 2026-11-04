@@ -1,0 +1,10 @@
+# 도메인별 파일로 나누고 extend type Query/Mutation으로 추가
+
+type Query {
+    "서버가 요청을 처리할 수 있는 상태인지 확인"
+    health: Health!
+}
+
+type Health {
+    status: String!
+}

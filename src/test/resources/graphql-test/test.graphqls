@@ -1,0 +1,7 @@
+# GraphqlExceptionResolverTest 전용 (메인 graphql/을 가리지 않게 폴더 분리)
+extend type Query {
+    testNotFound: String
+    testServerError: String
+    testUnexpected: String
+    testValidation(name: String): String
+}
