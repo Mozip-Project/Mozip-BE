@@ -5,8 +5,11 @@ import java.util.List;
 import java.util.Map;
 
 import org.slf4j.MDC;
+import org.springframework.core.Ordered;
+import org.springframework.core.annotation.Order;
 import org.springframework.graphql.execution.DataFetcherExceptionResolverAdapter;
 import org.springframework.graphql.execution.ErrorType;
+import org.springframework.security.access.AccessDeniedException;
 import org.springframework.stereotype.Component;
 
 import com.mozip.global.common.response.FieldErrorResponse;
@@ -19,8 +22,10 @@ import jakarta.validation.ConstraintViolationException;
 import lombok.extern.slf4j.Slf4j;
 
 // GraphQL 예외를 errors[]로 변환하며, 프론트가 REST와 같은 기준으로 처리하도록 extensions에 code와 traceId를 담음
+// Spring Security가 등록하는 기본 리졸버보다 먼저 실행해 권한 거부도 같은 형식으로 응답
 @Slf4j
 @Component
+@Order(Ordered.HIGHEST_PRECEDENCE)
 public class GraphqlExceptionResolver extends DataFetcherExceptionResolverAdapter {
 
 	@Override
@@ -34,6 +39,11 @@ public class GraphqlExceptionResolver extends DataFetcherExceptionResolverAdapte
 				log.warn("Business exception: code={}, context={}", errorCode.getCode(), e.getContext());
 			}
 			return toGraphqlError(errorCode, e.getMessage(), env, null);
+		}
+		// @PreAuthorize 거부 (인증 자체는 GraphqlAuthInstrumentation이 먼저 검사하므로 여기 오면 권한 부족)
+		if (ex instanceof AccessDeniedException) {
+			log.warn("Access denied: {}", ex.getMessage());
+			return toGraphqlError(CommonErrorCode.FORBIDDEN, CommonErrorCode.FORBIDDEN.getMessage(), env, null);
 		}
 		if (ex instanceof ConstraintViolationException e) {
 			List<FieldErrorResponse> fieldErrors = e.getConstraintViolations().stream()
