@@ -2,6 +2,7 @@ package com.mozip.domain.auth.service;
 
 import java.time.LocalDateTime;
 
+import org.springframework.dao.DataAccessException;
 import org.springframework.dao.DataIntegrityViolationException;
 import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.stereotype.Service;
@@ -18,6 +19,7 @@ import com.mozip.domain.user.entity.User;
 import com.mozip.domain.user.exception.UserErrorCode;
 import com.mozip.domain.user.repository.UserRepository;
 import com.mozip.global.exception.BusinessException;
+import com.mozip.global.exception.CommonErrorCode;
 import com.mozip.global.security.jwt.IssuedRefreshToken;
 import com.mozip.global.security.jwt.JwtProperties;
 import com.mozip.global.security.jwt.JwtProvider;
@@ -93,6 +95,10 @@ public class AuthService {
 		} catch (BusinessException e) {
 			// 토큰은 이미 폐기됐으므로 실패 원인과 상관없이 쿠키를 지워야 함
 			throw new RefreshTokenConsumedException(e);
+		} catch (DataAccessException e) {
+			// 회원 조회 DB 장애도 마찬가지 (토큰 저장소 장애가 아니므로 AUTH_006이 아닌 500)
+			throw new RefreshTokenConsumedException(new BusinessException(CommonErrorCode.INTERNAL_SERVER_ERROR)
+				.addContext("cause", e.getClass().getSimpleName()));
 		}
 	}
 
