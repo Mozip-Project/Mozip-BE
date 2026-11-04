@@ -1,7 +1,7 @@
-package com.mozip.global.security.mock;
+package com.mozip.devtools.authbypass;
 
-import com.mozip.domain.user.entity.Authority;
 import com.mozip.domain.user.entity.Role;
+import com.mozip.global.security.Authority;
 
 import lombok.Getter;
 import lombok.RequiredArgsConstructor;

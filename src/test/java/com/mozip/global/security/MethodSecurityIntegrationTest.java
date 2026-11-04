@@ -13,7 +13,6 @@ import org.springframework.context.annotation.Import;
 import org.springframework.test.web.servlet.MockMvc;
 
 import com.mozip.TestcontainersConfiguration;
-import com.mozip.domain.user.entity.Authority;
 import com.mozip.global.security.cookie.AuthCookieManager;
 import com.mozip.global.security.jwt.JwtProvider;
 

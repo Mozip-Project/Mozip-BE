@@ -1,21 +1,13 @@
 package com.mozip.global.config;
 
-import java.util.Arrays;
-
-import org.springdoc.core.customizers.OperationCustomizer;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
 
-import com.mozip.global.security.ConditionalOnAuthBypass;
 import com.mozip.global.security.cookie.AuthCookieManager;
-import com.mozip.global.security.mock.MockAuthenticationFilter;
-import com.mozip.global.security.mock.MockRole;
 
 import io.swagger.v3.oas.models.Components;
 import io.swagger.v3.oas.models.OpenAPI;
 import io.swagger.v3.oas.models.info.Info;
-import io.swagger.v3.oas.models.media.StringSchema;
-import io.swagger.v3.oas.models.parameters.HeaderParameter;
 import io.swagger.v3.oas.models.security.SecurityRequirement;
 import io.swagger.v3.oas.models.security.SecurityScheme;
 
@@ -40,19 +32,6 @@ public class SwaggerConfig {
 					.type(SecurityScheme.Type.APIKEY)
 					.in(SecurityScheme.In.COOKIE)
 					.name(AuthCookieManager.ACCESS_TOKEN_COOKIE)));
-	}
-
-	// 인증 우회 중에만 모든 API에 X-Mock-Role 헤더 입력칸 추가
-	@Bean
-	@ConditionalOnAuthBypass
-	public OperationCustomizer mockRoleHeaderCustomizer() {
-		StringSchema schema = new StringSchema();
-		schema.setEnum(Arrays.stream(MockRole.values()).map(Enum::name).toList());
-		return (operation, handlerMethod) -> operation.addParametersItem(new HeaderParameter()
-			.name(MockAuthenticationFilter.MOCK_ROLE_HEADER)
-			.description("[개발용 인증 우회] 토큰 없이 호출할 때 사용할 개발용 회원 역할 (비우면 기본 역할)")
-			.required(false)
-			.schema(schema));
 	}
 
 }

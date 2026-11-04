@@ -1,4 +1,4 @@
-package com.mozip.global.security.mock;
+package com.mozip.devtools.authbypass;
 
 import java.time.LocalDateTime;
 import java.util.EnumMap;
@@ -35,9 +35,9 @@ public class MockUserRegistry implements ApplicationRunner {
 		for (MockRole role : MockRole.values()) {
 			// 비밀번호를 무작위로 만들어 /auth/login으로는 로그인할 수 없게 함 (우회 중에는 X-Mock-Role로 인증)
 			User user = userRepository.findByPhone(role.getPhone())
-				.orElseGet(() -> userRepository.save(User.createDevUser(role.getPhone(),
+				.orElseGet(() -> userRepository.save(User.of(role.getPhone(),
 					passwordEncoder.encode(UUID.randomUUID().toString()), role.getUserName(), role.getAuthority(),
-					role.getLastRole(), LocalDateTime.now())));
+					role.getLastRole(), false, LocalDateTime.now())));
 			users.put(role, new AuthUser(user.getId(), user.getAuthority()));
 			log.warn("개발용 회원 준비: role={}, userId={}, phone={}", role, user.getId(), role.getPhone());
 		}

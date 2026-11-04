@@ -2,7 +2,6 @@ package com.mozip.global.security.jwt;
 
 import java.io.IOException;
 
-import org.springframework.security.authentication.UsernamePasswordAuthenticationToken;
 import org.springframework.security.core.context.SecurityContextHolder;
 import org.springframework.web.filter.OncePerRequestFilter;
 
@@ -39,8 +38,7 @@ public class JwtAuthenticationFilter extends OncePerRequestFilter {
 		try {
 			AccessTokenClaims claims = jwtProvider.parseAccessToken(token);
 			AuthUser authUser = new AuthUser(claims.userId(), claims.authority());
-			SecurityContextHolder.getContext().setAuthentication(
-				UsernamePasswordAuthenticationToken.authenticated(authUser, null, authUser.grantedAuthorities()));
+			SecurityContextHolder.getContext().setAuthentication(authUser.toAuthentication());
 		} catch (BusinessException e) {
 			request.setAttribute(AUTH_ERROR_ATTRIBUTE, e.getErrorCode());
 		}

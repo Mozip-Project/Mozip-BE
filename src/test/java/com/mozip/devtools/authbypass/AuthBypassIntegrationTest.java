@@ -1,4 +1,4 @@
-package com.mozip.global.security;
+package com.mozip.devtools.authbypass;
 
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get;
@@ -16,13 +16,12 @@ import org.springframework.http.MediaType;
 import org.springframework.test.web.servlet.MockMvc;
 
 import com.mozip.TestcontainersConfiguration;
-import com.mozip.domain.user.entity.Authority;
 import com.mozip.domain.user.entity.User;
 import com.mozip.domain.user.repository.UserRepository;
+import com.mozip.global.security.AdminOnlyTestController;
+import com.mozip.global.security.Authority;
 import com.mozip.global.security.cookie.AuthCookieManager;
 import com.mozip.global.security.jwt.JwtProvider;
-import com.mozip.global.security.mock.MockAuthenticationFilter;
-import com.mozip.global.security.mock.MockRole;
 
 import jakarta.servlet.http.Cookie;
 

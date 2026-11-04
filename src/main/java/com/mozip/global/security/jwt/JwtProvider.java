@@ -9,9 +9,8 @@ import javax.crypto.SecretKey;
 
 import org.springframework.stereotype.Component;
 
-import com.mozip.domain.user.entity.Authority;
+import com.mozip.global.security.Authority;
 import com.mozip.global.exception.BusinessException;
-import com.mozip.global.security.AuthErrorCode;
 
 import io.jsonwebtoken.Claims;
 import io.jsonwebtoken.ExpiredJwtException;
@@ -21,7 +20,7 @@ import io.jsonwebtoken.Jwts;
 import io.jsonwebtoken.security.Keys;
 
 // HS256 JWT 발급, 검증
-// 검증 실패 시 AuthErrorCode로 BusinessException 발생
+// 검증 실패 시 TokenErrorCode로 BusinessException 발생
 @Component
 public class JwtProvider {
 
@@ -65,7 +64,7 @@ public class JwtProvider {
 
 	public AccessTokenClaims parseAccessToken(String token) {
 		Claims claims = parse(token, TokenType.ACCESS,
-			AuthErrorCode.EXPIRED_ACCESS_TOKEN, AuthErrorCode.INVALID_ACCESS_TOKEN);
+			TokenErrorCode.EXPIRED_ACCESS_TOKEN, TokenErrorCode.INVALID_ACCESS_TOKEN);
 		return new AccessTokenClaims(
 			Long.valueOf(claims.getSubject()),
 			Authority.valueOf(claims.get(CLAIM_AUTHORITY, String.class)));
@@ -73,12 +72,12 @@ public class JwtProvider {
 
 	public RefreshTokenClaims parseRefreshToken(String token) {
 		Claims claims = parse(token, TokenType.REFRESH,
-			AuthErrorCode.INVALID_REFRESH_TOKEN, AuthErrorCode.INVALID_REFRESH_TOKEN);
+			TokenErrorCode.INVALID_REFRESH_TOKEN, TokenErrorCode.INVALID_REFRESH_TOKEN);
 		return new RefreshTokenClaims(Long.valueOf(claims.getSubject()), claims.getId());
 	}
 
-	private Claims parse(String token, TokenType expectedType, AuthErrorCode expiredError,
-		AuthErrorCode invalidError) {
+	private Claims parse(String token, TokenType expectedType, TokenErrorCode expiredError,
+		TokenErrorCode invalidError) {
 		Claims claims;
 		try {
 			claims = parser.parseSignedClaims(token).getPayload();

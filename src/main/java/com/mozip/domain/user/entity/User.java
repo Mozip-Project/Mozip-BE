@@ -3,6 +3,7 @@ package com.mozip.domain.user.entity;
 import java.time.LocalDateTime;
 
 import com.mozip.global.common.BaseEntity;
+import com.mozip.global.security.Authority;
 
 import jakarta.persistence.Column;
 import jakarta.persistence.Entity;
@@ -67,17 +68,16 @@ public class User extends BaseEntity {
 		this.termsAgreedAt = termsAgreedAt;
 	}
 
-	// 비밀번호는 암호화한 값으로 전달
+	// 일반 가입 (비밀번호는 암호화한 값으로 전달)
 	public static User create(String phone, String encodedPassword, String name, boolean marketingAgreed,
 		LocalDateTime termsAgreedAt) {
-		return new User(phone, encodedPassword, name, Authority.USER, Role.APPLICANT, marketingAgreed,
-			termsAgreedAt);
+		return of(phone, encodedPassword, name, Authority.USER, Role.APPLICANT, marketingAgreed, termsAgreedAt);
 	}
 
-	// 개발용 회원 생성 전용 (MockUserRegistry)
-	public static User createDevUser(String phone, String encodedPassword, String name, Authority authority,
-		Role lastRole, LocalDateTime termsAgreedAt) {
-		return new User(phone, encodedPassword, name, authority, lastRole, false, termsAgreedAt);
+	// 권한과 역할을 지정해 생성 (관리자 등록, 개발용 회원 등 가입 흐름 밖에서 사용)
+	public static User of(String phone, String encodedPassword, String name, Authority authority, Role lastRole,
+		boolean marketingAgreed, LocalDateTime termsAgreedAt) {
+		return new User(phone, encodedPassword, name, authority, lastRole, marketingAgreed, termsAgreedAt);
 	}
 
 	public boolean isActive() {

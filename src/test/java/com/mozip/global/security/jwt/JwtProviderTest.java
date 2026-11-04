@@ -8,9 +8,8 @@ import java.time.Duration;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
 
-import com.mozip.domain.user.entity.Authority;
 import com.mozip.global.exception.BusinessException;
-import com.mozip.global.security.AuthErrorCode;
+import com.mozip.global.security.Authority;
 
 class JwtProviderTest {
 
@@ -46,7 +45,7 @@ class JwtProviderTest {
 		JwtProvider expiredProvider = provider(SECRET, Duration.ofSeconds(-1), Duration.ofDays(14));
 		String token = expiredProvider.createAccessToken(1L, Authority.USER);
 
-		assertErrorCode(() -> jwtProvider.parseAccessToken(token), AuthErrorCode.EXPIRED_ACCESS_TOKEN);
+		assertErrorCode(() -> jwtProvider.parseAccessToken(token), TokenErrorCode.EXPIRED_ACCESS_TOKEN);
 	}
 
 	@Test
@@ -56,13 +55,13 @@ class JwtProviderTest {
 			Duration.ofDays(14));
 		String token = otherProvider.createAccessToken(1L, Authority.ADMIN);
 
-		assertErrorCode(() -> jwtProvider.parseAccessToken(token), AuthErrorCode.INVALID_ACCESS_TOKEN);
+		assertErrorCode(() -> jwtProvider.parseAccessToken(token), TokenErrorCode.INVALID_ACCESS_TOKEN);
 	}
 
 	@Test
 	@DisplayName("형식이 잘못된 토큰은 AUTH_003으로 거부한다")
 	void malformedAccessToken() {
-		assertErrorCode(() -> jwtProvider.parseAccessToken("not-a-jwt"), AuthErrorCode.INVALID_ACCESS_TOKEN);
+		assertErrorCode(() -> jwtProvider.parseAccessToken("not-a-jwt"), TokenErrorCode.INVALID_ACCESS_TOKEN);
 	}
 
 	@Test
@@ -71,8 +70,8 @@ class JwtProviderTest {
 		String refreshToken = jwtProvider.createRefreshToken(1L).token();
 		String accessToken = jwtProvider.createAccessToken(1L, Authority.USER);
 
-		assertErrorCode(() -> jwtProvider.parseAccessToken(refreshToken), AuthErrorCode.INVALID_ACCESS_TOKEN);
-		assertErrorCode(() -> jwtProvider.parseRefreshToken(accessToken), AuthErrorCode.INVALID_REFRESH_TOKEN);
+		assertErrorCode(() -> jwtProvider.parseAccessToken(refreshToken), TokenErrorCode.INVALID_ACCESS_TOKEN);
+		assertErrorCode(() -> jwtProvider.parseRefreshToken(accessToken), TokenErrorCode.INVALID_REFRESH_TOKEN);
 	}
 
 	@Test
@@ -81,14 +80,14 @@ class JwtProviderTest {
 		JwtProvider expiredProvider = provider(SECRET, Duration.ofMinutes(30), Duration.ofSeconds(-1));
 		String token = expiredProvider.createRefreshToken(1L).token();
 
-		assertErrorCode(() -> jwtProvider.parseRefreshToken(token), AuthErrorCode.INVALID_REFRESH_TOKEN);
+		assertErrorCode(() -> jwtProvider.parseRefreshToken(token), TokenErrorCode.INVALID_REFRESH_TOKEN);
 	}
 
 	private static JwtProvider provider(String secret, Duration access, Duration refresh) {
 		return new JwtProvider(new JwtProperties(secret, access, refresh));
 	}
 
-	private static void assertErrorCode(Runnable action, AuthErrorCode expected) {
+	private static void assertErrorCode(Runnable action, TokenErrorCode expected) {
 		assertThatThrownBy(action::run)
 			.isInstanceOf(BusinessException.class)
 			.extracting(e -> ((BusinessException)e).getErrorCode())

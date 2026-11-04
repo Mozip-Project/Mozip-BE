@@ -11,16 +11,17 @@ import com.mozip.domain.auth.dto.LoginRequest;
 import com.mozip.domain.auth.dto.LoginResponse;
 import com.mozip.domain.auth.dto.SignupRequest;
 import com.mozip.domain.auth.dto.SignupResponse;
+import com.mozip.domain.auth.exception.AuthErrorCode;
 import com.mozip.domain.auth.repository.RefreshTokenRepository;
 import com.mozip.domain.user.entity.User;
 import com.mozip.domain.user.exception.UserErrorCode;
 import com.mozip.domain.user.repository.UserRepository;
 import com.mozip.global.exception.BusinessException;
-import com.mozip.global.security.AuthErrorCode;
 import com.mozip.global.security.jwt.IssuedRefreshToken;
 import com.mozip.global.security.jwt.JwtProperties;
 import com.mozip.global.security.jwt.JwtProvider;
 import com.mozip.global.security.jwt.RefreshTokenClaims;
+import com.mozip.global.security.jwt.TokenErrorCode;
 
 @Service
 @Transactional(readOnly = true)
@@ -77,17 +78,17 @@ public class AuthService {
 	// 사용한 리프레시 토큰은 폐기 후 새로 발급 (RTR)
 	public AuthTokens reissue(String refreshToken) {
 		if (refreshToken == null) {
-			throw new BusinessException(AuthErrorCode.INVALID_REFRESH_TOKEN);
+			throw new BusinessException(TokenErrorCode.INVALID_REFRESH_TOKEN);
 		}
 		RefreshTokenClaims claims = jwtProvider.parseRefreshToken(refreshToken);
 		Long storedUserId = refreshTokenRepository.consume(claims.tokenId())
-			.orElseThrow(() -> new BusinessException(AuthErrorCode.INVALID_REFRESH_TOKEN)
+			.orElseThrow(() -> new BusinessException(TokenErrorCode.INVALID_REFRESH_TOKEN)
 				.addContext("userId", claims.userId()));
 		if (!storedUserId.equals(claims.userId())) {
-			throw new BusinessException(AuthErrorCode.INVALID_REFRESH_TOKEN).addContext("userId", claims.userId());
+			throw new BusinessException(TokenErrorCode.INVALID_REFRESH_TOKEN).addContext("userId", claims.userId());
 		}
 		User user = userRepository.findById(claims.userId())
-			.orElseThrow(() -> new BusinessException(AuthErrorCode.INVALID_REFRESH_TOKEN));
+			.orElseThrow(() -> new BusinessException(TokenErrorCode.INVALID_REFRESH_TOKEN));
 		if (!user.isActive()) {
 			throw new BusinessException(AuthErrorCode.INACTIVE_USER).addContext("userId", user.getId());
 		}
