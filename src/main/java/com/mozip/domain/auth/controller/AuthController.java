@@ -12,12 +12,15 @@ import com.mozip.domain.auth.dto.LoginRequest;
 import com.mozip.domain.auth.dto.LoginResponse;
 import com.mozip.domain.auth.dto.SignupRequest;
 import com.mozip.domain.auth.dto.SignupResponse;
+import com.mozip.domain.auth.exception.RefreshTokenConsumedException;
 import com.mozip.domain.auth.service.AuthService;
 import com.mozip.domain.auth.service.AuthTokens;
 import com.mozip.domain.auth.service.LoginResult;
 import com.mozip.global.common.response.ApiResponse;
 import com.mozip.global.exception.BusinessException;
+import com.mozip.global.exception.ErrorCode;
 import com.mozip.global.security.cookie.AuthCookieManager;
+import com.mozip.global.security.jwt.TokenErrorCode;
 
 import jakarta.servlet.http.HttpServletResponse;
 import jakarta.validation.Valid;
@@ -55,11 +58,26 @@ public class AuthController implements AuthControllerApi {
 		try {
 			addTokenCookies(response, authService.reissue(refreshToken));
 		} catch (BusinessException e) {
-			// 재발급 실패 시 쿠키 삭제 후 에러 응답
-			authCookieManager.expireTokenCookies(response);
+			if (shouldExpireCookies(e)) {
+				authCookieManager.expireTokenCookies(response);
+			}
 			throw e;
 		}
 		return ApiResponse.ok();
+	}
+
+	// 재발급 실패 시 기본은 쿠키 삭제이고, 같은 쿠키가 아직 쓸모 있는 두 경우만 유지
+	// AUTH_007: 먼저 처리된 요청이 발급한 새 쿠키를 이 응답이 지우면 안 됨
+	// 토큰을 소비하기 전의 AUTH_006: Redis가 복구되면 같은 쿠키로 재시도 가능
+	private static boolean shouldExpireCookies(BusinessException e) {
+		ErrorCode errorCode = e.getErrorCode();
+		if (errorCode == TokenErrorCode.DUPLICATE_REISSUE) {
+			return false;
+		}
+		if (errorCode == TokenErrorCode.TOKEN_STORE_UNAVAILABLE) {
+			return e instanceof RefreshTokenConsumedException;
+		}
+		return true;
 	}
 
 	@Override

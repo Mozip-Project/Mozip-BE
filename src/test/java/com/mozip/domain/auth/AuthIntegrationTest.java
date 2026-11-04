@@ -15,11 +15,13 @@ import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.context.SpringBootTest;
 import org.springframework.boot.webmvc.test.autoconfigure.AutoConfigureMockMvc;
 import org.springframework.context.annotation.Import;
+import org.springframework.data.redis.core.StringRedisTemplate;
 import org.springframework.http.MediaType;
 import org.springframework.mock.web.MockHttpServletResponse;
 import org.springframework.test.web.servlet.MockMvc;
 
 import com.mozip.TestcontainersConfiguration;
+import com.mozip.domain.auth.repository.RefreshTokenRepository;
 import com.mozip.global.security.cookie.AuthCookieManager;
 
 import jakarta.servlet.http.Cookie;
@@ -33,6 +35,9 @@ class AuthIntegrationTest {
 
 	@Autowired
 	private MockMvc mockMvc;
+
+	@Autowired
+	private StringRedisTemplate redisTemplate;
 
 	@Test
 	@DisplayName("회원가입 후 로그인하면 토큰을 body가 아닌 HttpOnly 쿠키로 발급한다")
@@ -127,6 +132,7 @@ class AuthIntegrationTest {
 		assertThat(reissued.getCookie(AuthCookieManager.REFRESH_TOKEN_COOKIE).getValue())
 			.isNotEqualTo(oldRefresh.getValue());
 
+		clearReissueGrace();
 		mockMvc.perform(post("/auth/reissue").cookie(oldRefresh))
 			.andExpect(status().isUnauthorized())
 			.andExpect(jsonPath("$.code").value("AUTH_004"))
@@ -135,7 +141,30 @@ class AuthIntegrationTest {
 	}
 
 	@Test
-	@DisplayName("이미 사용한 리프레시 토큰이 다시 들어오면 탈취로 보고 그 회원의 다른 기기 세션도 모두 끊는다")
+	@DisplayName("같은 리프레시 토큰으로 동시에 재발급하면 늦은 쪽은 AUTH_007을 받고 쿠키와 다른 세션은 유지된다")
+	void duplicateReissueKeepsSessions() throws Exception {
+		String phone = signup();
+		Cookie deviceA = login(phone).getCookie(AuthCookieManager.REFRESH_TOKEN_COOKIE);
+		Cookie deviceB = login(phone).getCookie(AuthCookieManager.REFRESH_TOKEN_COOKIE);
+		Cookie deviceARotated = mockMvc.perform(post("/auth/reissue").cookie(deviceA))
+			.andExpect(status().isOk())
+			.andReturn().getResponse().getCookie(AuthCookieManager.REFRESH_TOKEN_COOKIE);
+
+		// 먼저 처리된 요청이 발급한 쿠키를 지우지 않도록 Set-Cookie 없이 응답
+		mockMvc.perform(post("/auth/reissue").cookie(deviceA))
+			.andExpect(status().isConflict())
+			.andExpect(jsonPath("$.code").value("AUTH_007"))
+			.andExpect(cookie().doesNotExist(AuthCookieManager.ACCESS_TOKEN_COOKIE))
+			.andExpect(cookie().doesNotExist(AuthCookieManager.REFRESH_TOKEN_COOKIE));
+
+		mockMvc.perform(post("/auth/reissue").cookie(deviceARotated))
+			.andExpect(status().isOk());
+		mockMvc.perform(post("/auth/reissue").cookie(deviceB))
+			.andExpect(status().isOk());
+	}
+
+	@Test
+	@DisplayName("이미 사용한 리프레시 토큰이 유예 시간 후 다시 들어오면 탈취로 보고 그 회원의 다른 기기 세션도 모두 끊는다")
 	void reusedRefreshTokenRevokesAllSessions() throws Exception {
 		String phone = signup();
 		Cookie deviceA = login(phone).getCookie(AuthCookieManager.REFRESH_TOKEN_COOKIE);
@@ -144,7 +173,8 @@ class AuthIntegrationTest {
 			.andExpect(status().isOk())
 			.andReturn().getResponse().getCookie(AuthCookieManager.REFRESH_TOKEN_COOKIE);
 
-		// 이미 폐기된 deviceA 토큰 재사용
+		// 유예 시간이 지난 뒤 이미 폐기된 deviceA 토큰 재사용
+		clearReissueGrace();
 		mockMvc.perform(post("/auth/reissue").cookie(deviceA))
 			.andExpect(status().isUnauthorized())
 			.andExpect(jsonPath("$.code").value("AUTH_004"));
@@ -217,6 +247,11 @@ class AuthIntegrationTest {
 				.content(loginJson(phone, PASSWORD)))
 			.andExpect(status().isOk())
 			.andReturn().getResponse();
+	}
+
+	// 소비 마커를 지워 유예 시간(CONSUMED_GRACE)이 지난 상태를 만듦
+	private void clearReissueGrace() {
+		redisTemplate.delete(redisTemplate.keys(RefreshTokenRepository.CONSUMED_KEY_PREFIX + "*"));
 	}
 
 	// 테스트끼리 DB를 공유해 번호를 무작위로 생성

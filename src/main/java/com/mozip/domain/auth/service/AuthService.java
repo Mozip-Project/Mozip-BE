@@ -12,6 +12,7 @@ import com.mozip.domain.auth.dto.LoginResponse;
 import com.mozip.domain.auth.dto.SignupRequest;
 import com.mozip.domain.auth.dto.SignupResponse;
 import com.mozip.domain.auth.exception.AuthErrorCode;
+import com.mozip.domain.auth.exception.RefreshTokenConsumedException;
 import com.mozip.domain.auth.repository.RefreshTokenRepository;
 import com.mozip.domain.user.entity.User;
 import com.mozip.domain.user.exception.UserErrorCode;
@@ -86,7 +87,16 @@ public class AuthService {
 		}
 		RefreshTokenClaims claims = jwtProvider.parseRefreshToken(refreshToken);
 		Long storedUserId = refreshTokenRepository.consume(claims.tokenId())
-			.orElseThrow(() -> revokeAllSessions(claims));
+			.orElseThrow(() -> rejectMissingToken(claims));
+		try {
+			return issueAfterConsume(claims, storedUserId);
+		} catch (BusinessException e) {
+			// 토큰은 이미 폐기됐으므로 실패 원인과 상관없이 쿠키를 지워야 함
+			throw new RefreshTokenConsumedException(e);
+		}
+	}
+
+	private AuthTokens issueAfterConsume(RefreshTokenClaims claims, Long storedUserId) {
 		if (!storedUserId.equals(claims.userId())) {
 			throw new BusinessException(TokenErrorCode.INVALID_REFRESH_TOKEN).addContext("userId", claims.userId());
 		}
@@ -98,8 +108,17 @@ public class AuthService {
 		return issueTokens(user);
 	}
 
-	// 서명은 유효한데 저장소에 없는 토큰은 이미 사용됐거나 폐기된 토큰이 재사용된 것
-	// 탈취로 보고 그 회원의 모든 기기 세션을 끊어 먼저 재발급받은 쪽도 다시 로그인하게 함
+	// 서명은 유효한데 저장소에 없는 토큰은 두 경우로 나뉨
+	// 방금 소비된 토큰이면 같은 쿠키로 동시에 보낸 중복 요청(탭 여러 개 등)이므로 409만 응답하고 세션은 유지
+	// 그 외에는 이미 사용됐거나 폐기된 토큰의 재사용이므로 탈취로 판정
+	private BusinessException rejectMissingToken(RefreshTokenClaims claims) {
+		if (refreshTokenRepository.wasRecentlyConsumed(claims.tokenId())) {
+			return new BusinessException(TokenErrorCode.DUPLICATE_REISSUE).addContext("userId", claims.userId());
+		}
+		return revokeAllSessions(claims);
+	}
+
+	// 그 회원의 모든 기기 세션을 끊어 먼저 재발급받은 쪽(탈취자일 수 있음)도 다시 로그인하게 함
 	private BusinessException revokeAllSessions(RefreshTokenClaims claims) {
 		refreshTokenRepository.deleteAllByUserId(claims.userId());
 		log.warn("리프레시 토큰 재사용 감지로 전체 세션 폐기: userId={}", claims.userId());

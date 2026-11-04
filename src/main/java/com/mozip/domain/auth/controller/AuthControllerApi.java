@@ -33,9 +33,12 @@ public interface AuthControllerApi {
 	@Operation(summary = "토큰 재발급", description = """
 		`refresh_token` 쿠키로 새 액세스, 리프레시 토큰 쿠키를 발급합니다. 사용한 리프레시 토큰은 폐기됩니다.
 		API가 `AUTH_002`(액세스 토큰 만료)로 응답하면 이 API를 호출한 뒤 원래 요청을 다시 보내세요.
-		실패하면 쿠키를 지우고 `AUTH_004`로 응답하므로 로그인 화면으로 이동하면 됩니다.""")
+		재발급 호출은 한 번에 하나만 보내세요. 같은 쿠키로 동시에 보내면 늦게 처리된 쪽은 `AUTH_007`을 받는데,
+		이때 쿠키는 그대로이므로 원래 요청을 다시 보내면 됩니다.
+		`AUTH_004`, `AUTH_005`면 쿠키를 지우므로 로그인 화면으로 이동하면 됩니다.
+		`AUTH_006`은 잠시 후 재시도하고, 재시도가 `AUTH_004`로 끝나면 로그인 화면으로 이동하면 됩니다.""")
 	@SecurityRequirements
-	@ApiErrorCodes({"AUTH_004", "AUTH_005", "AUTH_006"})
+	@ApiErrorCodes({"AUTH_004", "AUTH_005", "AUTH_006", "AUTH_007"})
 	ApiResponse<Void> reissue(@Parameter(hidden = true) String refreshToken, HttpServletResponse response);
 
 	@Operation(summary = "로그아웃", description = "리프레시 토큰을 폐기하고 토큰 쿠키를 삭제합니다. 토큰이 없거나 만료돼도 성공으로 응답합니다.")
