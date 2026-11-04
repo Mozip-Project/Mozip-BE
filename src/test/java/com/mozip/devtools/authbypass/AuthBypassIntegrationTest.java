@@ -2,16 +2,20 @@ package com.mozip.devtools.authbypass;
 
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get;
+import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.options;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.post;
+import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.header;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.jsonPath;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
 
+import org.hamcrest.Matchers;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.context.SpringBootTest;
 import org.springframework.boot.webmvc.test.autoconfigure.AutoConfigureMockMvc;
 import org.springframework.context.annotation.Import;
+import org.springframework.http.HttpHeaders;
 import org.springframework.http.MediaType;
 import org.springframework.test.web.servlet.MockMvc;
 
@@ -26,7 +30,7 @@ import com.mozip.global.security.jwt.JwtProvider;
 import jakarta.servlet.http.Cookie;
 
 @Import({TestcontainersConfiguration.class, AdminOnlyTestController.class})
-@SpringBootTest(properties = "auth.bypass.enabled=true")
+@SpringBootTest(properties = {"auth.bypass.enabled=true", "auth.cors.allowed-origins=https://allowed.test"})
 @AutoConfigureMockMvc
 class AuthBypassIntegrationTest {
 
@@ -98,6 +102,18 @@ class AuthBypassIntegrationTest {
 		mockMvc.perform(get(AdminOnlyTestController.ME_PATH).header(MockAuthenticationFilter.MOCK_ROLE_HEADER, "KING"))
 			.andExpect(status().isBadRequest())
 			.andExpect(jsonPath("$.code").value("COMMON_400"));
+	}
+
+	@Test
+	@DisplayName("인증 우회 중에는 X-Mock-Role 헤더가 CORS 허용 목록에 추가된다")
+	void mockRoleHeaderAllowedInCors() throws Exception {
+		mockMvc.perform(options("/auth/login")
+				.header(HttpHeaders.ORIGIN, "https://allowed.test")
+				.header(HttpHeaders.ACCESS_CONTROL_REQUEST_METHOD, "POST")
+				.header(HttpHeaders.ACCESS_CONTROL_REQUEST_HEADERS, MockAuthenticationFilter.MOCK_ROLE_HEADER))
+			.andExpect(status().isOk())
+			.andExpect(header().string(HttpHeaders.ACCESS_CONTROL_ALLOW_HEADERS,
+				Matchers.containsString(MockAuthenticationFilter.MOCK_ROLE_HEADER)));
 	}
 
 	@Test
