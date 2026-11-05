@@ -27,7 +27,8 @@ public class GraphqlAuthInstrumentation extends SimplePerformantInstrumentation 
 	public DataFetcher<?> instrumentDataFetcher(DataFetcher<?> dataFetcher,
 		InstrumentationFieldFetchParameters parameters, InstrumentationState state) {
 		DataFetchingEnvironment environment = parameters.getEnvironment();
-		if (!isRootField(environment) || isPublic(environment.getFieldDefinition())) {
+		GraphQLFieldDefinition fieldDefinition = environment.getFieldDefinition();
+		if (!isRootField(environment) || isIntrospection(fieldDefinition) || isPublic(fieldDefinition)) {
 			return dataFetcher;
 		}
 		GraphqlAuthContext authContext = GraphqlAuthContext.from(environment.getGraphQlContext())
@@ -52,6 +53,12 @@ public class GraphqlAuthInstrumentation extends SimplePerformantInstrumentation 
 
 	private static boolean isPublic(GraphQLFieldDefinition fieldDefinition) {
 		return fieldDefinition.getAppliedDirective(PUBLIC_DIRECTIVE) != null;
+	}
+
+	// __schema, __type, __typename은 데이터가 아닌 스키마 조회라 로그인 없이 허용 (GraphiQL 자동완성, 프론트 codegen)
+	// 운영에서는 GraphqlIntrospectionInterceptor가 introspection 자체를 끔
+	private static boolean isIntrospection(GraphQLFieldDefinition fieldDefinition) {
+		return fieldDefinition.getName().startsWith("__");
 	}
 
 }
