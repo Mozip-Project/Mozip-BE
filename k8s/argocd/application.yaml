@@ -1,0 +1,24 @@
+apiVersion: argoproj.io/v1alpha1
+kind: Application
+metadata:
+  name: mozip
+  namespace: argocd
+spec:
+  project: default
+
+  source:
+    repoURL: https://github.com/Mozip-Project/Mozip-BE.git
+    targetRevision: develop
+    path: k8s/app
+
+  destination:
+    server: https://kubernetes.default.svc
+    namespace: mozip
+
+  syncPolicy:
+    automated:
+      prune: true
+      selfHeal: true
+
+    syncOptions:
+      - CreateNamespace=true
