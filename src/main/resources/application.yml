@@ -4,6 +4,12 @@ spring:
   profiles:
     active: local
 
+  datasource:
+    url: ${DB_URL}
+    username: ${DB_USERNAME}
+    password: ${DB_PASSWORD}
+    driver-class-name: org.postgresql.Driver
+
   jpa:
     open-in-view: false
     properties:
@@ -11,6 +17,9 @@ spring:
         jdbc:
           time_zone: Asia/Seoul
         default_batch_fetch_size: 100
+    database-platform: org.hibernate.dialect.PostgreSQLDialect
+    hibernate:
+      ddl-auto: validate
 
 springdoc:
   swagger-ui:
