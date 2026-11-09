@@ -6,7 +6,7 @@ namespace: mozip
 resources:
   - api/deployment.yaml
   - api/service.yaml
-  - api/configmap.yaml
+  - configmap.yaml
   - api/hpa.yaml
 
 #  - worker/deployment.yaml
