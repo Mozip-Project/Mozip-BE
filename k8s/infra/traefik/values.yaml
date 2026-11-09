@@ -13,18 +13,18 @@ ports:
     port: 8000
     expose:
       default: true
-      exposedPort: 80
-      redirections:
-        entryPoint:
-          to: websecure
-          scheme: https
-          permanent: true
+    exposedPort: 80
+    redirections:
+      entryPoint:
+        to: websecure
+        scheme: https
+        permanent: true
 
   websecure:
     port: 8443
     expose:
       default: true
-      exposedPort: 443
+    exposedPort: 443
 
 ingressClass:
   enabled: true
