@@ -4,8 +4,6 @@ kind: Kustomization
 namespace: mozip
 
 resources:
-  - namespace.yaml
-
   - api/deployment.yaml
   - api/service.yaml
   - api/configmap.yaml
