@@ -11,7 +11,10 @@ import org.springframework.mock.web.MockHttpServletResponse;
 import org.springframework.security.access.AccessDeniedException;
 import org.springframework.security.authentication.InsufficientAuthenticationException;
 
+import com.mozip.global.common.response.ApiResponseWriter;
 import com.mozip.global.logging.TraceIdFilter;
+import com.mozip.global.security.jwt.JwtAuthenticationFilter;
+import com.mozip.global.security.jwt.TokenErrorCode;
 
 import tools.jackson.databind.JsonNode;
 import tools.jackson.databind.json.JsonMapper;
@@ -19,7 +22,7 @@ import tools.jackson.databind.json.JsonMapper;
 class SecurityErrorHandlerTest {
 
 	private final JsonMapper jsonMapper = JsonMapper.builder().build();
-	private final SecurityErrorHandler securityErrorHandler = new SecurityErrorHandler(jsonMapper);
+	private final SecurityErrorHandler securityErrorHandler = new SecurityErrorHandler(new ApiResponseWriter(jsonMapper));
 
 	@AfterEach
 	void clearMdc() {
@@ -42,6 +45,20 @@ class SecurityErrorHandlerTest {
 		assertThat(body.get("code").asString()).isEqualTo("COMMON_401");
 		assertThat(body.get("message").asString()).isEqualTo("인증이 필요합니다.");
 		assertThat(body.get("traceId").asString()).isEqualTo("test-trace-id");
+	}
+
+	@Test
+	@DisplayName("토큰 검증에 실패한 요청이면 실패 사유 코드로 401을 응답한다")
+	void commenceWithTokenError() throws Exception {
+		MockHttpServletRequest request = new MockHttpServletRequest();
+		request.setAttribute(JwtAuthenticationFilter.AUTH_ERROR_ATTRIBUTE, TokenErrorCode.EXPIRED_ACCESS_TOKEN);
+		MockHttpServletResponse response = new MockHttpServletResponse();
+
+		securityErrorHandler.commence(request, response, new InsufficientAuthenticationException("인증 없음"));
+
+		JsonNode body = jsonMapper.readTree(response.getContentAsString());
+		assertThat(response.getStatus()).isEqualTo(401);
+		assertThat(body.get("code").asString()).isEqualTo("AUTH_002");
 	}
 
 	@Test
