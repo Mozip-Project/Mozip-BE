@@ -25,7 +25,7 @@ public class HttpSecurityDefaults {
 		"/swagger-ui.html",
 		"/swagger-ui/**",
 		"/v3/api-docs/**",
-		"/actuator/health",
+		"/actuator/health/**",
 		"/api/health",
 		// 인증 API (로그인 전, 토큰 만료 상태에서 호출)
 		"/auth/signup",
