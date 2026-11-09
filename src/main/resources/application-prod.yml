@@ -12,6 +12,17 @@ spring:
   graphql:
     graphiql:
       enabled: false
+  datasource:
+    url: ${DB_URL}
+    username: ${DB_USERNAME}
+    password: ${DB_PASSWORD}
+    driver-class-name: org.postgresql.Driver
+
+  data:
+    redis:
+      host: ${REDIS_HOST}
+      port: ${REDIS_PORT}
+      password: ${REDIS_PASSWORD}
 
 graphql:
   # 스키마가 밖으로 나가지 않게 introspection 비활성화 (프론트는 빌드 시점에 개발 서버에서 받음)
