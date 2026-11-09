@@ -11,7 +11,7 @@ resources:
   - api/configmap.yaml
   - api/hpa.yaml
 
-  - worker/deployment.yaml
+#  - worker/deployment.yaml
 
   - ingress.yaml
 
@@ -19,5 +19,5 @@ images:
   - name: ghcr.io/mozip-project/mozip-api
     newTag: initial
 
-  - name: ghcr.io/mozip-project/mozip-worker
-    newTag: initial
+#  - name: ghcr.io/mozip-project/mozip-worker
+#    newTag: initial

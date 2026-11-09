@@ -63,7 +63,7 @@ jobs:
           OWNER="${REPOSITORY%%/*}"
           OWNER=$(echo "$OWNER" | tr '[:upper:]' '[:lower:]')
           echo "api=ghcr.io/${OWNER}/mozip-api" >> "$GITHUB_OUTPUT"
-          echo "worker=ghcr.io/${OWNER}/mozip-worker" >> "$GITHUB_OUTPUT"
+#          echo "worker=ghcr.io/${OWNER}/mozip-worker" >> "$GITHUB_OUTPUT"
 
       - name: Build and push API
         uses: docker/build-push-action@v6
@@ -73,13 +73,13 @@ jobs:
           push: true
           tags: ${{ steps.images.outputs.api }}:${{ github.sha }}
 
-      - name: Build and push Worker
-        uses: docker/build-push-action@v6
-        with:
-          context: .
-          file: ./worker/Dockerfile
-          push: true
-          tags: ${{ steps.images.outputs.worker }}:${{ github.sha }}
+#      - name: Build and push Worker
+#        uses: docker/build-push-action@v6
+#        with:
+#          context: .
+#          file: ./worker/Dockerfile
+#          push: true
+#          tags: ${{ steps.images.outputs.worker }}:${{ github.sha }}
 
       - name: Check Kustomize
         uses: kustomize version
@@ -93,7 +93,7 @@ jobs:
           cd k8s/app
           kustomize edit set image \
             "${API_IMAGE}=${API_IMAGE}:${IMAGE_TAG}" \
-            "${WORKER_IMAGE}=${WORKER_IMAGE}:${IMAGE_TAG}"
+#            "${WORKER_IMAGE}=${WORKER_IMAGE}:${IMAGE_TAG}"
 
       - name: Commit manifest update
         env:

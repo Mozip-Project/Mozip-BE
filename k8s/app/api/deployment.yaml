@@ -4,7 +4,6 @@ metadata:
   name: mozip-api
   namespace: mozip
 spec:
-  replicas: 1
   selector:
     matchLabels:
       app: mozip-api
