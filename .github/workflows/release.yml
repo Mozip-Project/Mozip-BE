@@ -2,7 +2,8 @@ name: Release
 
 on:
   push:
-    branches: [develop, main]
+    branches:
+      - develop
     paths-ignore:
       - 'k8s/app/**'
 
@@ -11,7 +12,7 @@ permissions:
   packages: write
 
 concurrency:
-  group: release-main
+  group: release-develop
   cancel-in-progress: false
 
 jobs:
@@ -19,10 +20,30 @@ jobs:
     runs-on: ubuntu-latest
 
     steps:
-      - name: Checkout
-        uses: actions/checkout@v4
+      - name: Generate GitHub App Token
+        id: app-token
+        uses: actions/create-github-app-token@v2
         with:
+          app-id: ${{ secrets.APP_ID }}
+          private-key: ${{ secrets.APP_PRIVATE_KEY }}
+          owner: ${{ github.repository_owner }}
+          permission-contents: write
+
+      - name: Checkout
+        uses: actions/checkout@v7
+        with:
+          token: ${{ steps.app-token.outputs.token }}
+          fetch-depth: 0
           persist-credentials: true
+
+      - name: Set up JDK
+        uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: '21'
+
+      - name: Build
+        run: ./gradlew :api:bootJar :worker:bootJar
 
       - name: Set up Docker Buildx
         uses: docker/setup-buildx-action@v3
@@ -60,8 +81,8 @@ jobs:
           push: true
           tags: ${{ steps.images.outputs.worker }}:${{ github.sha }}
 
-      - name: Install Kustomize
-        uses: imranismail/setup-kustomize@v2
+      - name: Check Kustomize
+        uses: kustomize version
 
       - name: Update image tags
         env:
@@ -81,5 +102,9 @@ jobs:
           git config user.name "github-actions[bot]"
           git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
           git add k8s/app/kustomization.yaml
-          git commit -m "chore: deploy ${IMAGE_TAG}" || exit 0
-          git push
+#          변경 사항이 없으면 종료
+          git diff --cached --quiet && exit 0
+          git commit -m "chore: deploy ${IMAGE_TAG}"
+          git fetch origin develop
+          git rebase origin/develop
+          git push origin HEAD:develop

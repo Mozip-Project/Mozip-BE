@@ -27,6 +27,33 @@ springdoc:
   api-docs:
     path: /v3/api-docs
 
+jwt:
+  # HS256 서명 키 (32바이트 이상), 운영에서는 환경변수로 주입
+  secret: ${JWT_SECRET}
+  access-token-expiration: 30m
+  refresh-token-expiration: 14d
+
+graphql:
+  # introspection(__schema, __type) 허용 여부, GraphiQL 자동완성과 프론트 codegen이 사용 (운영에서는 false)
+  introspection-enabled: true
+
+auth:
+  # 개발용 인증 우회 (true면 URL 인증, @PreAuthorize 검사 해제)
+  # 켤 때: 환경변수 AUTH_BYPASS_ENABLED=true
+  bypass:
+    enabled: ${AUTH_BYPASS_ENABLED:false}
+    # 우회를 켤 수 있는 프로필 (그 외 프로필에서 켜면 앱 시작 실패, prod 추가 금지)
+    allowed-profiles: local, dev
+    # X-Mock-Role 헤더가 없을 때 쓸 역할 (APPLICANT, OPERATOR, ADMIN)
+    default-role: APPLICANT
+  cookie:
+    # HTTPS에서만 쿠키 전송
+    secure: true
+    # 다른 사이트에서 보낸 POST에는 쿠키 미전송 (CSRF 방어)
+    same-site: Lax
+  cors:
+    allowed-origins: ${CORS_ALLOWED_ORIGINS:}
+
 management:
   endpoints:
     web:

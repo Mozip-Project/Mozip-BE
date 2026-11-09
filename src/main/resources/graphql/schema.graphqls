@@ -1,8 +1,11 @@
 # 도메인별 파일로 나누고 extend type Query/Mutation으로 추가
 
+# 로그인 없이 호출할 수 있는 최상위 필드에 붙임 (없으면 인증 필요, GraphqlAuthInstrumentation이 검사)
+directive @public on FIELD_DEFINITION
+
 type Query {
     "서버가 요청을 처리할 수 있는 상태인지 확인"
-    health: Health!
+    health: Health! @public
 }
 
 type Health {
