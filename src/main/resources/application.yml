@@ -24,6 +24,10 @@ jwt:
   access-token-expiration: 30m
   refresh-token-expiration: 14d
 
+graphql:
+  # introspection(__schema, __type) 허용 여부, GraphiQL 자동완성과 프론트 codegen이 사용 (운영에서는 false)
+  introspection-enabled: true
+
 auth:
   # 개발용 인증 우회 (true면 URL 인증, @PreAuthorize 검사 해제)
   # 켤 때: 환경변수 AUTH_BYPASS_ENABLED=true

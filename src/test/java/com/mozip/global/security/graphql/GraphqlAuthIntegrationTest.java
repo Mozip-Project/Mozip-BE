@@ -47,6 +47,17 @@ class GraphqlAuthIntegrationTest {
 	}
 
 	@Test
+	@DisplayName("introspection 쿼리는 토큰 없이 호출할 수 있다 (GraphiQL 자동완성, 프론트 codegen)")
+	void introspectionWithoutToken() {
+		graphQlTester.document("{ __schema { queryType { name } } }")
+			.execute()
+			.path("__schema.queryType.name").entity(String.class).isEqualTo("Query");
+		graphQlTester.document("{ __typename }")
+			.execute()
+			.path("__typename").entity(String.class).isEqualTo("Query");
+	}
+
+	@Test
 	@DisplayName("@public이 없는 필드는 토큰 없이 호출하면 COMMON_401로 거부한다")
 	void securedFieldWithoutToken() {
 		assertError(graphQlTester, "{ testSecured }", ErrorType.UNAUTHORIZED, "COMMON_401");
