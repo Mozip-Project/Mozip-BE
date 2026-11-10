@@ -5,4 +5,4 @@ plugins {
 
 rootProject.name = 'mozip'
 
-include 'api', 'worker'
+include 'common', 'api', 'worker'
