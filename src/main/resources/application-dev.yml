@@ -1,0 +1,8 @@
+# 개발 서버 환경 (DB, Redis, JWT_SECRET, CORS_ALLOWED_ORIGINS 등 접속 정보는 환경변수로 주입)
+# 인증 우회 켜기: AUTH_BYPASS_ENABLED=true (설정은 application.yml)
+
+spring:
+  graphql:
+    graphiql:
+      # 프론트가 브라우저에서 쿼리를 실행하고 스키마 문서를 볼 수 있게 GraphiQL(/graphiql) 사용
+      enabled: true
