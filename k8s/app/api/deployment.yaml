@@ -12,6 +12,8 @@ spec:
       labels:
         app: mozip-api
     spec:
+      imagePullSecrets:
+        - name: ghcr-secret
       nodeSelector:
         kubernetes.io/hostname: k8s-worker
 
