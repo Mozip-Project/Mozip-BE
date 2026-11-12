@@ -16,4 +16,4 @@ resources:
 images:
 - name: ghcr.io/mozip-project/mozip-api
   newName: ghcr.io/mozip-project/mozip-api
-  newTag: 3cd57449ae618beafe38029b5ec7197c7017c703
+  newTag: 3d95ee5f587e35cd71f411b70aaac7c8dc30de47
