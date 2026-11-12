@@ -7,3 +7,5 @@ data:
   SPRING_PROFILES_ACTIVE: "prod"
   REDIS_HOST: "10.0.2.10"
   REDIS_PORT: "6379"
+  # 로컬 프론트(localhost:3000)로 운영 API 테스트 중. 실제 프론트 배포되면 운영 도메인으로 교체 필요 (콤마로 여러 개 가능)
+  CORS_ALLOWED_ORIGINS: "http://localhost:3000"
