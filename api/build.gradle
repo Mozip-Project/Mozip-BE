@@ -1,0 +1,16 @@
+plugins {
+	id 'org.springframework.boot'
+}
+
+dependencies {
+	implementation project(':common')
+	implementation 'org.springframework.boot:spring-boot-starter'
+	developmentOnly 'org.springframework.boot:spring-boot-docker-compose'
+
+	testImplementation testFixtures(project(':common'))
+	testImplementation 'org.springframework.boot:spring-boot-starter-actuator-test'
+}
+
+tasks.named('bootJar') {
+	archiveFileName = 'app.jar'
+}

@@ -1,0 +1,31 @@
+deployment:
+  kind: DaemonSet
+
+nodeSelector:
+  ingress-ready: "true"
+
+service:
+  enabled: true
+  type: ClusterIP
+
+ports:
+  web:
+    port: 8000
+    expose:
+      default: true
+    exposedPort: 80
+    redirections:
+      entryPoint:
+        to: websecure
+        scheme: https
+        permanent: true
+
+  websecure:
+    port: 8443
+    expose:
+      default: true
+    exposedPort: 443
+
+ingressClass:
+  enabled: true
+  isDefaultClass: false
