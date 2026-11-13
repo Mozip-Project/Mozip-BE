@@ -17,9 +17,9 @@ patches:
       kind: Deployment
       name: mozip-api
 
-#  - path: worker-patch.yaml
-#    target:
-#      group: apps
-#      version: v1
-#      kind: Deployment
-#      name: mozip-worker
+  - path: worker-patch.yaml
+    target:
+      group: apps
+      version: v1
+      kind: Deployment
+      name: mozip-worker

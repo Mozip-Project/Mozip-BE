@@ -1,3 +1,8 @@
 spring:
   application:
     name: mozip-worker
+  data:
+    redis:
+      host: ${REDIS_HOST}
+      port: ${REDIS_PORT}
+      password: ${REDIS_PASSWORD}

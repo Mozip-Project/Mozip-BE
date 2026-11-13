@@ -74,7 +74,7 @@ jobs:
           OWNER="${REPOSITORY%%/*}"
           OWNER=$(echo "$OWNER" | tr '[:upper:]' '[:lower:]')
           echo "api=ghcr.io/${OWNER}/mozip-api" >> "$GITHUB_OUTPUT"
-#          echo "worker=ghcr.io/${OWNER}/mozip-worker" >> "$GITHUB_OUTPUT"
+          echo "worker=ghcr.io/${OWNER}/mozip-worker" >> "$GITHUB_OUTPUT"
 
       # 9. Docker metadata (API)
       - name: Docker metadata (API)
@@ -95,30 +95,30 @@ jobs:
           push: true
           tags: ${{ steps.meta-api.outputs.tags }}
           labels: ${{ steps.meta-api.outputs.labels }}
-          cache-from: type=gha
-          cache-to: type=gha,mode=max
+          cache-from: type=gha,scope=prod-api
+          cache-to: type=gha,mode=max,scope=prod-api
 
-      # 11. Docker metadata (Worker) (worker는 아직 k8s에 배포하지 않으므로 비활성화)
-#      - name: Docker metadata (Worker)
-#        id: meta-worker
-#        uses: docker/metadata-action@v5
-#        with:
-#          images: ${{ steps.images.outputs.worker }}
-#          tags: |
-#            type=raw,value=${{ github.sha }}
-#            type=ref,event=branch
-#
-      # 12. Worker 이미지 빌드 및 Push (worker는 아직 k8s에 배포하지 않으므로 비활성화)
-#      - name: Build and push Worker
-#        uses: docker/build-push-action@v6
-#        with:
-#          context: .
-#          file: ./worker/Dockerfile
-#          push: true
-#          tags: ${{ steps.meta-worker.outputs.tags }}
-#          labels: ${{ steps.meta-worker.outputs.labels }}
-#          cache-from: type=gha
-#          cache-to: type=gha,mode=max
+      # 11. Docker metadata (Worker)
+      - name: Docker metadata (Worker)
+        id: meta-worker
+        uses: docker/metadata-action@v5
+        with:
+          images: ${{ steps.images.outputs.worker }}
+          tags: |
+            type=raw,value=${{ github.sha }}
+            type=ref,event=branch
+
+      # 12. Worker 이미지 빌드 및 Push
+      - name: Build and push Worker
+        uses: docker/build-push-action@v6
+        with:
+          context: .
+          file: ./worker/Dockerfile
+          push: true
+          tags: ${{ steps.meta-worker.outputs.tags }}
+          labels: ${{ steps.meta-worker.outputs.labels }}
+          cache-from: type=gha,scope=prod-worker
+          cache-to: type=gha,mode=max,scope=prod-worker
 
       # 13. Kustomize 버전 확인
       - name: Check Kustomize
@@ -133,8 +133,7 @@ jobs:
         run: |
           cd k8s/overlays/prod
           kustomize edit set image "${API_IMAGE}=${API_IMAGE}:${IMAGE_TAG}"
-          # worker 이미지는 아직 빌드/푸시하지 않으므로 비활성화
-          # kustomize edit set image "${WORKER_IMAGE}=${WORKER_IMAGE}:${IMAGE_TAG}"
+          kustomize edit set image "${WORKER_IMAGE}=${WORKER_IMAGE}:${IMAGE_TAG}"
 
       # 15. 변경 사항 Git Push
       - name: Commit manifest update
