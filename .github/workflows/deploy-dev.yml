@@ -1,0 +1,135 @@
+name: Deploy Dev
+
+on:
+  push:
+    branches:
+      - develop
+    paths-ignore:
+      - 'k8s/overlays/dev/kustomization.yaml'
+
+  workflow_dispatch:
+
+permissions:
+  contents: write
+  packages: write
+
+concurrency:
+  group: deploy-dev
+  cancel-in-progress: false
+
+env:
+  REGISTRY: ghcr.io/mozip-project
+  IMAGE_TAG: ${{ github.sha }}
+
+jobs:
+  deploy:
+    name: Build and Deploy Dev
+    runs-on: ubuntu-latest
+
+    steps:
+      # 1. GitHub App 토큰 발급 (보호된 develop 브랜치 push 권한)
+      - name: Generate GitHub App Token
+        id: app-token
+        uses: actions/create-github-app-token@v2
+        with:
+          app-id: ${{ secrets.APP_ID }}
+          private-key: ${{ secrets.APP_PRIVATE_KEY }}
+          owner: ${{ github.repository_owner }}
+          permission-contents: write
+
+      # 2. GitHub 저장소 Checkout
+      - name: Checkout
+        uses: actions/checkout@v7
+        with:
+          token: ${{ steps.app-token.outputs.token }}
+          fetch-depth: 0
+          persist-credentials: true
+
+      # 3. JDK 설정
+      - name: Set up JDK 21
+        uses: actions/setup-java@v6
+        with:
+          java-version: '21'
+          distribution: 'temurin'
+
+      # 4. Gradle 설정
+      - name: Setup Gradle
+        uses: gradle/actions/setup-gradle@v6
+
+      # 5. Gradle 실행 권한
+      - name: Grant execute permission
+        run: chmod +x gradlew
+
+      # 6. 테스트
+      - name: Run Tests
+        run: ./gradlew clean test
+
+      # 7. API jar 빌드 (api/Dockerfile이 api/build/libs/app.jar를 COPY함)
+      - name: Build API jar
+        run: ./gradlew :api:bootJar
+
+      # 8. Docker Buildx 설정
+      - name: Set up Docker Buildx
+        uses: docker/setup-buildx-action@v3
+
+      # 9. GHCR 로그인
+      - name: Login to GHCR
+        uses: docker/login-action@v3
+        with:
+          registry: ghcr.io
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+
+      # 10. API 이미지 빌드 및 Push
+      - name: Build and Push API
+        uses: docker/build-push-action@v6
+        with:
+          context: .
+          file: ./api/Dockerfile
+          push: true
+          tags: ${{ env.REGISTRY }}/mozip-api:${{ env.IMAGE_TAG }}
+          cache-from: type=gha,scope=dev-api
+          cache-to: type=gha,mode=max,scope=dev-api
+
+      # 11. Worker 이미지 빌드 및 Push (worker는 아직 k8s에 배포하지 않으므로 비활성화)
+      # - name: Build and Push Worker
+      #   uses: docker/build-push-action@v6
+      #   with:
+      #     context: .
+      #     file: ./worker/Dockerfile
+      #     push: true
+      #     tags: ${{ env.REGISTRY }}/mozip-worker:${{ env.IMAGE_TAG }}
+      #     cache-from: type=gha,scope=dev-worker
+      #     cache-to: type=gha,mode=max,scope=dev-worker
+
+      # 12. Kustomize 설치
+      - name: Setup Kustomize
+        uses: imranismail/setup-kustomize@v2
+
+      # 13. 개발 환경 이미지 태그 갱신
+      - name: Update Dev Image Tags
+        working-directory: k8s/overlays/dev
+        run: |
+          kustomize edit set image \
+            ghcr.io/mozip-project/mozip-api=ghcr.io/mozip-project/mozip-api:${IMAGE_TAG}
+
+          # worker 이미지는 아직 빌드/푸시하지 않으므로 비활성화
+          # kustomize edit set image \
+          #   ghcr.io/mozip-project/mozip-worker=ghcr.io/mozip-project/mozip-worker:${IMAGE_TAG}
+
+      # 14. 변경 사항 Git Push
+      - name: Commit and Push
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add k8s/overlays/dev/kustomization.yaml
+
+          if git diff --cached --quiet; then
+            echo "No changes to commit"
+            exit 0
+          fi
+
+          git commit -m "chore: update dev image tag to ${IMAGE_TAG}"
+          git fetch origin develop
+          git rebase origin/develop
+          git push origin HEAD:develop
