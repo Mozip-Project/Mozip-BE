@@ -56,23 +56,19 @@ jobs:
       - name: Setup Gradle
         uses: gradle/actions/setup-gradle@v6
 
-      # 5. Gradle 실행 권한
-      - name: Grant execute permission
-        run: chmod +x gradlew
-
-      # 6. 테스트
+      # 5. 테스트
       - name: Run Tests
         run: ./gradlew clean test
 
-      # 7. API jar 빌드 (api/Dockerfile이 api/build/libs/app.jar를 COPY함)
+      # 6. API jar 빌드 (api/Dockerfile이 api/build/libs/app.jar를 COPY함)
       - name: Build API jar
         run: ./gradlew :api:bootJar
 
-      # 8. Docker Buildx 설정
+      # 7. Docker Buildx 설정
       - name: Set up Docker Buildx
         uses: docker/setup-buildx-action@v3
 
-      # 9. GHCR 로그인
+      # 8. GHCR 로그인
       - name: Login to GHCR
         uses: docker/login-action@v3
         with:
@@ -80,7 +76,7 @@ jobs:
           username: ${{ github.actor }}
           password: ${{ secrets.GITHUB_TOKEN }}
 
-      # 10. API 이미지 빌드 및 Push
+      # 9. API 이미지 빌드 및 Push
       - name: Build and Push API
         uses: docker/build-push-action@v6
         with:
@@ -91,7 +87,7 @@ jobs:
           cache-from: type=gha,scope=dev-api
           cache-to: type=gha,mode=max,scope=dev-api
 
-      # 11. Worker 이미지 빌드 및 Push (worker는 아직 k8s에 배포하지 않으므로 비활성화)
+      # 10. Worker 이미지 빌드 및 Push (worker는 아직 k8s에 배포하지 않으므로 비활성화)
       # - name: Build and Push Worker
       #   uses: docker/build-push-action@v6
       #   with:
@@ -102,11 +98,11 @@ jobs:
       #     cache-from: type=gha,scope=dev-worker
       #     cache-to: type=gha,mode=max,scope=dev-worker
 
-      # 12. Kustomize 설치
+      # 11. Kustomize 설치
       - name: Setup Kustomize
         uses: imranismail/setup-kustomize@v2
 
-      # 13. 개발 환경 이미지 태그 갱신
+      # 12. 개발 환경 이미지 태그 갱신
       - name: Update Dev Image Tags
         working-directory: k8s/overlays/dev
         run: |
@@ -117,7 +113,7 @@ jobs:
           # kustomize edit set image \
           #   ghcr.io/mozip-project/mozip-worker=ghcr.io/mozip-project/mozip-worker:${IMAGE_TAG}
 
-      # 14. 변경 사항 Git Push
+      # 13. 변경 사항 Git Push
       - name: Commit and Push
         run: |
           git config user.name "github-actions[bot]"
