@@ -1,8 +1,7 @@
 apiVersion: networking.k8s.io/v1
 kind: Ingress
 metadata:
-  name: mozip-api
-  namespace: mozip
+  name: mozip-api-ingress
   annotations:
     cert-manager.io/cluster-issuer: letsencrypt-prod
 spec:
@@ -10,11 +9,11 @@ spec:
 
   tls:
     - hosts:
-        - api.mo-zip.com
-      secretName: mozip-api-tls
+        - api-dev.mo-zip.com
+      secretName: mozip-dev-tls
 
   rules:
-    - host: api.mo-zip.com
+    - host: api-dev.mo-zip.com
       http:
         paths:
           - path: /

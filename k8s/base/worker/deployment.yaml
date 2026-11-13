@@ -1,0 +1,63 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: mozip-worker
+  labels:
+    app: mozip-worker
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: mozip-worker
+  template:
+    metadata:
+      labels:
+        app: mozip-worker
+    spec:
+      imagePullSecrets:
+        - name: ghcr-secret
+      nodeSelector:
+        kubernetes.io/hostname: k8s-worker
+
+      containers:
+        - name: mozip-worker
+          image: ghcr.io/mozip-project/mozip-worker:initial
+
+          envFrom:
+            - configMapRef:
+                name: mozip-config
+            - secretRef:
+                name: mozip-secret
+
+          resources:
+            requests:
+              cpu: "200m"
+              memory: "256Mi"
+            limits:
+              cpu: "1000m"
+              memory: "768Mi"
+
+          startupProbe:
+            httpGet:
+              path: /actuator/health
+              port: http
+            failureThreshold: 30
+            periodSeconds: 10
+
+          livenessProbe:
+            httpGet:
+              path: /actuator/health/liveness
+              port: http
+            periodSeconds: 20
+            timeoutSeconds: 5
+            failureThreshold: 3
+
+          readinessProbe:
+            httpGet:
+              path: /actuator/health/readiness
+              port: http
+            periodSeconds: 10
+            timeoutSeconds: 5
+            failureThreshold: 3
+
+          terminationMessagePolicy: File

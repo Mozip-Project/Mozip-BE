@@ -1,0 +1,30 @@
+apiVersion: kustomize.config.k8s.io/v1beta1
+kind: Kustomization
+
+namespace: mozip
+
+resources:
+- ../../base
+- configmap.yaml
+- ingress.yaml
+- hpa.yaml
+
+images:
+- name: ghcr.io/mozip-project/mozip-api
+  newName: ghcr.io/mozip-project/mozip-api
+  newTag: 3d95ee5f587e35cd71f411b70aaac7c8dc30de47
+
+patches:
+  - path: api-patch.yaml
+    target:
+      group: apps
+      version: v1
+      kind: Deployment
+      name: mozip-api
+
+#  - path: worker-patch.yaml
+#    target:
+#      group: apps
+#      version: v1
+#      kind: Deployment
+#      name: mozip-worker

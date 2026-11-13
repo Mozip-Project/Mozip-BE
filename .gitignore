@@ -60,5 +60,5 @@ HELP.md
 local/
 
 ### k8s secret
-/k8s/app/secret.yaml
-!/k8s/app/*.example.yaml
+/k8s/overlays/*/secret.yaml
+!/k8s/overlays/*/*.example.yaml

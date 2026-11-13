@@ -2,7 +2,8 @@ apiVersion: v1
 kind: Service
 metadata:
   name: mozip-api
-  namespace: mozip
+  labels:
+    app: mozip-api
 spec:
   type: ClusterIP
   selector:
