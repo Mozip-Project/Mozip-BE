@@ -11,7 +11,7 @@ spec:
   source:
     repoURL: https://github.com/Mozip-Project/Mozip-BE.git
     targetRevision: develop
-    path: k8s/app
+    path: k8s/overlays/prod
 
   destination:
     server: https://kubernetes.default.svc

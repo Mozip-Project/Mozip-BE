@@ -1,11 +1,11 @@
-name: Release
+name: Release Prod
 
 on:
   push:
     branches:
       - develop
     paths-ignore:
-      - 'k8s/app/**'
+      - 'k8s/overlays/prod/**'
 
 permissions:
   contents: write
@@ -20,6 +20,7 @@ jobs:
     runs-on: ubuntu-latest
 
     steps:
+      # 1. GitHub App 토큰 발급 (보호된 develop 브랜치 push 권한)
       - name: Generate GitHub App Token
         id: app-token
         uses: actions/create-github-app-token@v2
@@ -29,6 +30,7 @@ jobs:
           owner: ${{ github.repository_owner }}
           permission-contents: write
 
+      # 2. GitHub 저장소 Checkout
       - name: Checkout
         uses: actions/checkout@v7
         with:
@@ -36,18 +38,26 @@ jobs:
           fetch-depth: 0
           persist-credentials: true
 
+      # 3. JDK 설정
       - name: Set up JDK
         uses: actions/setup-java@v6
         with:
           distribution: temurin
           java-version: '21'
 
+      # 4. Gradle 설정
+      - name: Setup Gradle
+        uses: gradle/actions/setup-gradle@v6
+
+      # 5. API/Worker jar 빌드 (api, worker Dockerfile이 build/libs/app.jar를 COPY함)
       - name: Build
         run: ./gradlew :api:bootJar :worker:bootJar
 
+      # 6. Docker Buildx 설정
       - name: Set up Docker Buildx
         uses: docker/setup-buildx-action@v3
 
+      # 7. GHCR 로그인
       - name: Login to GHCR
         uses: docker/login-action@v3
         with:
@@ -55,6 +65,7 @@ jobs:
           username: ${{ github.actor }}
           password: ${{ secrets.GITHUB_TOKEN }}
 
+      # 8. 이미지 이름 결정 (레포 owner를 소문자로 변환해 GHCR 경로 생성)
       - name: Set image names
         id: images
         env:
@@ -63,8 +74,9 @@ jobs:
           OWNER="${REPOSITORY%%/*}"
           OWNER=$(echo "$OWNER" | tr '[:upper:]' '[:lower:]')
           echo "api=ghcr.io/${OWNER}/mozip-api" >> "$GITHUB_OUTPUT"
-#          echo "worker=ghcr.io/${OWNER}/mozip-worker" >> "$GITHUB_OUTPUT"
+          echo "worker=ghcr.io/${OWNER}/mozip-worker" >> "$GITHUB_OUTPUT"
 
+      # 9. Docker metadata (API)
       - name: Docker metadata (API)
         id: meta-api
         uses: docker/metadata-action@v5
@@ -74,6 +86,7 @@ jobs:
             type=raw,value=${{ github.sha }}
             type=ref,event=branch
 
+      # 10. API 이미지 빌드 및 Push
       - name: Build and push API
         uses: docker/build-push-action@v6
         with:
@@ -82,50 +95,54 @@ jobs:
           push: true
           tags: ${{ steps.meta-api.outputs.tags }}
           labels: ${{ steps.meta-api.outputs.labels }}
-          cache-from: type=gha
-          cache-to: type=gha,mode=max
+          cache-from: type=gha,scope=prod-api
+          cache-to: type=gha,mode=max,scope=prod-api
 
-#      - name: Docker metadata (Worker)
-#        id: meta-worker
-#        uses: docker/metadata-action@v5
-#        with:
-#          images: ${{ steps.images.outputs.worker }}
-#          tags: |
-#            type=raw,value=${{ github.sha }}
-#            type=ref,event=branch
-#
-#      - name: Build and push Worker
-#        uses: docker/build-push-action@v6
-#        with:
-#          context: .
-#          file: ./worker/Dockerfile
-#          push: true
-#          tags: ${{ steps.meta-worker.outputs.tags }}
-#          labels: ${{ steps.meta-worker.outputs.labels }}
-#          cache-from: type=gha
-#          cache-to: type=gha,mode=max
+      # 11. Docker metadata (Worker)
+      - name: Docker metadata (Worker)
+        id: meta-worker
+        uses: docker/metadata-action@v5
+        with:
+          images: ${{ steps.images.outputs.worker }}
+          tags: |
+            type=raw,value=${{ github.sha }}
+            type=ref,event=branch
 
+      # 12. Worker 이미지 빌드 및 Push
+      - name: Build and push Worker
+        uses: docker/build-push-action@v6
+        with:
+          context: .
+          file: ./worker/Dockerfile
+          push: true
+          tags: ${{ steps.meta-worker.outputs.tags }}
+          labels: ${{ steps.meta-worker.outputs.labels }}
+          cache-from: type=gha,scope=prod-worker
+          cache-to: type=gha,mode=max,scope=prod-worker
+
+      # 13. Kustomize 버전 확인
       - name: Check Kustomize
         run: kustomize version
 
+      # 14. 운영 환경 이미지 태그 갱신
       - name: Update image tags
         env:
           API_IMAGE: ${{ steps.images.outputs.api }}
           WORKER_IMAGE: ${{ steps.images.outputs.worker }}
           IMAGE_TAG: ${{ github.sha }}
         run: |
-          cd k8s/app
+          cd k8s/overlays/prod
           kustomize edit set image "${API_IMAGE}=${API_IMAGE}:${IMAGE_TAG}"
-          # worker 이미지는 아직 빌드/푸시하지 않으므로 비활성화
-          # kustomize edit set image "${WORKER_IMAGE}=${WORKER_IMAGE}:${IMAGE_TAG}"
+          kustomize edit set image "${WORKER_IMAGE}=${WORKER_IMAGE}:${IMAGE_TAG}"
 
+      # 15. 변경 사항 Git Push
       - name: Commit manifest update
         env:
           IMAGE_TAG: ${{ github.sha }}
         run: |
           git config user.name "github-actions[bot]"
           git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
-          git add k8s/app/kustomization.yaml
+          git add k8s/overlays/prod/kustomization.yaml
           git diff --cached --quiet && exit 0
           git commit -m "chore: deploy ${IMAGE_TAG}"
           git fetch origin develop

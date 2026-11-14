@@ -7,7 +7,7 @@ on:
   push:
     branches: [develop, main]
     paths-ignore:
-      - 'k8s/app/**'
+      - 'k8s/overlays/prod/**'
 
 permissions:
   contents: read
