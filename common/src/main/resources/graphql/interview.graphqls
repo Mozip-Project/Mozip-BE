@@ -1,0 +1,17 @@
+# 면접 타임테이블
+
+"타임테이블의 면접 한 칸"
+type Interview {
+    id: ID!
+    posting: Posting!
+    startAt: DateTime!
+    endAt: DateTime!
+    "같은 시간대에 동시에 진행하는 면접 열 (면접 1, 면접 2)"
+    track: Int!
+    "장소 태그 (후보 = 같은 단체에서 쓴 장소)"
+    location: String
+    "배정된 면접관"
+    interviewers: [Member!]!
+    "배정된 지원자"
+    applicants: [Application!]!
+}

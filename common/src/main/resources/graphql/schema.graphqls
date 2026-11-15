@@ -3,6 +3,18 @@
 # 로그인 없이 호출할 수 있는 최상위 필드에 붙임 (없으면 인증 필요, GraphqlAuthInstrumentation이 검사)
 directive @public on FIELD_DEFINITION
 
+"서울 시각에 오프셋을 붙인 ISO-8601 (예: 2026-11-15T14:00:00+09:00), 오프셋 없이 보내면 서울 시각으로 처리"
+scalar DateTime
+
+"ISO-8601 날짜 (예: 2026-11-15)"
+scalar Date
+
+"ISO-8601 시각 (예: 16:00:00)"
+scalar LocalTime
+
+"구조가 정해지지 않은 JSON 값"
+scalar JSON
+
 type Query {
     "서버가 요청을 처리할 수 있는 상태인지 확인"
     health: Health! @public

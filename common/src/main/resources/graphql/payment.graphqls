@@ -1,0 +1,49 @@
+# 결제, 결제 수단, UP하기
+
+"학기 패키지 4,900원 / UP하기 1회 500원"
+enum PaymentProduct {
+    PACKAGE
+    UP_ONCE
+}
+
+enum PaymentStatus {
+    PAID
+    REFUND_REQUESTED
+    REFUNDED
+    FAILED
+}
+
+type Payment {
+    id: ID!
+    organization: Organization!
+    "결제한 대표자"
+    user: User!
+    product: PaymentProduct!
+    "PACKAGE 적용 학기 (예: 2026-2), UP_ONCE면 null"
+    semester: String
+    amount: Int!
+    status: PaymentStatus!
+    pgTransactionId: String
+    receiptUrl: String
+    paidAt: DateTime
+    createdAt: DateTime!
+}
+
+"등록한 카드 (PG 빌링키는 노출하지 않음)"
+type PaymentMethod {
+    id: ID!
+    organization: Organization!
+    cardName: String
+    cardLast4: String
+    createdAt: DateTime!
+}
+
+"공고 UP하기 내역"
+type Bump {
+    id: ID!
+    posting: Posting!
+    user: User!
+    "null = 잔여권 사용"
+    payment: Payment
+    createdAt: DateTime!
+}

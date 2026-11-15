@@ -1,0 +1,115 @@
+# 회원, 학교 인증, 활동 경험, 알림
+
+"Spring Security 권한"
+enum Authority {
+    USER
+    ADMIN
+}
+
+enum UserStatus {
+    ACTIVE
+    "로그인 5회 실패 (휴대폰 인증으로 해제)"
+    LOCKED
+    WITHDRAWN
+}
+
+"로그인 후 이동할 홈"
+enum Role {
+    APPLICANT
+    OPERATOR
+}
+
+enum SchoolVerificationMethod {
+    SCHOOL_EMAIL
+    CERTIFICATE
+}
+
+"알림 탭(지원자/운영진), 알림 설정 토글, 출처 라벨, 이동 화면을 type으로 정함"
+enum NotificationType {
+    POSTING_NOTICE
+    DOC_RESULT
+    FINAL_RESULT
+    INTERVIEW_RESELECT
+    SCRAP_OPEN
+    INVITATION
+    TRANSFER_REQUEST
+    TRANSFER_APPROVED
+    TRANSFER_REJECTED
+    EVALUATION_REQUEST
+    EVALUATION_DEADLINE
+}
+
+type School {
+    id: ID!
+    name: String!
+    "학교 메일 인증 도메인 (예: skku.edu)"
+    emailDomain: String
+}
+
+type User {
+    id: ID!
+    "로그인 ID (숫자만, 예: 01012345678)"
+    phone: String!
+    name: String!
+    authority: Authority!
+    status: UserStatus!
+    lastRole: Role!
+    "운영진 홈에서 마지막으로 고른 단체 (GNB 단체 전환)"
+    lastOrganization: Organization
+    "학교 인증 승인 시 채움, null = 미인증 (공고 열람만 가능)"
+    school: School
+    profileImageUrl: String
+    department: String
+    grade: Int
+    contactEmail: String
+    marketingAgreed: Boolean!
+    termsAgreedAt: DateTime!
+    "지원 결과, 면접 일정 알림"
+    notifyResult: Boolean!
+    "스크랩 공고 지원 시작 알림"
+    notifyScrap: Boolean!
+    "대표자 인수 요청, 평가 마감 알림"
+    notifyOperator: Boolean!
+    experiences: [Experience!]!
+    createdAt: DateTime!
+}
+
+type SchoolVerification {
+    id: ID!
+    user: User!
+    school: School
+    "목록에 없는 학교 직접 입력"
+    schoolName: String
+    method: SchoolVerificationMethod!
+    email: String
+    certificateUrl: String
+    "메일 인증은 바로 APPROVED"
+    status: ReviewStatus!
+    rejectReason: String
+    reviewedAt: DateTime
+    createdAt: DateTime!
+}
+
+"활동 경험"
+type Experience {
+    id: ID!
+    "활동명"
+    title: String!
+    role: String
+    achievement: String
+    startedOn: Date
+    endedOn: Date
+}
+
+type Notification {
+    id: ID!
+    type: NotificationType!
+    "알림에 표시할 단체 (지원자 알림도 지원한 단체를 표시)"
+    organization: Organization
+    "결과 안내, 공지 알림이 가리키는 메시지 (결과 팝업, 공지 전문 보기), 그 외 알림은 null"
+    message: Message
+    title: String!
+    linkUrl: String
+    isRead: Boolean!
+    createdAt: DateTime!
+}
