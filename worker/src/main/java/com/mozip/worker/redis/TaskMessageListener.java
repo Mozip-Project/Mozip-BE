@@ -13,7 +13,7 @@ public class TaskMessageListener implements MessageListener {
 
 	@Override
 	public void onMessage(Message message, byte[] pattern) {
-		log.info("[{}] received: {}", WorkerChannel.TASKS, new String(message.getBody()));
+		log.info("[{}] received", WorkerChannel.TASKS);
 	}
 
 }
