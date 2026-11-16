@@ -11,13 +11,14 @@ permissions:
   contents: write
   packages: write
 
-concurrency:
-  group: release-develop
-  cancel-in-progress: false
-
 jobs:
+  # JAR 빌드, Docker 이미지 빌드 및 Push
   release:
+    name: Build and Release Prod
     runs-on: ubuntu-latest
+    outputs:
+      api: ${{ steps.images.outputs.api }}
+      worker: ${{ steps.images.outputs.worker }}
 
     steps:
       # 1. GitHub App 토큰 발급 (보호된 develop 브랜치 push 권한)
@@ -119,23 +120,52 @@ jobs:
           labels: ${{ steps.meta-worker.outputs.labels }}
           cache-from: type=gha,scope=prod-worker
           cache-to: type=gha,mode=max,scope=prod-worker
+  # Kubernetes Manifest 갱신
+  update-manifest:
+    name: Update Prod Manifest
+    needs: release
+    runs-on: ubuntu-latest
 
-      # 13. Kustomize 버전 확인
+    # Dev의 update-manifest와 동일한 그룹명 사용
+    concurrency:
+      group: develop-manifest-update
+      cancel-in-progress: false
+
+    steps:
+      # 13. GitHub App 토큰 발급 (보호된 develop 브랜치 push 권한)
+      - name: Generate GitHub App Token
+        id: app-token
+        uses: actions/create-github-app-token@v2
+        with:
+          app-id: ${{ secrets.APP_ID }}
+          private-key: ${{ secrets.APP_PRIVATE_KEY }}
+          owner: ${{ github.repository_owner }}
+          permission-contents: write
+
+      # 14. GitHub 저장소 Checkout
+      - name: Checkout
+        uses: actions/checkout@v7
+        with:
+          token: ${{ steps.app-token.outputs.token }}
+          fetch-depth: 0
+          persist-credentials: true
+
+      # 15. Kustomize 버전 확인
       - name: Check Kustomize
         run: kustomize version
 
-      # 14. 운영 환경 이미지 태그 갱신
+      # 16. 운영 환경 이미지 태그 갱신
       - name: Update image tags
         env:
-          API_IMAGE: ${{ steps.images.outputs.api }}
-          WORKER_IMAGE: ${{ steps.images.outputs.worker }}
+          API_IMAGE: ${{ needs.release.outputs.api }}
+          WORKER_IMAGE: ${{ needs.release.outputs.worker }}
           IMAGE_TAG: ${{ github.sha }}
         run: |
           cd k8s/overlays/prod
           kustomize edit set image "${API_IMAGE}=${API_IMAGE}:${IMAGE_TAG}"
           kustomize edit set image "${WORKER_IMAGE}=${WORKER_IMAGE}:${IMAGE_TAG}"
 
-      # 15. 변경 사항 Git Push
+      # 17. 변경 사항 Git Push
       - name: Commit manifest update
         env:
           IMAGE_TAG: ${{ github.sha }}
