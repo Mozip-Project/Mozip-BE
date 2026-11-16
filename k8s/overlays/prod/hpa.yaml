@@ -1,7 +1,7 @@
 apiVersion: autoscaling/v2
 kind: HorizontalPodAutoscaler
 metadata:
-  name: mozip-api
+  name: mozip-api-hpa
 spec:
   scaleTargetRef:
     apiVersion: apps/v1
