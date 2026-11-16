@@ -1,6 +1,9 @@
 spring:
   application:
     name: mozip-worker
+  main:
+    # pub/sub 리스너만 있는 non-web 앱이라 non-daemon 스레드가 없으면 시작 직후 종료됨
+    keep-alive: true
   data:
     redis:
       host: ${REDIS_HOST:localhost}
