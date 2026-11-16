@@ -98,9 +98,9 @@ jobs:
           cache-from: type=gha,scope=dev-worker
           cache-to: type=gha,mode=max,scope=dev-worker
 
-      # 11. Kustomize 설치
-      - name: Setup Kustomize
-        uses: imranismail/setup-kustomize@v2
+      # 11. Kustomize 버전 확인
+      - name: Check Kustomize
+        run: kustomize version
 
       # 12. 개발 환경 이미지 태그 갱신
       - name: Update Dev Image Tags
