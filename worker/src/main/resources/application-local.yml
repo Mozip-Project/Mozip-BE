@@ -1,0 +1,6 @@
+# 로컬 개발 환경이며, compose.yaml 값과 맞춤
+spring:
+  data:
+    redis:
+      host: localhost
+      port: 6379

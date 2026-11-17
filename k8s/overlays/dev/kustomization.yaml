@@ -9,24 +9,17 @@ resources:
 - ingress.yaml
 - hpa.yaml
 
-
 patches:
-- path: api-patch.yaml
-  target:
-    group: apps
-    kind: Deployment
-    name: mozip-api
-    version: v1
-- path: worker-patch.yaml
-  target:
-    group: apps
-    kind: Deployment
-    name: mozip-worker
-    version: v1
-images:
-- name: ghcr.io/mozip-project/mozip-api
-  newName: ghcr.io/mozip-project/mozip-api
-  newTag: a65149c870110aa3498bc4b178d70ba0da65eb3a
-- name: ghcr.io/mozip-project/mozip-worker
-  newName: ghcr.io/mozip-project/mozip-worker
-  newTag: a65149c870110aa3498bc4b178d70ba0da65eb3a
+  - path: api-patch.yaml
+    target:
+      group: apps
+      version: v1
+      kind: Deployment
+      name: mozip-api
+
+  - path: worker-patch.yaml
+    target:
+      group: apps
+      version: v1
+      kind: Deployment
+      name: mozip-worker
