@@ -85,7 +85,7 @@ jobs:
 
       # 10. API 이미지 빌드 및 Push
       - name: Build and Push API
-        uses: docker/build-push-action@v6
+        uses: docker/build-push-action@v7
         with:
           context: .
           file: ./api/Dockerfile
@@ -96,7 +96,7 @@ jobs:
 
       # 11. Worker 이미지 빌드 및 Push
       - name: Build and Push Worker
-        uses: docker/build-push-action@v6
+        uses: docker/build-push-action@v7
         with:
           context: .
           file: ./worker/Dockerfile
