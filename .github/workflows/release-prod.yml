@@ -24,7 +24,7 @@ jobs:
       # 1. GitHub App 토큰 발급 (보호된 develop 브랜치 push 권한)
       - name: Generate GitHub App Token
         id: app-token
-        uses: actions/create-github-app-token@v2
+        uses: actions/create-github-app-token@v3
         with:
           app-id: ${{ secrets.APP_ID }}
           private-key: ${{ secrets.APP_PRIVATE_KEY }}
@@ -102,7 +102,7 @@ jobs:
       # 11. Docker metadata (Worker)
       - name: Docker metadata (Worker)
         id: meta-worker
-        uses: docker/metadata-action@v5
+        uses: docker/metadata-action@v6
         with:
           images: ${{ steps.images.outputs.worker }}
           tags: |
@@ -111,7 +111,7 @@ jobs:
 
       # 12. Worker 이미지 빌드 및 Push
       - name: Build and push Worker
-        uses: docker/build-push-action@v6
+        uses: docker/build-push-action@v7
         with:
           context: .
           file: ./worker/Dockerfile
@@ -135,7 +135,7 @@ jobs:
       # 13. GitHub App 토큰 발급 (보호된 develop 브랜치 push 권한)
       - name: Generate GitHub App Token
         id: app-token
-        uses: actions/create-github-app-token@v2
+        uses: actions/create-github-app-token@v3
         with:
           app-id: ${{ secrets.APP_ID }}
           private-key: ${{ secrets.APP_PRIVATE_KEY }}

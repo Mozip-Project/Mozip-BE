@@ -1,0 +1,63 @@
+# 지원서, 답변, 첨부
+
+enum ApplicationStatus {
+    DRAFT
+    SUBMITTED
+}
+
+enum DocResult {
+    "평가가 다 끝나지 않아 선택 불가"
+    PENDING
+    "보류 (남아 있으면 결과 확정 불가)"
+    HOLD
+    PASS
+    FAIL
+}
+
+enum FinalResult {
+    PENDING
+    PASS
+    FAIL
+}
+
+enum AttachmentType {
+    FILE
+    LINK
+}
+
+"지원서"
+type Application {
+    id: ID!
+    posting: Posting!
+    "포지션 없는 모집이면 null"
+    position: Position
+    user: User!
+    status: ApplicationStatus!
+    "제출 시점 프로필"
+    profileSnapshot: JSON
+    "면접 가능 시간 블록의 시작 시각 목록"
+    availableTimes: [DateTime!]!
+    docResult: DocResult!
+    finalResult: FinalResult!
+    submittedAt: DateTime
+    answers: [Answer!]!
+    createdAt: DateTime!
+    updatedAt: DateTime!
+}
+
+"지원서 문항별 답변"
+type Answer {
+    id: ID!
+    question: Question!
+    "TEXT 답변, CHOICE / TABLE은 JSON 문자열"
+    content: String
+    attachments: [Attachment!]!
+}
+
+"FILE_LINK 문항 첨부"
+type Attachment {
+    id: ID!
+    type: AttachmentType!
+    url: String!
+    fileName: String
+}

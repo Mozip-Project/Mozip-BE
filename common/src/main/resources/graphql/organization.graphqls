@@ -1,0 +1,158 @@
+# 단체, 팀, 운영진, 초대, 대표자 인수
+
+enum OrganizationType {
+    CLUB
+    ACADEMIC
+    STUDENT_COUNCIL
+}
+
+"학생회 세부 구분 (총학생회 / 단과대 / 학과)"
+enum CouncilLevel {
+    UNIVERSITY
+    COLLEGE
+    DEPARTMENT
+}
+
+"교내 / 연합 (연합이면 학교 없음)"
+enum OrganizationScope {
+    CAMPUS
+    UNION
+}
+
+"관리자 심사 상태 (단체 등록, 학교 인증)"
+enum ReviewStatus {
+    PENDING
+    APPROVED
+    REJECTED
+}
+
+enum OrganizationField {
+    ACADEMIC_STUDY
+    IT_DEV
+    DESIGN_MEDIA
+    PERFORMANCE_MUSIC
+    SPORTS
+    CULTURE_HOBBY
+    VOLUNTEER
+    LANGUAGE_GLOBAL
+    STARTUP_BUSINESS
+    RELIGION
+    ETC
+}
+
+enum OrganizationLinkType {
+    INSTAGRAM
+    WEBSITE
+    YOUTUBE
+    ETC
+}
+
+enum MemberRole {
+    REPRESENTATIVE
+    OPERATOR
+}
+
+enum InvitationStatus {
+    PENDING
+    ACCEPTED
+    DECLINED
+    CANCELED
+}
+
+enum TransferStatus {
+    PENDING
+    APPROVED
+    REJECTED
+    CANCELED
+}
+
+type Organization {
+    id: ID!
+    name: String!
+    "변경 요청 이름 (관리자 확인 후 반영)"
+    pendingName: String
+    type: OrganizationType!
+    "학생회가 아니면 null"
+    councilLevel: CouncilLevel
+    scope: OrganizationScope!
+    "연합이면 null"
+    school: School
+    logoUrl: String
+    "한 줄 소개"
+    tagline: String
+    description: String
+    "단체 메일"
+    email: String
+    noTeam: Boolean!
+    proofLink: String
+    proofFileUrl: String
+    reviewStatus: ReviewStatus!
+    rejectReason: String
+    trialEndsAt: DateTime
+    "유료 기능 사용 가능 기한"
+    packageEndsAt: DateTime
+    "UP하기 잔여권"
+    upCredits: Int!
+    keywords: [String!]!
+    fields: [OrganizationField!]!
+    links: [OrganizationLink!]!
+    teams: [Team!]!
+    members: [Member!]!
+    createdAt: DateTime!
+}
+
+type OrganizationLink {
+    id: ID!
+    type: OrganizationLinkType!
+    url: String!
+}
+
+type Team {
+    id: ID!
+    organization: Organization!
+    name: String!
+    sortOrder: Int!
+}
+
+"단체 운영진 (회원의 단체 소속)"
+type Member {
+    id: ID!
+    organization: Organization!
+    user: User!
+    "한 팀에만 소속, 팀 없는 단체면 null"
+    team: Team
+    role: MemberRole!
+    createdAt: DateTime!
+}
+
+type Invitation {
+    id: ID!
+    organization: Organization!
+    inviter: User!
+    "가입자면 바로 채움, 미가입이면 가입 시 contact로 찾아 채움"
+    invitee: User
+    "휴대폰 번호 또는 이메일"
+    inviteeContact: String!
+    status: InvitationStatus!
+    "발송 후 7일"
+    expiresAt: DateTime!
+    createdAt: DateTime!
+}
+
+"초대 링크 (mozip.kr/invite/{token})"
+type InviteLink {
+    id: ID!
+    organization: Organization!
+    token: String!
+    "생성 후 7일"
+    expiresAt: DateTime!
+}
+
+type RepresentativeTransfer {
+    id: ID!
+    organization: Organization!
+    requester: User!
+    message: String
+    status: TransferStatus!
+    createdAt: DateTime!
+}

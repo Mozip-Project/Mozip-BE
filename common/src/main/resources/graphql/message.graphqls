@@ -1,0 +1,54 @@
+# 지원자 안내 메시지 (공지, 결과 발표), 메일 발송 내역
+
+enum MessageType {
+    NOTICE
+    DOC_RESULT
+    INTERVIEW
+    FINAL_RESULT
+}
+
+enum MessageTarget {
+    ALL
+    PASS
+    FAIL
+}
+
+enum MessageStatus {
+    DRAFT
+    SENT
+}
+
+enum MessageDeliveryStatus {
+    PENDING
+    SUCCESS
+    FAILED
+}
+
+"합격자용과 불합격자용을 따로 작성해 두고 각각 발송 (합격자만 먼저 발송 가능)"
+type Message {
+    id: ID!
+    posting: Posting!
+    "보낸 운영진"
+    sender: User!
+    type: MessageType!
+    target: MessageTarget!
+    subject: String!
+    "{이름} {포지션} {면접 기간} {활동 기간} 변수는 발송 시 지원자별로 치환"
+    body: String!
+    status: MessageStatus!
+    "null = 작성 중"
+    sentAt: DateTime
+    deliveries: [MessageDelivery!]!
+    createdAt: DateTime!
+}
+
+"지원자별 메일 발송 결과"
+type MessageDelivery {
+    id: ID!
+    application: Application!
+    "보낸 주소, 주소 수정 후 재발송하면 갱신"
+    email: String!
+    status: MessageDeliveryStatus!
+    failReason: String
+    updatedAt: DateTime!
+}
