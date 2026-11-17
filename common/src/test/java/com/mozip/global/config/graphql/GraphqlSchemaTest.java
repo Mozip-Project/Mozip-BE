@@ -5,6 +5,7 @@ import static org.assertj.core.api.Assertions.assertThatThrownBy;
 
 import java.io.IOException;
 import java.io.InputStream;
+import java.time.LocalDate;
 import java.time.LocalDateTime;
 import java.util.Locale;
 
@@ -14,7 +15,10 @@ import org.springframework.core.io.Resource;
 import org.springframework.core.io.support.PathMatchingResourcePatternResolver;
 
 import graphql.GraphQLContext;
+import graphql.execution.CoercedVariables;
+import graphql.language.StringValue;
 import graphql.schema.Coercing;
+import graphql.schema.CoercingParseLiteralException;
 import graphql.schema.CoercingParseValueException;
 import graphql.schema.GraphQLSchema;
 import graphql.schema.idl.RuntimeWiring;
@@ -28,6 +32,10 @@ class GraphqlSchemaTest {
 	@SuppressWarnings("unchecked")
 	private final Coercing<LocalDateTime, String> dateTime =
 		(Coercing<LocalDateTime, String>)LocalDateTimeScalar.INSTANCE.getCoercing();
+
+	@SuppressWarnings("unchecked")
+	private final Coercing<LocalDate, String> date =
+		(Coercing<LocalDate, String>)LocalDateScalar.INSTANCE.getCoercing();
 
 	@Test
 	@DisplayName("메인 스키마 파일을 합쳐 실행 가능한 스키마를 만들 수 있다")
@@ -68,6 +76,20 @@ class GraphqlSchemaTest {
 			.isEqualTo(LocalDateTime.of(2026, 11, 15, 14, 0));
 		assertThatThrownBy(() -> dateTime.parseValue("2026-11-15", context, Locale.KOREA))
 			.isInstanceOf(CoercingParseValueException.class);
+	}
+
+	@Test
+	@DisplayName("Date는 올바른 날짜만 받고, 없는 날짜는 변수와 리터럴 모두 거부한다")
+	void parseDate() {
+		GraphQLContext context = GraphQLContext.getDefault();
+
+		assertThat(date.parseValue("2028-02-29", context, Locale.KOREA)).isEqualTo(LocalDate.of(2028, 2, 29));
+		assertThat(date.serialize(LocalDate.of(2026, 11, 15), context, Locale.KOREA)).isEqualTo("2026-11-15");
+		assertThatThrownBy(() -> date.parseValue("2026-02-30", context, Locale.KOREA))
+			.isInstanceOf(CoercingParseValueException.class);
+		assertThatThrownBy(() -> date.parseLiteral(StringValue.of("2026-02-30"), CoercedVariables.emptyVariables(),
+			context, Locale.KOREA))
+			.isInstanceOf(CoercingParseLiteralException.class);
 	}
 
 }

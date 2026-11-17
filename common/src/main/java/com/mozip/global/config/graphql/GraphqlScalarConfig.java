@@ -14,7 +14,7 @@ public class GraphqlScalarConfig {
 	public RuntimeWiringConfigurer scalarWiringConfigurer() {
 		return wiring -> wiring
 			.scalar(LocalDateTimeScalar.INSTANCE)
-			.scalar(ExtendedScalars.Date)
+			.scalar(LocalDateScalar.INSTANCE)
 			.scalar(ExtendedScalars.LocalTime)
 			.scalar(ExtendedScalars.Json);
 	}
