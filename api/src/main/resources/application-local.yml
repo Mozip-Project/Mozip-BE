@@ -17,7 +17,7 @@ spring:
         format_sql: true
   graphql:
     graphiql:
-      # GraphiQL(/graphiql)은 로컬에서만 사용
+      # GraphiQL(/graphiql)은 로컬, 개발 서버에서만 사용
       enabled: true
 
 jwt:
