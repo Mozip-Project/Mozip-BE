@@ -58,3 +58,7 @@ HELP.md
 
 ### 개인 문서 ###
 local/
+
+### k8s secret
+/k8s/app/secret.yaml
+!/k8s/app/*.example.yaml
