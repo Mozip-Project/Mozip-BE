@@ -80,7 +80,7 @@ jobs:
       # 9. Docker metadata (API)
       - name: Docker metadata (API)
         id: meta-api
-        uses: docker/metadata-action@v5
+        uses: docker/metadata-action@v6
         with:
           images: ${{ steps.images.outputs.api }}
           tags: |
@@ -102,7 +102,7 @@ jobs:
       # 11. Docker metadata (Worker)
       - name: Docker metadata (Worker)
         id: meta-worker
-        uses: docker/metadata-action@v5
+        uses: docker/metadata-action@v6
         with:
           images: ${{ steps.images.outputs.worker }}
           tags: |
