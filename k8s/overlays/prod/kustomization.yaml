@@ -12,19 +12,22 @@ resources:
 images:
 - name: ghcr.io/mozip-project/mozip-api
   newName: ghcr.io/mozip-project/mozip-api
-  newTag: d4bdbb98dd3d166b50c1dedd434092407573e53d
+  newTag: 92727b2132cb89ea2211794edbd34b685ce58941
+- name: ghcr.io/mozip-project/mozip-worker
+  newName: ghcr.io/mozip-project/mozip-worker
+  newTag: 92727b2132cb89ea2211794edbd34b685ce58941
+
 
 patches:
-  - path: api-patch.yaml
-    target:
-      group: apps
-      version: v1
-      kind: Deployment
-      name: mozip-api
-
-  - path: worker-patch.yaml
-    target:
-      group: apps
-      version: v1
-      kind: Deployment
-      name: mozip-worker
+- path: api-patch.yaml
+  target:
+    group: apps
+    kind: Deployment
+    name: mozip-api
+    version: v1
+- path: worker-patch.yaml
+  target:
+    group: apps
+    kind: Deployment
+    name: mozip-worker
+    version: v1
