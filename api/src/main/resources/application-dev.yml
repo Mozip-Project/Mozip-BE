@@ -6,3 +6,7 @@ spring:
     graphiql:
       # 프론트가 브라우저에서 쿼리를 실행하고 스키마 문서를 볼 수 있게 GraphiQL(/graphiql) 사용
       enabled: true
+
+graphql:
+  # GraphiQL 자동완성, 프론트 codegen이 개발 서버 스키마를 사용하므로 허용 (기본값과 같지만 운영과 구분되게 명시)
+  introspection-enabled: true
