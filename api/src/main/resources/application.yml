@@ -13,7 +13,7 @@ spring:
         default_batch_fetch_size: 100
 
     hibernate:
-      ddl-auto: none
+      ddl-auto: update
 
 springdoc:
   swagger-ui:
