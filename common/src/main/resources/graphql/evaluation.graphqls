@@ -1,0 +1,64 @@
+# 서류 평가, 면접 평가
+
+"평가 의견 (서류, 면접 공통)"
+enum Opinion {
+    PASS
+    HOLD
+    FAIL
+}
+
+"서류 평가 담당 운영진 (공고 포지션별 배정)"
+type Reviewer {
+    id: ID!
+    posting: Posting!
+    "포지션 없는 모집이면 null"
+    position: Position
+    member: Member!
+}
+
+"운영진별 서류 평가"
+type DocEvaluation {
+    id: ID!
+    application: Application!
+    "평가한 운영진"
+    member: Member!
+    "자동 저장만 된 작성 중 상태에서는 null"
+    opinion: Opinion
+    "운영진만 보는 메모, 최대 300자"
+    memo: String
+    "문항별 점수, posting.docScorePerQuestion = true일 때만"
+    scores: [DocScore!]!
+    "저장하고 다음 지원자 보기로 저장한 시각, null = 작성 중"
+    submittedAt: DateTime
+    updatedAt: DateTime!
+}
+
+type DocScore {
+    question: Question!
+    "1~5점"
+    score: Int!
+}
+
+"운영진별 면접 평가"
+type InterviewEvaluation {
+    id: ID!
+    application: Application!
+    "평가한 운영진"
+    member: Member!
+    opinion: Opinion
+    "종합 메모"
+    memo: String
+    "질문별 점수와 메모, 점수는 posting.interviewScorePerQuestion = true일 때만"
+    scores: [InterviewScore!]!
+    "null = 작성 중"
+    submittedAt: DateTime
+    updatedAt: DateTime!
+}
+
+"등록된 면접 질문이면 question, 면접 중 즉석 질문이면 customQuestion을 채움"
+type InterviewScore {
+    question: InterviewQuestion
+    customQuestion: String
+    score: Int
+    memo: String
+}

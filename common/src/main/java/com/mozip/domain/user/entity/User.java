@@ -2,6 +2,7 @@ package com.mozip.domain.user.entity;
 
 import java.time.LocalDateTime;
 
+import com.mozip.domain.school.entity.School;
 import com.mozip.global.common.BaseEntity;
 import com.mozip.global.security.Authority;
 
@@ -9,9 +10,12 @@ import jakarta.persistence.Column;
 import jakarta.persistence.Entity;
 import jakarta.persistence.EnumType;
 import jakarta.persistence.Enumerated;
+import jakarta.persistence.FetchType;
 import jakarta.persistence.GeneratedValue;
 import jakarta.persistence.GenerationType;
 import jakarta.persistence.Id;
+import jakarta.persistence.JoinColumn;
+import jakarta.persistence.ManyToOne;
 import jakarta.persistence.Table;
 import lombok.AccessLevel;
 import lombok.Getter;
@@ -49,6 +53,11 @@ public class User extends BaseEntity {
 	@Enumerated(EnumType.STRING)
 	@Column(nullable = false, length = 20)
 	private Role lastRole;
+
+	// 학교 인증 승인 시 채움, null = 미인증 (공고 열람만 가능)
+	@ManyToOne(fetch = FetchType.LAZY)
+	@JoinColumn(name = "school_id")
+	private School school;
 
 	@Column(nullable = false)
 	private boolean marketingAgreed;
