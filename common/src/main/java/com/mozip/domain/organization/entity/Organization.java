@@ -61,8 +61,12 @@ public class Organization extends BaseEntity {
 		this.reviewStatus = ReviewStatus.PENDING;
 	}
 
+	// 연합 단체에 학교 지정은 거부
 	public static Organization create(String name, OrganizationType type, OrganizationScope scope, School school,
 		boolean noTeam) {
+		if (scope == OrganizationScope.UNION && school != null) {
+			throw new IllegalArgumentException("연합 단체에는 학교를 지정할 수 없습니다.");
+		}
 		return new Organization(name, type, scope, school, noTeam);
 	}
 

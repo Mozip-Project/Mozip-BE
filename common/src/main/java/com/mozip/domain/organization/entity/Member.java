@@ -55,8 +55,25 @@ public class Member extends BaseEntity {
 		this.role = role;
 	}
 
+	// 팀 없는 단체에 팀 지정, 다른 단체의 팀 지정은 거부
 	public static Member create(Organization organization, User user, Team team, MemberRole role) {
+		if (team != null) {
+			if (organization.isNoTeam()) {
+				throw new IllegalArgumentException("팀 없는 단체의 운영진에는 팀을 지정할 수 없습니다.");
+			}
+			if (!isSameOrganization(team.getOrganization(), organization)) {
+				throw new IllegalArgumentException("운영진과 같은 단체의 팀만 지정할 수 있습니다.");
+			}
+		}
 		return new Member(organization, user, team, role);
+	}
+
+	// 프록시와 실제 객체가 섞일 수 있어 저장된 경우 id로 비교
+	private static boolean isSameOrganization(Organization a, Organization b) {
+		if (a == b) {
+			return true;
+		}
+		return a.getId() != null && a.getId().equals(b.getId());
 	}
 
 }
