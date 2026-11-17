@@ -1,11 +1,8 @@
 spring:
   application:
     name: mozip-worker
+  profiles:
+    active: local
   main:
     # pub/sub 리스너만 있는 non-web 앱이라 non-daemon 스레드가 없으면 시작 직후 종료됨
     keep-alive: true
-  data:
-    redis:
-      host: ${REDIS_HOST:localhost}
-      port: ${REDIS_PORT:6379}
-      password: ${REDIS_PASSWORD:}
