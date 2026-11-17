@@ -1,7 +1,7 @@
 apiVersion: argoproj.io/v1alpha1
 kind: Application
 metadata:
-  name: mozip
+  name: mozip-dev
   namespace: argocd
   finalizers:
     - resources-finalizer.argocd.argoproj.io
@@ -11,11 +11,11 @@ spec:
   source:
     repoURL: https://github.com/Mozip-Project/Mozip-BE.git
     targetRevision: develop
-    path: k8s/app
+    path: k8s/overlays/dev
 
   destination:
     server: https://kubernetes.default.svc
-    namespace: mozip
+    namespace: mozip-dev
 
   syncPolicy:
     automated:

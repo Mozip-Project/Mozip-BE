@@ -2,6 +2,8 @@ apiVersion: apps/v1
 kind: Deployment
 metadata:
   name: mozip-worker
+  labels:
+    app: mozip-worker
 spec:
   replicas: 1
   selector:
@@ -12,11 +14,13 @@ spec:
       labels:
         app: mozip-worker
     spec:
+      imagePullSecrets:
+        - name: ghcr-secret
       nodeSelector:
         kubernetes.io/hostname: k8s-worker
 
       containers:
-        - name: worker
+        - name: mozip-worker
           image: ghcr.io/mozip-project/mozip-worker:initial
 
           envFrom:
@@ -27,8 +31,10 @@ spec:
 
           resources:
             requests:
-              cpu: "250m"
-              memory: "512Mi"
+              cpu: "200m"
+              memory: "256Mi"
             limits:
               cpu: "1000m"
-              memory: "1Gi"
+              memory: "768Mi"
+
+          terminationMessagePolicy: File

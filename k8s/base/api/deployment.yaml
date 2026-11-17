@@ -2,7 +2,8 @@ apiVersion: apps/v1
 kind: Deployment
 metadata:
   name: mozip-api
-  namespace: mozip
+  labels:
+    app: mozip-api
 spec:
   selector:
     matchLabels:
@@ -18,7 +19,7 @@ spec:
         kubernetes.io/hostname: k8s-worker
 
       containers:
-        - name: api
+        - name: mozip-api
           image: ghcr.io/mozip-project/mozip-api:initial
           imagePullPolicy: Always
           ports:
@@ -33,27 +34,33 @@ spec:
 
           resources:
             requests:
-              cpu: "250m"
-              memory: "512Mi"
+              cpu: "200m"
+              memory: "256Mi"
             limits:
               cpu: "1000m"
-              memory: "1Gi"
+              memory: "768Mi"
 
           startupProbe:
             httpGet:
               path: /actuator/health/liveness
               port: http
             failureThreshold: 30
-            periodSeconds: 5
+            periodSeconds: 10
 
           readinessProbe:
             httpGet:
               path: /actuator/health/readiness
               port: http
             periodSeconds: 10
+            timeoutSeconds: 5
+            failureThreshold: 3
 
           livenessProbe:
             httpGet:
               path: /actuator/health/liveness
               port: http
-            periodSeconds: 20
+            periodSeconds: 10
+            timeoutSeconds: 5
+            failureThreshold: 3
+
+          terminationMessagePolicy: File
