@@ -156,3 +156,28 @@ type RepresentativeTransfer {
     status: TransferStatus!
     createdAt: DateTime!
 }
+
+input CreateOrganizationInput {
+    name: String!
+    type: OrganizationType!
+    "학생회면 필수, 그 외 단체는 넣으면 COMMON_400 (reason COUNCIL_LEVEL_NOT_ALLOWED)"
+    councilLevel: CouncilLevel
+    scope: OrganizationScope!
+    "교내면 필수, 연합이면 넣으면 COMMON_400 (reason SCHOOL_NOT_ALLOWED)"
+    schoolId: ID
+    noTeam: Boolean! = false
+    proofLink: String
+    proofFileUrl: String
+}
+
+extend type Query {
+    "내가 운영진으로 속한 단체 (운영진 홈의 단체 전환 메뉴)"
+    myOrganizations: [Organization!]!
+    "단체 상세, 로그인 없이 조회 가능. 없으면 ORG_404"
+    organization(id: ID!): Organization! @public
+}
+
+extend type Mutation {
+    "단체를 만들고 호출자를 대표자로 등록, 심사 상태는 PENDING"
+    createOrganization(input: CreateOrganizationInput!): Organization!
+}

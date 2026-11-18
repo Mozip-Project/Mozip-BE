@@ -1,0 +1,162 @@
+package com.mozip.domain.organization.controller;
+
+import static org.assertj.core.api.Assertions.assertThat;
+
+import java.time.LocalDateTime;
+import java.util.Map;
+import java.util.concurrent.ThreadLocalRandom;
+
+import org.assertj.core.api.InstanceOfAssertFactories;
+import org.junit.jupiter.api.DisplayName;
+import org.junit.jupiter.api.Test;
+import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.boot.graphql.test.autoconfigure.tester.AutoConfigureHttpGraphQlTester;
+import org.springframework.boot.test.context.SpringBootTest;
+import org.springframework.boot.webmvc.test.autoconfigure.AutoConfigureMockMvc;
+import org.springframework.context.annotation.Import;
+import org.springframework.graphql.execution.ErrorType;
+import org.springframework.graphql.test.tester.HttpGraphQlTester;
+
+import com.mozip.TestcontainersConfiguration;
+import com.mozip.domain.school.entity.School;
+import com.mozip.domain.school.repository.SchoolRepository;
+import com.mozip.domain.user.entity.User;
+import com.mozip.domain.user.repository.UserRepository;
+import com.mozip.global.security.Authority;
+import com.mozip.global.security.cookie.AuthCookieManager;
+import com.mozip.global.security.jwt.JwtProvider;
+
+// HTTP 요청은 서버 스레드에서 따로 커밋돼 테스트 트랜잭션으로 롤백할 수 없음
+// 따라서 @Transactional을 붙이지 않고, 테스트마다 회원을 새로 만들 때 전화번호를 무작위로 지어 unique 충돌을 피함
+@Import(TestcontainersConfiguration.class)
+@SpringBootTest
+@AutoConfigureMockMvc
+@AutoConfigureHttpGraphQlTester
+class OrganizationGraphqlControllerTest {
+
+	private static final String CREATE = """
+		mutation($input: CreateOrganizationInput!) {
+			createOrganization(input: $input) {
+				id name type councilLevel scope noTeam reviewStatus proofLink proofFileUrl
+				school { id name }
+				members { role user { id name } team { id } }
+				teams { id }
+			}
+		}
+		""";
+
+	@Autowired
+	private HttpGraphQlTester graphQlTester;
+
+	@Autowired
+	private UserRepository userRepository;
+
+	@Autowired
+	private SchoolRepository schoolRepository;
+
+	@Autowired
+	private JwtProvider jwtProvider;
+
+	@Test
+	@DisplayName("단체를 만들면 내 단체 목록에 나오고, 상세는 로그인 없이도 볼 수 있다")
+	void createThenListThenDetail() {
+		User user = saveUser();
+		School school = schoolRepository.save(School.create("테스트대학교", null));
+		HttpGraphQlTester asUser = asUser(user);
+
+		String organizationId = asUser.document(CREATE)
+			.variable("input", Map.of(
+				"name", "총학생회",
+				"type", "STUDENT_COUNCIL",
+				"councilLevel", "COLLEGE",
+				"scope", "CAMPUS",
+				"schoolId", school.getId().toString(),
+				"proofLink", "https://example.com/proof"))
+			.execute()
+			.path("createOrganization.reviewStatus").entity(String.class).isEqualTo("PENDING")
+			.path("createOrganization.noTeam").entity(Boolean.class).isEqualTo(false)
+			.path("createOrganization.school.name").entity(String.class).isEqualTo("테스트대학교")
+			.path("createOrganization.members[0].role").entity(String.class).isEqualTo("REPRESENTATIVE")
+			.path("createOrganization.members[0].user.id").entity(String.class).isEqualTo(user.getId().toString())
+			.path("createOrganization.members[0].team").valueIsNull()
+			.path("createOrganization.teams").entityList(Object.class).hasSize(0)
+			.path("createOrganization.id").entity(String.class).get();
+
+		asUser.document("{ myOrganizations { id name } }")
+			.execute()
+			.path("myOrganizations[*].id").entityList(String.class).containsExactly(organizationId);
+
+		graphQlTester.document("query($id: ID!) { organization(id: $id) { name councilLevel school { name } } }")
+			.variable("id", organizationId)
+			.execute()
+			.path("organization.name").entity(String.class).isEqualTo("총학생회")
+			.path("organization.councilLevel").entity(String.class).isEqualTo("COLLEGE")
+			.path("organization.school.name").entity(String.class).isEqualTo("테스트대학교");
+	}
+
+	@Test
+	@DisplayName("없는 단체 id면 ORG_404다")
+	void organizationNotFound() {
+		graphQlTester.document("{ organization(id: \"" + Long.MAX_VALUE + "\") { id } }")
+			.execute()
+			.errors()
+			.satisfy(errors -> {
+				assertThat(errors.getFirst().getErrorType()).isEqualTo(ErrorType.NOT_FOUND);
+				assertThat(errors.getFirst().getExtensions()).containsEntry("code", "ORG_404");
+			});
+	}
+
+	@Test
+	@DisplayName("내 단체 목록은 로그인이 필요하다")
+	void myOrganizationsRequiresLogin() {
+		graphQlTester.document("{ myOrganizations { id } }")
+			.execute()
+			.errors()
+			.satisfy(errors -> assertThat(errors.getFirst().getExtensions()).containsEntry("code", "COMMON_401"));
+	}
+
+	@Test
+	@DisplayName("학생회인데 세부 구분이 없으면 COMMON_400에 reason COUNCIL_LEVEL_REQUIRED를 담는다")
+	void councilLevelRequired() {
+		asUser(saveUser()).document(CREATE)
+			.variable("input", Map.of("name", "총학생회", "type", "STUDENT_COUNCIL", "scope", "UNION"))
+			.execute()
+			.errors()
+			.satisfy(errors -> {
+				assertThat(errors.getFirst().getErrorType()).isEqualTo(ErrorType.BAD_REQUEST);
+				assertThat(errors.getFirst().getExtensions())
+					.containsEntry("code", "COMMON_400")
+					.containsEntry("reason", "COUNCIL_LEVEL_REQUIRED");
+			});
+	}
+
+	@Test
+	@DisplayName("이름이 비어 있으면 COMMON_400과 fieldErrors로 응답한다")
+	void blankName() {
+		asUser(saveUser()).document(CREATE)
+			.variable("input", Map.of("name", " ", "type", "CLUB", "scope", "UNION"))
+			.execute()
+			.errors()
+			.satisfy(errors -> {
+				assertThat(errors.getFirst().getExtensions()).containsEntry("code", "COMMON_400");
+				assertThat(errors.getFirst().getExtensions().get("fieldErrors"))
+					.asInstanceOf(InstanceOfAssertFactories.LIST)
+					.singleElement()
+					.hasFieldOrPropertyWithValue("field", "input.name");
+			});
+	}
+
+	private User saveUser() {
+		String phone = "0109" + String.format("%07d", ThreadLocalRandom.current().nextInt(10_000_000));
+		return userRepository.save(User.create(phone, "encoded", "테스트", false, LocalDateTime.now()));
+	}
+
+	// MockMvc는 Cookie 헤더 문자열을 파싱하지 않으므로 WebTestClient의 쿠키로 전달
+	private HttpGraphQlTester asUser(User user) {
+		String accessToken = jwtProvider.createAccessToken(user.getId(), Authority.USER);
+		return graphQlTester.mutate()
+			.webTestClient(client -> client.defaultCookie(AuthCookieManager.ACCESS_TOKEN_COOKIE, accessToken))
+			.build();
+	}
+
+}

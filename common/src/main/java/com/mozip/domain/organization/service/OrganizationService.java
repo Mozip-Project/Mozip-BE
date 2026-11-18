@@ -1,0 +1,96 @@
+package com.mozip.domain.organization.service;
+
+import java.util.List;
+
+import org.springframework.stereotype.Service;
+import org.springframework.transaction.annotation.Transactional;
+
+import com.mozip.domain.organization.dto.CreateOrganizationInput;
+import com.mozip.domain.organization.entity.Member;
+import com.mozip.domain.organization.entity.MemberRole;
+import com.mozip.domain.organization.entity.Organization;
+import com.mozip.domain.organization.entity.OrganizationScope;
+import com.mozip.domain.organization.entity.OrganizationType;
+import com.mozip.domain.organization.exception.OrganizationErrorCode;
+import com.mozip.domain.organization.exception.OrganizationInputReason;
+import com.mozip.domain.organization.repository.MemberRepository;
+import com.mozip.domain.organization.repository.OrganizationRepository;
+import com.mozip.domain.payment.service.SubscriptionService;
+import com.mozip.domain.school.entity.School;
+import com.mozip.domain.school.repository.SchoolRepository;
+import com.mozip.domain.user.entity.User;
+import com.mozip.domain.user.repository.UserRepository;
+import com.mozip.global.exception.BusinessException;
+import com.mozip.global.exception.CommonErrorCode;
+
+import lombok.RequiredArgsConstructor;
+
+@Service
+@RequiredArgsConstructor
+@Transactional(readOnly = true)
+public class OrganizationService {
+
+	private final OrganizationRepository organizationRepository;
+	private final MemberRepository memberRepository;
+	private final UserRepository userRepository;
+	private final SchoolRepository schoolRepository;
+	private final SubscriptionService subscriptionService;
+
+	// 단체를 만들고 호출자를 대표자로 등록
+	// 동시 요청은 DDL의 부분 unique index로 방지
+	@Transactional
+	public Organization createOrganization(Long userId, CreateOrganizationInput input) {
+		validate(input);
+		User user = userRepository.findById(userId)
+			.orElseThrow(() -> new BusinessException(CommonErrorCode.NOT_FOUND).addContext("userId", userId));
+		School school = findSchool(input.schoolId());
+		Organization organization = organizationRepository.save(Organization.create(input.name(), input.type(),
+			input.councilLevel(), input.scope(), school, input.noTeam(), input.proofLink(), input.proofFileUrl()));
+		memberRepository.save(Member.create(organization, user, null, MemberRole.REPRESENTATIVE));
+		subscriptionService.startFreeTrial(organization.getId());
+		return organization;
+	}
+
+	// 내가 운영진(Member)으로 들어가 있는 단체, 운영진 홈의 단체 전환 메뉴에서 사용
+	public List<Organization> getMyOrganizations(Long userId) {
+		return organizationRepository.findAllByMemberUserId(userId);
+	}
+
+	public Organization getOrganization(Long organizationId) {
+		return organizationRepository.findWithSchoolById(organizationId)
+			.orElseThrow(() -> new BusinessException(OrganizationErrorCode.ORGANIZATION_NOT_FOUND)
+				.addContext("organizationId", organizationId));
+	}
+
+	// 필드 간 규칙은 Bean Validation으로 표현하기 어려워 여기서 검사
+	// reason으로 어느 필드인지 알림
+	private static void validate(CreateOrganizationInput input) {
+		boolean council = input.type() == OrganizationType.STUDENT_COUNCIL;
+		if (council && input.councilLevel() == null) {
+			throw invalid(OrganizationInputReason.COUNCIL_LEVEL_REQUIRED);
+		}
+		if (!council && input.councilLevel() != null) {
+			throw invalid(OrganizationInputReason.COUNCIL_LEVEL_NOT_ALLOWED);
+		}
+		boolean union = input.scope() == OrganizationScope.UNION;
+		if (union && input.schoolId() != null) {
+			throw invalid(OrganizationInputReason.SCHOOL_NOT_ALLOWED);
+		}
+		if (!union && input.schoolId() == null) {
+			throw invalid(OrganizationInputReason.SCHOOL_REQUIRED);
+		}
+	}
+
+	private School findSchool(Long schoolId) {
+		if (schoolId == null) {
+			return null;
+		}
+		return schoolRepository.findById(schoolId)
+			.orElseThrow(() -> invalid(OrganizationInputReason.SCHOOL_NOT_FOUND).addContext("schoolId", schoolId));
+	}
+
+	private static BusinessException invalid(OrganizationInputReason reason) {
+		return new BusinessException(CommonErrorCode.INVALID_INPUT, reason);
+	}
+
+}

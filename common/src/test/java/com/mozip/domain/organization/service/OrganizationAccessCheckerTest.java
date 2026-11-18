@@ -15,10 +15,11 @@ import org.springframework.transaction.annotation.Transactional;
 
 import com.mozip.TestcontainersConfiguration;
 import com.mozip.devtools.seed.SeedFixtures;
+import com.mozip.domain.organization.entity.Member;
+import com.mozip.domain.organization.entity.MemberRole;
 import com.mozip.domain.organization.entity.Organization;
 import com.mozip.domain.organization.exception.OrganizationErrorCode;
 import com.mozip.domain.organization.repository.MemberRepository;
-import com.mozip.domain.organization.repository.OrganizationRepository;
 import com.mozip.domain.user.entity.User;
 import com.mozip.domain.user.repository.UserRepository;
 import com.mozip.global.exception.BusinessException;
@@ -33,36 +34,48 @@ class OrganizationAccessCheckerTest {
 	private OrganizationAccessChecker accessChecker;
 
 	@Autowired
-	private UserRepository userRepository;
+	private OrganizationService organizationService;
 
 	@Autowired
-	private OrganizationRepository organizationRepository;
+	private UserRepository userRepository;
 
 	@Autowired
 	private MemberRepository memberRepository;
 
 	private User representative;
+	private User operator;
 	private User outsider;
 	private Organization organization;
 
 	@BeforeEach
 	void setUp() {
 		representative = userRepository.save(User.create("01099990001", "encoded", "대표자", false, LocalDateTime.now()));
+		operator = userRepository.save(User.create("01099990003", "encoded", "운영진", false, LocalDateTime.now()));
 		outsider = userRepository.save(User.create("01099990002", "encoded", "외부인", false, LocalDateTime.now()));
-		organization = organizationRepository.save(SeedFixtures.organization());
-		memberRepository.save(SeedFixtures.representative(organization, representative));
+		organization = organizationService.createOrganization(representative.getId(),
+			SeedFixtures.createOrganizationInput());
+		memberRepository.save(Member.create(organization, operator, null, MemberRole.OPERATOR));
 	}
 
 	@Test
-	@DisplayName("단체 운영진이면 isOperatorOf가 true다")
+	@DisplayName("대표자든 운영진이든 단체 소속이면 isOperatorOf가 true다")
 	void isOperatorOfMember() {
 		assertThat(accessChecker.isOperatorOf(representative.getId(), organization.getId())).isTrue();
+		assertThat(accessChecker.isOperatorOf(operator.getId(), organization.getId())).isTrue();
 	}
 
 	@Test
 	@DisplayName("단체에 소속되지 않은 회원이면 isOperatorOf가 false다")
 	void isOperatorOfOutsider() {
 		assertThat(accessChecker.isOperatorOf(outsider.getId(), organization.getId())).isFalse();
+	}
+
+	@Test
+	@DisplayName("isRepresentativeOf는 대표자만 true다")
+	void isRepresentativeOf() {
+		assertThat(accessChecker.isRepresentativeOf(representative.getId(), organization.getId())).isTrue();
+		assertThat(accessChecker.isRepresentativeOf(operator.getId(), organization.getId())).isFalse();
+		assertThat(accessChecker.isRepresentativeOf(outsider.getId(), organization.getId())).isFalse();
 	}
 
 	@Test

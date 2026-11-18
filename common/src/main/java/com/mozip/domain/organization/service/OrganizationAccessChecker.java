@@ -3,11 +3,9 @@ package com.mozip.domain.organization.service;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
+import com.mozip.domain.organization.entity.MemberRole;
 import com.mozip.domain.organization.entity.Organization;
-import com.mozip.domain.organization.exception.OrganizationErrorCode;
 import com.mozip.domain.organization.repository.MemberRepository;
-import com.mozip.domain.organization.repository.OrganizationRepository;
-import com.mozip.global.exception.BusinessException;
 
 import lombok.RequiredArgsConstructor;
 
@@ -19,17 +17,22 @@ import lombok.RequiredArgsConstructor;
 public class OrganizationAccessChecker {
 
 	private final MemberRepository memberRepository;
-	private final OrganizationRepository organizationRepository;
+	private final OrganizationService organizationService;
 
 	// 대표자, 운영진 구분 없이 단체 소속이면 true
 	public boolean isOperatorOf(Long userId, Long organizationId) {
 		return memberRepository.existsByOrganizationIdAndUserId(organizationId, userId);
 	}
 
+	// 대표자만 할 수 있는 일(운영진 내보내기, 대표자 인수 승인 등)의 권한 검사
+	public boolean isRepresentativeOf(Long userId, Long organizationId) {
+		return memberRepository.existsByOrganizationIdAndUserIdAndRole(organizationId, userId,
+			MemberRole.REPRESENTATIVE);
+	}
+
+	// 없으면 ORG_404
 	public Organization getOrganization(Long organizationId) {
-		return organizationRepository.findById(organizationId)
-			.orElseThrow(() -> new BusinessException(OrganizationErrorCode.ORGANIZATION_NOT_FOUND)
-				.addContext("organizationId", organizationId));
+		return organizationService.getOrganization(organizationId);
 	}
 
 }
