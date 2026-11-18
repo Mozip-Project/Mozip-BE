@@ -7,6 +7,7 @@ import java.util.UUID;
 
 import org.springframework.boot.ApplicationArguments;
 import org.springframework.boot.ApplicationRunner;
+import org.springframework.core.annotation.Order;
 import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.stereotype.Component;
 
@@ -19,11 +20,15 @@ import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 
 // 인증 우회 중 앱 시작 시 역할별 개발용 회원 생성 (이미 있으면 재사용)
+// 개발용 회원을 쓰는 다른 러너(SeedRunner)가 뒤에 오도록 순서를 고정
 @Slf4j
 @Component
 @RequiredArgsConstructor
 @ConditionalOnAuthBypass
+@Order(MockUserRegistry.ORDER)
 public class MockUserRegistry implements ApplicationRunner {
+
+	public static final int ORDER = 0;
 
 	private final UserRepository userRepository;
 	private final PasswordEncoder passwordEncoder;
