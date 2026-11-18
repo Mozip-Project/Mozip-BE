@@ -3,8 +3,10 @@ package com.mozip.domain.organization.controller;
 import static org.assertj.core.api.Assertions.assertThat;
 
 import java.time.LocalDateTime;
+import java.util.List;
 import java.util.Map;
 import java.util.concurrent.ThreadLocalRandom;
+import java.util.stream.IntStream;
 
 import org.assertj.core.api.InstanceOfAssertFactories;
 import org.junit.jupiter.api.DisplayName;
@@ -26,8 +28,6 @@ import com.mozip.domain.user.entity.Authority;
 import com.mozip.global.security.cookie.AuthCookieManager;
 import com.mozip.global.security.jwt.JwtProvider;
 
-// HTTP 요청은 서버 스레드에서 따로 커밋돼 테스트 트랜잭션으로 롤백할 수 없음
-// 따라서 @Transactional을 붙이지 않고, 테스트마다 회원을 새로 만들 때 전화번호를 무작위로 지어 unique 충돌을 피함
 @Import(TestcontainersConfiguration.class)
 @SpringBootTest
 @AutoConfigureMockMvc
@@ -41,6 +41,15 @@ class OrganizationGraphqlControllerTest {
 				school { id name }
 				members { role user { id name } team { id } }
 				teams { id }
+			}
+		}
+		""";
+
+	private static final String UPDATE = """
+		mutation($id: ID!, $input: UpdateOrganizationInput!) {
+			updateOrganization(id: $id, input: $input) {
+				id tagline logoUrl keywords fields
+				links { type url }
 			}
 		}
 		""";
@@ -92,6 +101,85 @@ class OrganizationGraphqlControllerTest {
 			.path("organization.name").entity(String.class).isEqualTo("총학생회")
 			.path("organization.councilLevel").entity(String.class).isEqualTo("COLLEGE")
 			.path("organization.school.name").entity(String.class).isEqualTo("테스트대학교");
+	}
+
+	@Test
+	@DisplayName("운영진이 프로필을 수정하면 상세 조회에 키워드/분야/링크가 나오고, 다른 회원은 COMMON_403이다")
+	void updateThenDetail() {
+		User user = saveUser();
+		HttpGraphQlTester asUser = asUser(user);
+		String organizationId = asUser.document(CREATE)
+			.variable("input", Map.of("name", "모집 동아리", "type", "CLUB", "scope", "UNION"))
+			.execute()
+			.path("createOrganization.id").entity(String.class).get();
+		Map<String, Object> input = Map.of(
+			"tagline", "함께 만드는 모집 플랫폼",
+			"fields", List.of("IT_DEV", "DESIGN_MEDIA"),
+			"keywords", List.of("개발", "디자인"),
+			"links", List.of("instagram.com/mozip", "https://mozip.kr"));
+
+		asUser.document(UPDATE)
+			.variable("id", organizationId)
+			.variable("input", input)
+			.execute()
+			.path("updateOrganization.tagline").entity(String.class).isEqualTo("함께 만드는 모집 플랫폼")
+			.path("updateOrganization.logoUrl").valueIsNull()
+			.path("updateOrganization.keywords").entityList(String.class).containsExactly("개발", "디자인")
+			.path("updateOrganization.fields").entityList(String.class).containsExactly("IT_DEV", "DESIGN_MEDIA")
+			.path("updateOrganization.links[0].type").entity(String.class).isEqualTo("INSTAGRAM")
+			.path("updateOrganization.links[0].url").entity(String.class).isEqualTo("https://instagram.com/mozip")
+			.path("updateOrganization.links[1].type").entity(String.class).isEqualTo("WEBSITE");
+
+		graphQlTester.document("query($id: ID!) { organization(id: $id) { tagline keywords } }")
+			.variable("id", organizationId)
+			.execute()
+			.path("organization.tagline").entity(String.class).isEqualTo("함께 만드는 모집 플랫폼")
+			.path("organization.keywords").entityList(String.class).containsExactly("개발", "디자인");
+
+		asUser.document("query($prefix: String!) { keywordSuggestions(prefix: $prefix) }")
+			.variable("prefix", "디")
+			.execute()
+			.path("keywordSuggestions").entityList(String.class).contains("디자인");
+
+		asUser(saveUser()).document(UPDATE)
+			.variable("id", organizationId)
+			.variable("input", input)
+			.execute()
+			.errors()
+			.satisfy(errors -> {
+				assertThat(errors.getFirst().getErrorType()).isEqualTo(ErrorType.FORBIDDEN);
+				assertThat(errors.getFirst().getExtensions()).containsEntry("code", "COMMON_403");
+			});
+	}
+
+	@Test
+	@DisplayName("키워드가 10개를 넘으면 COMMON_400과 피그마 문구의 fieldErrors로 응답한다")
+	void tooManyKeywords() {
+		User user = saveUser();
+		HttpGraphQlTester asUser = asUser(user);
+		String organizationId = asUser.document(CREATE)
+			.variable("input", Map.of("name", "모집 동아리", "type", "CLUB", "scope", "UNION"))
+			.execute()
+			.path("createOrganization.id").entity(String.class).get();
+		List<String> keywords = IntStream.rangeClosed(1, 11).mapToObj(i -> "키워드" + i).toList();
+
+		asUser.document(UPDATE)
+			.variable("id", organizationId)
+			.variable("input", Map.of(
+				"tagline", "소개",
+				"fields", List.of("ETC"),
+				"keywords", keywords,
+				"links", List.of("https://mozip.kr")))
+			.execute()
+			.errors()
+			.satisfy(errors -> {
+				assertThat(errors.getFirst().getExtensions()).containsEntry("code", "COMMON_400");
+				assertThat(errors.getFirst().getExtensions().get("fieldErrors"))
+					.asInstanceOf(InstanceOfAssertFactories.LIST)
+					.singleElement()
+					.hasFieldOrPropertyWithValue("field", "input.keywords")
+					.hasFieldOrPropertyWithValue("message", "키워드는 최대 10개까지 등록 가능해요");
+			});
 	}
 
 	@Test

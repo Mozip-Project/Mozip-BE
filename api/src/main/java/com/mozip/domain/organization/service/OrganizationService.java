@@ -1,19 +1,33 @@
 package com.mozip.domain.organization.service;
 
+import java.net.URI;
+import java.net.URISyntaxException;
+import java.util.LinkedHashSet;
 import java.util.List;
+import java.util.Set;
 
+import org.springframework.data.domain.PageRequest;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
 import com.mozip.domain.organization.dto.CreateOrganizationInput;
+import com.mozip.domain.organization.dto.UpdateOrganizationInput;
 import com.mozip.domain.organization.entity.Member;
 import com.mozip.domain.organization.entity.MemberRole;
 import com.mozip.domain.organization.entity.Organization;
+import com.mozip.domain.organization.entity.OrganizationField;
+import com.mozip.domain.organization.entity.OrganizationFieldTag;
+import com.mozip.domain.organization.entity.OrganizationKeyword;
+import com.mozip.domain.organization.entity.OrganizationLink;
+import com.mozip.domain.organization.entity.OrganizationLinkType;
 import com.mozip.domain.organization.entity.OrganizationScope;
 import com.mozip.domain.organization.entity.OrganizationType;
 import com.mozip.domain.organization.exception.OrganizationErrorCode;
 import com.mozip.domain.organization.exception.OrganizationInputReason;
 import com.mozip.domain.organization.repository.MemberRepository;
+import com.mozip.domain.organization.repository.OrganizationFieldTagRepository;
+import com.mozip.domain.organization.repository.OrganizationKeywordRepository;
+import com.mozip.domain.organization.repository.OrganizationLinkRepository;
 import com.mozip.domain.organization.repository.OrganizationRepository;
 import com.mozip.domain.payment.service.SubscriptionService;
 import com.mozip.domain.school.entity.School;
@@ -30,8 +44,13 @@ import lombok.RequiredArgsConstructor;
 @Transactional(readOnly = true)
 public class OrganizationService {
 
+	private static final int KEYWORD_SUGGESTION_LIMIT = 10;
+
 	private final OrganizationRepository organizationRepository;
 	private final MemberRepository memberRepository;
+	private final OrganizationKeywordRepository keywordRepository;
+	private final OrganizationFieldTagRepository fieldTagRepository;
+	private final OrganizationLinkRepository linkRepository;
 	private final UserRepository userRepository;
 	private final SchoolRepository schoolRepository;
 	private final SubscriptionService subscriptionService;
@@ -49,6 +68,45 @@ public class OrganizationService {
 		memberRepository.save(Member.create(organization, user, null, MemberRole.REPRESENTATIVE));
 		subscriptionService.startFreeTrial(organization.getId());
 		return organization;
+	}
+
+	// 단체 프로필 수정, 운영진(대표자 포함)만 가능. 키워드/분야/링크는 보낸 목록으로 전체 교체
+	@Transactional
+	public Organization updateOrganization(Long userId, Long organizationId, UpdateOrganizationInput input) {
+		Organization organization = getOrganization(organizationId);
+		if (!memberRepository.existsByOrganizationIdAndUserId(organizationId, userId)) {
+			throw new BusinessException(CommonErrorCode.FORBIDDEN)
+				.addContext("organizationId", organizationId)
+				.addContext("userId", userId);
+		}
+		validateFields(organization, input.fields());
+		List<OrganizationLink> links = toLinks(organization, input.links());
+
+		organization.updateProfile(input.logoUrl(), input.tagline(), input.description(), input.email());
+
+		fieldTagRepository.deleteAllByOrganization(organization);
+		fieldTagRepository.saveAll(new LinkedHashSet<>(input.fields()).stream()
+			.map(field -> OrganizationFieldTag.create(organization, field))
+			.toList());
+
+		keywordRepository.deleteAllByOrganization(organization);
+		keywordRepository.saveAll(normalizeKeywords(input.keywords()).stream()
+			.map(keyword -> OrganizationKeyword.create(organization, keyword))
+			.toList());
+
+		linkRepository.deleteAllByOrganization(organization);
+		linkRepository.saveAll(links);
+		return organization;
+	}
+
+	// 키워드 자동완성, 전 단체 키워드 중 접두 일치 상위 10개 (많이 쓰인 순, 같으면 사전순)
+	public List<String> getKeywordSuggestions(String prefix) {
+		String trimmed = prefix == null ? "" : prefix.strip();
+		if (trimmed.isEmpty()) {
+			return List.of();
+		}
+		return keywordRepository.findKeywordsByPrefix(escapeLike(trimmed) + "%",
+			PageRequest.of(0, KEYWORD_SUGGESTION_LIMIT));
 	}
 
 	// 내가 운영진(Member)으로 들어가 있는 단체, 운영진 홈의 단체 전환 메뉴에서 사용
@@ -79,6 +137,57 @@ public class OrganizationService {
 		if (!union && input.schoolId() == null) {
 			throw invalid(OrganizationInputReason.SCHOOL_REQUIRED);
 		}
+	}
+
+	// 활동 분야는 단체 종류(저장된 값)에 따라 필수 여부가 갈려 입력만으로는 검사할 수 없음
+	private static void validateFields(Organization organization, List<OrganizationField> fields) {
+		if (organization.isStudentCouncil() && !fields.isEmpty()) {
+			throw invalid(OrganizationInputReason.FIELDS_NOT_ALLOWED);
+		}
+		if (!organization.isStudentCouncil() && fields.isEmpty()) {
+			throw invalid(OrganizationInputReason.FIELDS_REQUIRED);
+		}
+	}
+
+	// 앞뒤 공백을 지우고 같은 키워드는 한 번만 (순서 유지), unique index 충돌을 서비스에서 먼저 막음
+	private static Set<String> normalizeKeywords(List<String> keywords) {
+		Set<String> normalized = new LinkedHashSet<>();
+		for (String keyword : keywords) {
+			normalized.add(keyword.strip());
+		}
+		return normalized;
+	}
+
+	// 스킴 없이 적은 주소는 https://를 붙여 저장하고, 호스트로 type을 추정
+	private static List<OrganizationLink> toLinks(Organization organization, List<String> urls) {
+		Set<String> seen = new LinkedHashSet<>();
+		for (String raw : urls) {
+			String url = raw.strip();
+			if (!url.contains("://")) {
+				url = "https://" + url;
+			}
+			seen.add(url);
+		}
+		return seen.stream()
+			.map(url -> OrganizationLink.create(organization, OrganizationLinkType.fromHost(hostOf(url)), url))
+			.toList();
+	}
+
+	private static String hostOf(String url) {
+		try {
+			String host = new URI(url).getHost();
+			if (host == null || host.isBlank()) {
+				throw invalid(OrganizationInputReason.LINK_URL_INVALID).addContext("url", url);
+			}
+			return host;
+		} catch (URISyntaxException e) {
+			throw invalid(OrganizationInputReason.LINK_URL_INVALID).addContext("url", url);
+		}
+	}
+
+	// like 패턴 문자는 !로 이스케이프 (쿼리의 escape '!'와 짝)
+	private static String escapeLike(String value) {
+		return value.replace("!", "!!").replace("%", "!%").replace("_", "!_");
 	}
 
 	private School findSchool(Long schoolId) {
