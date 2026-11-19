@@ -1,5 +1,9 @@
 # 로컬 개발 환경이며, compose.yaml 값과 맞춤
 spring:
+  datasource:
+    url: jdbc:postgresql://localhost:5432/mozip
+    username: mozip
+    password: mozip
   data:
     redis:
       host: localhost

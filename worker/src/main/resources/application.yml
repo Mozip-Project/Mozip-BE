@@ -6,3 +6,7 @@ spring:
   main:
     # pub/sub 리스너만 있는 non-web 앱이라 non-daemon 스레드가 없으면 시작 직후 종료됨
     keep-alive: true
+  jpa:
+    # 스키마 변경은 api만 담당 (DDL 충돌 방지)
+    hibernate:
+      ddl-auto: none
