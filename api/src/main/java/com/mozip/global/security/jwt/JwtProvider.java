@@ -10,7 +10,8 @@ import javax.crypto.SecretKey;
 
 import org.springframework.stereotype.Component;
 
-import com.mozip.global.security.Authority;
+import com.mozip.domain.auth.exception.TokenErrorCode;
+import com.mozip.domain.user.entity.Authority;
 import com.mozip.global.exception.BusinessException;
 
 import io.jsonwebtoken.Claims;

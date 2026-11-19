@@ -7,6 +7,8 @@ import org.springframework.security.core.Authentication;
 import org.springframework.security.core.GrantedAuthority;
 import org.springframework.security.core.authority.SimpleGrantedAuthority;
 
+import com.mozip.domain.user.entity.Authority;
+
 // 인증된 사용자 정보 (@AuthenticationPrincipal AuthUser로 받음)
 public record AuthUser(Long userId, Authority authority) {
 

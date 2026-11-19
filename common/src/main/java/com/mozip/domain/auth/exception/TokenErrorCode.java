@@ -1,4 +1,4 @@
-package com.mozip.global.security.jwt;
+package com.mozip.domain.auth.exception;
 
 import org.springframework.http.HttpStatus;
 

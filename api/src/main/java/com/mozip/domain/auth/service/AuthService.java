@@ -14,6 +14,7 @@ import com.mozip.domain.auth.dto.SignupRequest;
 import com.mozip.domain.auth.dto.SignupResponse;
 import com.mozip.domain.auth.exception.AuthErrorCode;
 import com.mozip.domain.auth.exception.RefreshTokenConsumedException;
+import com.mozip.domain.auth.exception.TokenErrorCode;
 import com.mozip.domain.auth.repository.RefreshTokenRepository;
 import com.mozip.domain.user.entity.User;
 import com.mozip.domain.user.exception.UserErrorCode;
@@ -24,7 +25,6 @@ import com.mozip.global.security.jwt.IssuedRefreshToken;
 import com.mozip.global.security.jwt.JwtProperties;
 import com.mozip.global.security.jwt.JwtProvider;
 import com.mozip.global.security.jwt.RefreshTokenClaims;
-import com.mozip.global.security.jwt.TokenErrorCode;
 
 import lombok.extern.slf4j.Slf4j;
 

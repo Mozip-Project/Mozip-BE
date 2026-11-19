@@ -13,6 +13,7 @@ import com.mozip.domain.auth.dto.LoginResponse;
 import com.mozip.domain.auth.dto.SignupRequest;
 import com.mozip.domain.auth.dto.SignupResponse;
 import com.mozip.domain.auth.exception.RefreshTokenConsumedException;
+import com.mozip.domain.auth.exception.TokenErrorCode;
 import com.mozip.domain.auth.service.AuthService;
 import com.mozip.domain.auth.service.AuthTokens;
 import com.mozip.domain.auth.service.LoginResult;
@@ -20,7 +21,6 @@ import com.mozip.global.common.response.ApiResponse;
 import com.mozip.global.exception.BusinessException;
 import com.mozip.global.exception.ErrorCode;
 import com.mozip.global.security.cookie.AuthCookieManager;
-import com.mozip.global.security.jwt.TokenErrorCode;
 
 import jakarta.servlet.http.HttpServletResponse;
 import jakarta.validation.Valid;

@@ -4,7 +4,6 @@ import java.time.LocalDateTime;
 
 import com.mozip.domain.school.entity.School;
 import com.mozip.global.common.BaseEntity;
-import com.mozip.global.security.Authority;
 
 import jakarta.persistence.Column;
 import jakarta.persistence.Entity;

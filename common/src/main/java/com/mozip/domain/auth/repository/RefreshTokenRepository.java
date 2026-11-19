@@ -11,8 +11,8 @@ import org.springframework.data.redis.core.StringRedisTemplate;
 import org.springframework.data.redis.core.script.RedisScript;
 import org.springframework.stereotype.Repository;
 
+import com.mozip.domain.auth.exception.TokenErrorCode;
 import com.mozip.global.exception.BusinessException;
-import com.mozip.global.security.jwt.TokenErrorCode;
 
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
