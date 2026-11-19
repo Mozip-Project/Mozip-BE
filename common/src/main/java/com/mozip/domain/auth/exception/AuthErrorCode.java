@@ -7,7 +7,7 @@ import com.mozip.global.exception.ErrorCode;
 import lombok.Getter;
 import lombok.RequiredArgsConstructor;
 
-// 로그인 관련 에러 (토큰 검증 에러는 global.security.jwt의 TokenErrorCode)
+// 로그인 관련 에러 (토큰 검증 에러는 같은 패키지의 TokenErrorCode)
 @Getter
 @RequiredArgsConstructor
 public enum AuthErrorCode implements ErrorCode {
