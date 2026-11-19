@@ -21,7 +21,7 @@ import com.mozip.global.exception.CommonErrorCode;
 import com.mozip.global.security.jwt.JwtProperties;
 import com.mozip.global.security.jwt.JwtProvider;
 import com.mozip.global.security.jwt.RefreshTokenClaims;
-import com.mozip.global.security.jwt.TokenErrorCode;
+import com.mozip.domain.auth.exception.TokenErrorCode;
 
 class AuthServiceTest {
 

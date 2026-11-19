@@ -14,7 +14,7 @@ import org.springframework.security.authentication.InsufficientAuthenticationExc
 import com.mozip.global.common.response.ApiResponseWriter;
 import com.mozip.global.logging.TraceIdFilter;
 import com.mozip.global.security.jwt.JwtAuthenticationFilter;
-import com.mozip.global.security.jwt.TokenErrorCode;
+import com.mozip.domain.auth.exception.TokenErrorCode;
 
 import tools.jackson.databind.JsonNode;
 import tools.jackson.databind.json.JsonMapper;

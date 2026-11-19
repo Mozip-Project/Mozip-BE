@@ -8,8 +8,9 @@ import java.time.Duration;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
 
+import com.mozip.domain.auth.exception.TokenErrorCode;
+import com.mozip.domain.user.entity.Authority;
 import com.mozip.global.exception.BusinessException;
-import com.mozip.global.security.Authority;
 
 class JwtProviderTest {
 

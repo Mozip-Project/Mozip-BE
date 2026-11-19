@@ -18,7 +18,7 @@ import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.stereotype.Controller;
 
 import com.mozip.TestcontainersConfiguration;
-import com.mozip.global.security.Authority;
+import com.mozip.domain.user.entity.Authority;
 import com.mozip.global.security.cookie.AuthCookieManager;
 import com.mozip.global.security.jwt.JwtProperties;
 import com.mozip.global.security.jwt.JwtProvider;

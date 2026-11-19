@@ -22,7 +22,7 @@ import org.springframework.data.redis.core.ValueOperations;
 import org.springframework.data.redis.core.script.RedisScript;
 
 import com.mozip.global.exception.BusinessException;
-import com.mozip.global.security.jwt.TokenErrorCode;
+import com.mozip.domain.auth.exception.TokenErrorCode;
 
 class RefreshTokenRepositoryTest {
 

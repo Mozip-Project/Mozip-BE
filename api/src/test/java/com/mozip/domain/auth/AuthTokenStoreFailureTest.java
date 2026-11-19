@@ -24,7 +24,7 @@ import com.mozip.TestcontainersConfiguration;
 import com.mozip.domain.auth.repository.RefreshTokenRepository;
 import com.mozip.global.exception.BusinessException;
 import com.mozip.global.security.cookie.AuthCookieManager;
-import com.mozip.global.security.jwt.TokenErrorCode;
+import com.mozip.domain.auth.exception.TokenErrorCode;
 
 import jakarta.servlet.http.Cookie;
 
