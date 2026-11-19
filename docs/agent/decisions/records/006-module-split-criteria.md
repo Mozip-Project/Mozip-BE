@@ -1,8 +1,8 @@
 # 모듈 분리 기준: 엔티티는 common, 로직은 api, 둘 다 쓸 때만 common으로 내린다
 
-- 상태: proposed
+- 상태: accepted
 - 기록일: 2026-11-18
-- 관련: #20, #33
+- 관련: #20, #33, #43, #45
 
 ## 맥락
 
@@ -36,3 +36,4 @@
 ## 변경 기록
 
 - 2026-11-18: A 제안과 검토 결과를 기록. 이동 작업은 별도 refactor 이슈로
+- 2026-11-20: #45에서 web, Security, 예외 핸들러, auth와 통합 테스트를 api로 이동해 accepted. GraphQL 스키마 파일은 아직 `common/src/main/resources/graphql/`에 있다. B의 단체, 구독, 시드 코드는 #40에서 같은 기준으로 api로 이동

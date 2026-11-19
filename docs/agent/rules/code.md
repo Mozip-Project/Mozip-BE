@@ -29,7 +29,7 @@ domain/{도메인}/
 
 - 모든 도메인이 같이 쓰는 코드만 `com.mozip.global`에 둔다. 한 도메인에서만 쓰면 그 도메인 패키지에 둔다
 - 개발 환경 전용 코드(인증 우회, 시드 데이터)는 `com.mozip.devtools`에 둔다
-- 모듈은 `common`, `api`, `worker`. 지금은 거의 모든 코드가 `common`에 있다. "언젠가 worker도 쓸 것 같다"는 이유로 미리 `common`에 넣지 않고, 실제로 두 모듈이 필요로 할 때 내린다 (결정 006, 합의 전)
+- 모듈은 `common`, `api`, `worker`. 엔티티, 리포지토리, enum, `*ErrorCode`는 `common`, 컨트롤러, DTO, 서비스는 `api`. "언젠가 worker도 쓸 것 같다"는 이유로 미리 `common`에 넣지 않고, 실제로 두 모듈이 필요로 할 때 내린다 (결정 006)
 
 ## 클래스 작성
 

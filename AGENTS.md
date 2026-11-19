@@ -8,19 +8,19 @@
 
 | 모듈 | 넣는 것 | 비고 |
 |---|---|---|
-| `common` | 엔티티, 리포지토리, 서비스, 컨트롤러, GraphQL 스키마, 공통 설정과 예외 | 지금은 거의 모든 코드가 여기 있다 |
-| `api` | 실행 진입점 `MozipApplication`, 환경별 `application-*.yml` | 운영 배포 단위 |
-| `worker` | Redis 리스너, 비동기 작업 | `common`에 의존하지 않는다 |
+| `common` | 엔티티, 리포지토리, enum, 도메인별 `*ErrorCode`와 `BusinessException`, GraphQL 스키마, JPA와 Redis 설정 | api와 worker가 같이 쓰는 것만 |
+| `api` | 컨트롤러, DTO, 서비스, Security와 JWT, 예외 핸들러, 개발용 인증 우회와 시드, 환경별 `application-*.yml` | 운영 배포 단위, 통합 테스트도 여기 |
+| `worker` | Redis 리스너, 비동기 작업 | `common`의 리포지토리와 엔티티 메서드만 쓴다 |
 
-도메인 코드는 `common/src/main/java/com/mozip/domain/{도메인}/` 아래 계층별 패키지로 둔다. 자세한 구조는 `docs/agent/rules/code.md`.
+도메인 코드는 모듈마다 `src/main/java/com/mozip/domain/{도메인}/` 아래 계층별 패키지로 둔다. 엔티티와 리포지토리는 `common`, 컨트롤러와 서비스는 `api` (결정 006). 자세한 구조는 `docs/agent/rules/code.md`.
 
 ## 빌드와 테스트
 
 ```
 ./gradlew build                                              # CI와 같은 전체 빌드와 테스트
 ./gradlew test                                               # 테스트만
-./gradlew :common:test --tests 'com.mozip.domain.organization.*'   # 일부만
-./gradlew bootRun                                            # 로컬 실행 (compose.yaml의 DB, Redis 자동 기동)
+./gradlew :api:test --tests 'com.mozip.domain.organization.*'      # 일부만
+./gradlew :api:bootRun                                       # 로컬 실행 (compose.yaml의 DB, Redis 자동 기동)
 ```
 
 - 테스트는 Testcontainers로 PostgreSQL과 Redis 컨테이너를 띄우므로 Docker Desktop이 켜져 있어야 한다

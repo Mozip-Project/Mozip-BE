@@ -2,11 +2,11 @@
 
 ## 공통
 
-- 테스트는 `common/src/test/java`에 두고 대상 클래스와 같은 패키지에 `*Test`로 만든다
+- 테스트는 대상 클래스가 있는 모듈의 `src/test/java`에 두고 같은 패키지에 `*Test`로 만든다. 서비스와 HTTP 통합 테스트는 `api`, 엔티티 단위 테스트는 `common`
 - `@DisplayName`에 한국어 한 문장으로 기대 동작을 쓴다 (예: `"단체를 만들면 PENDING 상태로 저장되고 호출자가 대표자로 등록된다"`)
 - 단언은 AssertJ. 예외는 `assertThatThrownBy(...).isInstanceOf(BusinessException.class)` 뒤에 `getErrorCode()`와 `getReason()`까지 확인한다
 - Testcontainers로 PostgreSQL(pgvector)과 Redis를 띄운다. Docker Desktop이 꺼져 있으면 모든 통합 테스트가 실패한다
-- 테스트 DB는 `db/ddl/*.sql`로 만들어지고 `ddl-auto: validate`로 엔티티와 대조한다. 엔티티만 바꾸고 SQL을 빠뜨리면 컨텍스트 로딩에서 실패한다 (`db.md`)
+- 테스트 DB는 `db/ddl/*.sql`로 만들어지고 `ddl-auto: validate`로 엔티티와 대조한다 (`TestcontainersConfiguration`이 프로필 yml보다 우선해서 넣는 값). 엔티티만 바꾸고 SQL을 빠뜨리면 컨텍스트 로딩에서 실패한다 (`db.md`)
 
 ## 서비스 테스트
 
@@ -26,8 +26,8 @@
 
 ```
 ./gradlew test                                                        # 전체
-./gradlew :common:test --tests 'com.mozip.domain.organization.*'      # 패키지만
-./gradlew :common:test --tests '*OrganizationServiceTest'             # 클래스만
+./gradlew :api:test --tests 'com.mozip.domain.organization.*'         # 패키지만
+./gradlew :api:test --tests '*OrganizationServiceTest'                # 클래스만
 ```
 
 - CI(`.github/workflows/ci.yml`)는 PR마다 `./gradlew build`를 돌리고 실패하면 테스트 리포트를 Artifacts로 올린다
