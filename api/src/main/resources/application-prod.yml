@@ -18,6 +18,11 @@ spring:
     password: ${DB_PASSWORD}
     driver-class-name: org.postgresql.Driver
 
+  jpa:
+    hibernate:
+      # 엔티티 기준으로 운영 스키마를 자동 반영 (worker는 none 유지, 스키마 변경은 api만 담당)
+      ddl-auto: update
+
   data:
     redis:
       host: ${REDIS_HOST}
