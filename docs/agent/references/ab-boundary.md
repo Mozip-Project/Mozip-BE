@@ -31,7 +31,8 @@
 | `OrganizationAccessChecker.getOrganization(organizationId)` | B | A (없으면 `ORG_404`) | 구현됨 (#36) |
 | `SubscriptionService.startFreeTrial(organizationId)` | A | B (단체 생성 직후) | 임시 구현 `TemporarySubscriptionService` (#37). 이용권 모델이 들어오면 A가 교체 |
 | 이용권 검사 (`ORG_402 SUBSCRIPTION_REQUIRED`) | A | B (유료 기능 호출 시) | 코드만 예약 (#36) |
-| `MailSender`, `NotificationService` | A | B (결과 안내 발송) | 미정. B 결과 안내 순서 전에 A가 만들거나 B가 임시 구현 |
+| `NotificationService.send(userId, type, organizationId, title, linkUrl)` (messageId를 받는 오버로드 포함) | A | B (`inviteMember`→INVITATION, `assignReviewers`→EVALUATION_REQUEST, 결과 안내→DOC_RESULT/FINAL_RESULT) | 구현됨 (#48) |
+| `MailSender` | A | B (결과 안내 발송) | 미정. B 결과 안내 순서 전에 A가 만들거나 B가 임시 구현 |
 | `User.contactEmail` | A | B (결과 안내 수신 주소) | 미정. A가 컬럼만 먼저 추가하거나 B가 지원서 `profile_snapshot`에서 임시로 꺼냄 |
 
 ## 공유하는 엔티티

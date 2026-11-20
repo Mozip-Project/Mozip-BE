@@ -64,6 +64,18 @@ public class User extends BaseEntity {
 	@Column(nullable = false)
 	private LocalDateTime termsAgreedAt;
 
+	// 지원 결과, 면접 일정 알림
+	@Column(nullable = false)
+	private boolean notifyResult;
+
+	// 스크랩 공고 지원 시작 알림
+	@Column(nullable = false)
+	private boolean notifyScrap;
+
+	// 대표자 인수 요청, 평가 마감 알림
+	@Column(nullable = false)
+	private boolean notifyOperator;
+
 	private User(String phone, String encodedPassword, String name, Authority authority, Role lastRole,
 		boolean marketingAgreed, LocalDateTime termsAgreedAt) {
 		this.phone = phone;
@@ -74,6 +86,9 @@ public class User extends BaseEntity {
 		this.lastRole = lastRole;
 		this.marketingAgreed = marketingAgreed;
 		this.termsAgreedAt = termsAgreedAt;
+		this.notifyResult = true;
+		this.notifyScrap = true;
+		this.notifyOperator = true;
 	}
 
 	// 일반 가입 (비밀번호는 암호화한 값으로 전달)
@@ -90,6 +105,12 @@ public class User extends BaseEntity {
 
 	public boolean isActive() {
 		return status == UserStatus.ACTIVE;
+	}
+
+	public void updateNotificationSettings(boolean notifyResult, boolean notifyScrap, boolean notifyOperator) {
+		this.notifyResult = notifyResult;
+		this.notifyScrap = notifyScrap;
+		this.notifyOperator = notifyOperator;
 	}
 
 }
