@@ -79,9 +79,12 @@ public class AuthService {
 		if (!user.isActive()) {
 			throw new BusinessException(AuthErrorCode.INACTIVE_USER).addContext("userId", user.getId());
 		}
-		// 만료 시간은 쿠키 Max-Age와 같은 설정값이라 프론트가 이 값으로 재발급 시점을 잡을 수 있음
-		return new LoginResult(issueTokens(user),
-			LoginResponse.from(user, jwtProperties.accessTokenExpiration().toSeconds()));
+		return new LoginResult(issueTokens(user), LoginResponse.from(user, accessTokenExpiresIn()));
+	}
+
+	// 만료 시간은 쿠키 Max-Age와 같은 설정값이라 프론트가 이 값으로 재발급 시점을 잡을 수 있음
+	public long accessTokenExpiresIn() {
+		return jwtProperties.accessTokenExpiration().toSeconds();
 	}
 
 	// 사용한 리프레시 토큰은 폐기 후 새로 발급 (RTR)

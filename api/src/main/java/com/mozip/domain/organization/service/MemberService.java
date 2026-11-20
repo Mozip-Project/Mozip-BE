@@ -50,7 +50,9 @@ public class MemberService {
 				.addContext("memberId", memberId);
 		}
 		member.leave(LocalDateTime.now());
-		member.getUser().leaveOrganization(member.getOrganization());
+		// exists 쿼리 전에 auto flush로 left_at이 반영되어 방금 나간 소속은 세지 않음
+		boolean stillOperator = memberRepository.existsByUserIdAndLeftAtIsNull(member.getUser().getId());
+		member.getUser().leaveOrganization(member.getOrganization(), stillOperator);
 	}
 
 	private static BusinessException forbidden(Long organizationId, Long userId) {

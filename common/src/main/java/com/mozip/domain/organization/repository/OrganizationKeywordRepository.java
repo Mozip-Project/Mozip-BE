@@ -11,6 +11,7 @@ import org.springframework.data.repository.query.Param;
 
 import com.mozip.domain.organization.entity.Organization;
 import com.mozip.domain.organization.entity.OrganizationKeyword;
+import com.mozip.domain.organization.entity.ReviewStatus;
 
 public interface OrganizationKeywordRepository extends JpaRepository<OrganizationKeyword, Long> {
 
@@ -24,7 +25,8 @@ public interface OrganizationKeywordRepository extends JpaRepository<Organizatio
 
 	// 자동완성, 전 단체 키워드 중 접두 일치를 많이 쓰인 순으로. pattern은 서비스에서 !로 이스케이프한 뒤 %를 붙여 전달
 	@Query("select k.keyword from OrganizationKeyword k where k.keyword like :pattern escape '!' "
-		+ "group by k.keyword order by count(k) desc, k.keyword asc")
-	List<String> findKeywordsByPrefix(@Param("pattern") String pattern, Pageable pageable);
+		+ "and k.organization.reviewStatus = :status group by k.keyword order by count(k) desc, k.keyword asc")
+	List<String> findKeywordsByPrefix(@Param("pattern") String pattern, @Param("status") ReviewStatus status,
+		Pageable pageable);
 
 }

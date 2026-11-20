@@ -12,6 +12,7 @@ import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.context.SpringBootTest;
 import org.springframework.context.annotation.Import;
+import org.springframework.jdbc.core.JdbcTemplate;
 import org.springframework.transaction.annotation.Transactional;
 
 import com.mozip.TestcontainersConfiguration;
@@ -23,6 +24,7 @@ import com.mozip.domain.organization.exception.MemberErrorCode;
 import com.mozip.domain.organization.exception.MemberReason;
 import com.mozip.domain.organization.exception.OrganizationErrorCode;
 import com.mozip.domain.organization.repository.MemberRepository;
+import com.mozip.domain.user.entity.Role;
 import com.mozip.domain.user.entity.User;
 import com.mozip.domain.user.repository.UserRepository;
 import com.mozip.global.exception.BusinessException;
@@ -49,6 +51,9 @@ class MemberServiceTest {
 	@Autowired
 	private MemberRepository memberRepository;
 
+	@Autowired
+	private JdbcTemplate jdbcTemplate;
+
 	private User representative;
 	private User operator;
 	private User outsider;
@@ -72,6 +77,10 @@ class MemberServiceTest {
 	void getMembers() {
 		User later = userRepository.save(User.create("01099990024", "encoded", "나중 합류", false, LocalDateTime.now()));
 		Member laterMember = memberRepository.save(Member.create(organization, later, null, MemberRole.OPERATOR));
+		memberRepository.flush();
+		// 대표자 인수를 받으면 대표자가 운영진보다 늦게 합류한 행일 수 있어 합류일과 상관없이 대표자가 먼저인지 봄
+		jdbcTemplate.update("update members set created_at = created_at + interval '1 day' where id = ?",
+			representativeMember.getId());
 
 		List<Member> members = memberService.getMembers(operator.getId(), organization.getId());
 
@@ -107,6 +116,7 @@ class MemberServiceTest {
 		assertThat(accessChecker.isOperatorOf(operator.getId(), organization.getId())).isFalse();
 		assertThat(memberRepository.findAllWithOrganizationAndTeamByUserId(operator.getId())).isEmpty();
 		assertThat(operator.getLastOrganization()).isNull();
+		assertThat(operator.getLastRole()).isEqualTo(Role.APPLICANT);
 	}
 
 	@Test
@@ -119,6 +129,7 @@ class MemberServiceTest {
 		memberService.removeMember(representative.getId(), operatorMember.getId());
 
 		assertThat(operator.getLastOrganization().getId()).isEqualTo(other.getId());
+		assertThat(operator.getLastRole()).isEqualTo(Role.OPERATOR);
 	}
 
 	@Test

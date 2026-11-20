@@ -71,8 +71,6 @@ type User {
     authority: Authority!
     status: UserStatus!
     lastRole: Role!
-    "운영진 홈에서 마지막으로 고른 단체 (GNB 단체 전환)"
-    lastOrganization: Organization
     "학교 인증 승인 시 채움, null = 미인증 (공고 열람만 가능)"
     school: School
     profileImageUrl: String

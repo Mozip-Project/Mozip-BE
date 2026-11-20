@@ -104,10 +104,13 @@ public class User extends BaseEntity {
 		this.lastRole = Role.OPERATOR;
 	}
 
-	// 내보내진 단체가 드롭다운의 현재 단체면 비움. lastRole은 두어 다른 소속 단체가 있으면 운영진 홈에 남음
-	public void leaveOrganization(Organization organization) {
+	// 내보내진 단체가 드롭다운의 현재 단체면 비움. 남은 소속이 없으면 운영진 홈으로 갈 곳이 없어 지원자로 되돌림
+	public void leaveOrganization(Organization organization, boolean stillOperator) {
 		if (lastOrganization != null && lastOrganization.getId().equals(organization.getId())) {
 			this.lastOrganization = null;
+		}
+		if (!stillOperator) {
+			this.lastRole = Role.APPLICANT;
 		}
 	}
 
