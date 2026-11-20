@@ -6,4 +6,6 @@ import com.mozip.domain.organization.entity.Member;
 
 public interface MemberRepository extends JpaRepository<Member, Long> {
 
+	boolean existsByOrganizationIdAndUserId(Long organizationId, Long userId);
+
 }
