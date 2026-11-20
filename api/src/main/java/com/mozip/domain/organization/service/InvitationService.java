@@ -137,6 +137,7 @@ public class InvitationService {
 		if (invitation.getInvitee() != null) {
 			return invitation.getInvitee().getId().equals(user.getId());
 		}
+		// TODO(A 회원 연락처 이메일) 이메일 초대는 contactEmail이 생기면 여기서 이메일도 비교. 지금은 휴대폰만 맞춰 봄
 		return invitation.getInviteeContact().equals(user.getPhone());
 	}
 
