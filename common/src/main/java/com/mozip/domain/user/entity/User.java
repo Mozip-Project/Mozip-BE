@@ -2,6 +2,7 @@ package com.mozip.domain.user.entity;
 
 import java.time.LocalDateTime;
 
+import com.mozip.domain.organization.entity.Organization;
 import com.mozip.domain.school.entity.School;
 import com.mozip.global.common.BaseEntity;
 
@@ -53,6 +54,11 @@ public class User extends BaseEntity {
 	@Column(nullable = false, length = 20)
 	private Role lastRole;
 
+	// 운영진 홈에서 마지막으로 고른 단체 (GNB 단체 전환), 운영진으로 전환한 적이 없으면 null
+	@ManyToOne(fetch = FetchType.LAZY)
+	@JoinColumn(name = "last_organization_id")
+	private Organization lastOrganization;
+
 	// 학교 인증 승인 시 채움, null = 미인증 (공고 열람만 가능)
 	@ManyToOne(fetch = FetchType.LAZY)
 	@JoinColumn(name = "school_id")
@@ -90,6 +96,15 @@ public class User extends BaseEntity {
 
 	public boolean isActive() {
 		return status == UserStatus.ACTIVE;
+	}
+
+	// 지원자/운영진 홈 전환. 운영진으로 전환할 때만 organization을 같이 갱신 (지원자 전환은 이전 선택을 유지)
+	public void updateLastRole(Role lastRole) {
+		this.lastRole = lastRole;
+	}
+
+	public void updateLastOrganization(Organization lastOrganization) {
+		this.lastOrganization = lastOrganization;
 	}
 
 }
