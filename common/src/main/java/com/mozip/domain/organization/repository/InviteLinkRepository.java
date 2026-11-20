@@ -1,6 +1,7 @@
 package com.mozip.domain.organization.repository;
 
 import java.time.LocalDateTime;
+import java.util.List;
 import java.util.Optional;
 
 import org.springframework.data.jpa.repository.JpaRepository;
@@ -17,5 +18,7 @@ public interface InviteLinkRepository extends JpaRepository<InviteLink, Long> {
 	// 아직 유효한 링크 중 가장 늦게 만료되는 것 (있으면 새로 만들지 않고 재사용)
 	Optional<InviteLink> findFirstByOrganizationIdAndExpiresAtAfterOrderByExpiresAtDesc(Long organizationId,
 		LocalDateTime now);
+
+	List<InviteLink> findAllByOrganizationIdAndExpiresAtAfter(Long organizationId, LocalDateTime now);
 
 }

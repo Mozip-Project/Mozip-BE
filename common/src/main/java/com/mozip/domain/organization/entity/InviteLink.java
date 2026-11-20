@@ -54,4 +54,11 @@ public class InviteLink extends BaseEntity {
 		return !now.isBefore(expiresAt);
 	}
 
+	// 운영진을 내보내면 그 사람이 알고 있는 링크로 다시 들어오지 못하게 바로 만료
+	public void expire(LocalDateTime now) {
+		if (expiresAt.isAfter(now)) {
+			this.expiresAt = now;
+		}
+	}
+
 }

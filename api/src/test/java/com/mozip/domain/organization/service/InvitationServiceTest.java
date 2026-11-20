@@ -231,6 +231,30 @@ class InvitationServiceTest {
 	}
 
 	@Test
+	@DisplayName("만료가 하루 안으로 남은 공용 링크는 재사용하지 않고 새로 발급한다")
+	void inviteLinkNearExpiry() {
+		InviteLink link = invitationService.createInviteLink(representative.getId(), organization.getId());
+		ReflectionTestUtils.setField(link, "expiresAt", LocalDateTime.now().plusHours(12));
+		memberRepository.flush();
+
+		assertThat(invitationService.createInviteLink(representative.getId(), organization.getId()).getId())
+			.isNotEqualTo(link.getId());
+	}
+
+	@Test
+	@DisplayName("운영진을 내보내면 유효한 공용 링크가 만료되어 그 링크로 다시 들어올 수 없다")
+	void removeMemberExpiresInviteLink() {
+		InviteLink link = invitationService.createInviteLink(representative.getId(), organization.getId());
+		Member member = invitationService.acceptInvitation(invitee.getId(), link.getToken());
+
+		memberService.removeMember(representative.getId(), member.getId());
+		memberRepository.flush();
+
+		assertError(() -> invitationService.acceptInvitation(invitee.getId(), link.getToken()),
+			MemberErrorCode.INVITATION_EXPIRED, null);
+	}
+
+	@Test
 	@DisplayName("내보낸 운영진도 다시 초대하고 수락할 수 있다")
 	void reinviteRemovedMember() {
 		Member removed = memberRepository.save(Member.create(organization, invitee, null, MemberRole.OPERATOR));

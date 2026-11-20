@@ -45,7 +45,7 @@ public class TeamService {
 	// 기존 팀은 행을 지우고 다시 만들지 않고 고쳐 써서 운영진 소속과 포지션 참조(team_id)가 유지됨
 	@Transactional
 	public List<Team> saveTeams(Long userId, Long organizationId, List<TeamInput> inputs) {
-		Organization organization = organizationService.getOrganization(organizationId);
+		Organization organization = organizationService.getOrganizationForUpdate(organizationId);
 		if (!memberRepository.existsByOrganizationIdAndUserIdAndLeftAtIsNull(organizationId, userId)) {
 			throw new BusinessException(CommonErrorCode.FORBIDDEN)
 				.addContext("organizationId", organizationId)

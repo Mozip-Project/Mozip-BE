@@ -10,6 +10,7 @@ import com.mozip.domain.organization.entity.Member;
 import com.mozip.domain.organization.entity.MemberRole;
 import com.mozip.domain.organization.exception.MemberErrorCode;
 import com.mozip.domain.organization.exception.MemberReason;
+import com.mozip.domain.organization.repository.InviteLinkRepository;
 import com.mozip.domain.organization.repository.MemberRepository;
 import com.mozip.global.exception.BusinessException;
 import com.mozip.global.exception.CommonErrorCode;
@@ -23,6 +24,7 @@ import lombok.RequiredArgsConstructor;
 public class MemberService {
 
 	private final MemberRepository memberRepository;
+	private final InviteLinkRepository inviteLinkRepository;
 	private final OrganizationService organizationService;
 
 	// 그 단체 운영진만 조회 가능. 없는 단체(ORG_404)를 먼저 거르고 소속이 아니면 COMMON_403
@@ -49,7 +51,11 @@ public class MemberService {
 			throw new BusinessException(MemberErrorCode.MEMBER_CONFLICT, MemberReason.REPRESENTATIVE)
 				.addContext("memberId", memberId);
 		}
-		member.leave(LocalDateTime.now());
+		LocalDateTime now = LocalDateTime.now();
+		member.leave(now);
+		// 공용 링크는 누구나 토큰으로 합류하므로 내보낸 운영진이 그 링크로 바로 돌아오지 못하게 유효한 링크를 모두 만료
+		inviteLinkRepository.findAllByOrganizationIdAndExpiresAtAfter(organizationId, now)
+			.forEach(link -> link.expire(now));
 		// exists 쿼리 전에 auto flush로 left_at이 반영되어 방금 나간 소속은 세지 않음
 		boolean stillOperator = memberRepository.existsByUserIdAndLeftAtIsNull(member.getUser().getId());
 		member.getUser().leaveOrganization(member.getOrganization(), stillOperator);

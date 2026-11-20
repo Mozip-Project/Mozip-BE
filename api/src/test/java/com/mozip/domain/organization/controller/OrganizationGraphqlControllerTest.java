@@ -560,6 +560,39 @@ class OrganizationGraphqlControllerTest {
 	}
 
 	@Test
+	@DisplayName("초대와 수락 응답에서 회원의 학교까지 조회해도 LAZY 예외 없이 응답한다")
+	void invitationNestedUserSchool() {
+		School school = schoolRepository.save(School.create("초대대학교", null));
+		User representative = saveUser();
+		User invitee = saveUser();
+		jdbcTemplate.update("update users set school_id = ? where id in (?, ?)", school.getId(),
+			representative.getId(), invitee.getId());
+		HttpGraphQlTester asRepresentative = asUser(representative);
+		String organizationId = createOrganization(asRepresentative);
+
+		String code = asRepresentative.document("""
+				mutation($organizationId: ID!, $contact: String!) {
+					inviteMember(organizationId: $organizationId, contact: $contact) {
+						code inviter { school { name } } invitee { school { name } }
+					}
+				}
+				""")
+			.variable("organizationId", organizationId)
+			.variable("contact", invitee.getPhone())
+			.execute()
+			.errors().verify()
+			.path("inviteMember.inviter.school.name").entity(String.class).isEqualTo("초대대학교")
+			.path("inviteMember.invitee.school.name").entity(String.class).isEqualTo("초대대학교")
+			.path("inviteMember.code").entity(String.class).get();
+
+		asUser(invitee).document("mutation($code: String!) { acceptInvitation(code: $code) { user { school { name } } } }")
+			.variable("code", code)
+			.execute()
+			.errors().verify()
+			.path("acceptInvitation.user.school.name").entity(String.class).isEqualTo("초대대학교");
+	}
+
+	@Test
 	@DisplayName("증빙 링크가 http, https 주소가 아니면 COMMON_400이다")
 	void proofLinkMustBeHttp() {
 		asUser(saveUser()).document(CREATE)
