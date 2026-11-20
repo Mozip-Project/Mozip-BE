@@ -24,6 +24,10 @@ public interface RepresentativeTransferRepository extends JpaRepository<Represen
 		where t.id = :id""")
 	Optional<RepresentativeTransfer> findWithMembersById(@Param("id") Long id);
 
+	// 단체 행을 잠그기 전에 어느 단체인지만 알아냄. 엔티티를 읽지 않아 잠근 뒤 다시 읽는 상태가 최신으로 남음
+	@Query("select t.organization.id from RepresentativeTransfer t where t.id = :id")
+	Optional<Long> findOrganizationIdById(@Param("id") Long id);
+
 	// 운영진 내보내기 때 그 운영진이 요청자나 대상으로 걸린 대기 요청
 	@Query("select t from RepresentativeTransfer t where t.status = :status and (t.fromMember = :member or t.toMember = :member)")
 	List<RepresentativeTransfer> findAllByMemberAndStatus(@Param("member") Member member,

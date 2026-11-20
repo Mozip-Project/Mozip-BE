@@ -44,9 +44,12 @@ public class MemberService {
 	// 행은 남기고 leftAt만 찍어 평가 기록을 보존하고, 드롭다운이 나간 단체를 현재 단체로 잡지 않게 lastOrganization도 정리
 	@Transactional
 	public void removeMember(Long userId, Long memberId) {
+		Long organizationId = memberRepository.findOrganizationIdById(memberId)
+			.orElseThrow(() -> memberNotFound(memberId));
+		// 대표자 인수 수락과 겹치면 잠그기 전 역할로 판단해 새 대표자를 내보낼 수 있어 단체 행을 먼저 잠그고 운영진을 읽음
+		organizationService.getOrganizationForUpdate(organizationId);
 		Member member = memberRepository.findActiveWithOrganizationAndUserById(memberId)
-			.orElseThrow(() -> new BusinessException(MemberErrorCode.MEMBER_NOT_FOUND).addContext("memberId", memberId));
-		Long organizationId = member.getOrganization().getId();
+			.orElseThrow(() -> memberNotFound(memberId));
 		if (!memberRepository.existsByOrganizationIdAndUserIdAndRoleAndLeftAtIsNull(organizationId, userId,
 			MemberRole.REPRESENTATIVE)) {
 			throw forbidden(organizationId, userId);
@@ -66,6 +69,10 @@ public class MemberService {
 		// exists 쿼리 전에 auto flush로 left_at이 반영되어 방금 나간 소속은 세지 않음
 		boolean stillOperator = memberRepository.existsByUserIdAndLeftAtIsNull(member.getUser().getId());
 		member.getUser().leaveOrganization(member.getOrganization(), stillOperator);
+	}
+
+	private static BusinessException memberNotFound(Long memberId) {
+		return new BusinessException(MemberErrorCode.MEMBER_NOT_FOUND).addContext("memberId", memberId);
 	}
 
 	private static BusinessException forbidden(Long organizationId, Long userId) {

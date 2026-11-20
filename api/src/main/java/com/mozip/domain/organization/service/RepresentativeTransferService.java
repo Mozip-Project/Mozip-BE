@@ -31,13 +31,17 @@ public class RepresentativeTransferService {
 	private final RepresentativeTransferRepository transferRepository;
 	private final MemberRepository memberRepository;
 	private final NotificationService notificationService;
+	private final OrganizationService organizationService;
 
 	// 대상 운영진으로 단체를 정한 뒤 호출자가 그 단체 대표자인지 확인. 대기 요청 중복은 부분 unique index가 최종 방어선
+	// 같은 요청이 두 번 오면 둘 다 대기 요청 없음으로 보고 unique index에서 500이 나 단체 행을 잠가 차례로 처리
 	@Transactional
 	public RepresentativeTransfer request(Long userId, Long memberId) {
+		Long organizationId = memberRepository.findOrganizationIdById(memberId)
+			.orElseThrow(() -> memberNotFound(memberId));
+		organizationService.getOrganizationForUpdate(organizationId);
 		Member target = memberRepository.findActiveWithOrganizationAndUserById(memberId)
-			.orElseThrow(() -> new BusinessException(MemberErrorCode.MEMBER_NOT_FOUND).addContext("memberId", memberId));
-		Long organizationId = target.getOrganization().getId();
+			.orElseThrow(() -> memberNotFound(memberId));
 		Member representative = memberRepository.findByOrganizationIdAndUserIdAndRoleAndLeftAtIsNull(organizationId,
 				userId, MemberRole.REPRESENTATIVE)
 			.orElseThrow(() -> new BusinessException(CommonErrorCode.FORBIDDEN)
@@ -59,11 +63,14 @@ public class RepresentativeTransferService {
 	}
 
 	// 요청 대상만 응답 가능. 수락하면 한 트랜잭션에서 기존 대표자 → OPERATOR, 대상 → REPRESENTATIVE
+	// 운영진 내보내기와 겹치면 나간 운영진이 대표자가 될 수 있어 단체 행을 먼저 잠그고 요청 상태와 소속을 읽음
 	@Transactional
 	public RepresentativeTransfer respond(Long userId, Long transferId, boolean accept) {
+		Long organizationId = transferRepository.findOrganizationIdById(transferId)
+			.orElseThrow(() -> transferNotFound(transferId));
+		organizationService.getOrganizationForUpdate(organizationId);
 		RepresentativeTransfer transfer = transferRepository.findWithMembersById(transferId)
-			.orElseThrow(() -> new BusinessException(MemberErrorCode.MEMBER_NOT_FOUND)
-				.addContext("transferId", transferId));
+			.orElseThrow(() -> transferNotFound(transferId));
 		Member from = transfer.getFromMember();
 		Member to = transfer.getToMember();
 		if (!to.getUser().getId().equals(userId)) {
@@ -89,6 +96,14 @@ public class RepresentativeTransferService {
 		transfer.approve(now);
 		notifyRequester(transfer, NotificationType.TRANSFER_APPROVED);
 		return transfer;
+	}
+
+	private static BusinessException memberNotFound(Long memberId) {
+		return new BusinessException(MemberErrorCode.MEMBER_NOT_FOUND).addContext("memberId", memberId);
+	}
+
+	private static BusinessException transferNotFound(Long transferId) {
+		return new BusinessException(MemberErrorCode.MEMBER_NOT_FOUND).addContext("transferId", transferId);
 	}
 
 	private void notifyRequester(RepresentativeTransfer transfer, NotificationType type) {
