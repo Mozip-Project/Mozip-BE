@@ -414,6 +414,70 @@ class OrganizationGraphqlControllerTest {
 			});
 	}
 
+	@Test
+	@DisplayName("팀을 저장하고 그 팀으로 초대하면, 초대받은 회원이 코드로 수락해 그 팀 운영진이 된다. 공용 링크는 url을 붙여 준다")
+	void saveTeamsThenInviteThenAccept() {
+		User representative = saveUser();
+		User invitee = saveUser();
+		HttpGraphQlTester asRepresentative = asUser(representative);
+		String organizationId = asRepresentative.document(CREATE)
+			.variable("input", Map.of("name", "초대 동아리", "type", "CLUB", "scope", "UNION"))
+			.execute()
+			.path("createOrganization.id").entity(String.class).get();
+
+		String teamId = asRepresentative.document("""
+				mutation($organizationId: ID!, $teams: [TeamInput!]!) {
+					saveTeams(organizationId: $organizationId, teams: $teams) { id name sortOrder }
+				}
+				""")
+			.variable("organizationId", organizationId)
+			.variable("teams", List.of(Map.of("name", "기획팀"), Map.of("name", "디자인팀")))
+			.execute()
+			.path("saveTeams[*].name").entityList(String.class).containsExactly("기획팀", "디자인팀")
+			.path("saveTeams[1].sortOrder").entity(Integer.class).isEqualTo(1)
+			.path("saveTeams[1].id").entity(String.class).get();
+
+		String code = asRepresentative.document("""
+				mutation($organizationId: ID!, $contact: String!, $teamId: ID) {
+					inviteMember(organizationId: $organizationId, contact: $contact, teamId: $teamId) {
+						status inviteeContact team { name } code
+					}
+				}
+				""")
+			.variable("organizationId", organizationId)
+			.variable("contact", invitee.getPhone())
+			.variable("teamId", teamId)
+			.execute()
+			.path("inviteMember.status").entity(String.class).isEqualTo("PENDING")
+			.path("inviteMember.team.name").entity(String.class).isEqualTo("디자인팀")
+			.path("inviteMember.code").entity(String.class).get();
+
+		asUser(invitee).document("""
+				mutation($code: String!) {
+					acceptInvitation(code: $code) { role team { name } organization { id } user { id } }
+				}
+				""")
+			.variable("code", code)
+			.execute()
+			.path("acceptInvitation.role").entity(String.class).isEqualTo("OPERATOR")
+			.path("acceptInvitation.team.name").entity(String.class).isEqualTo("디자인팀")
+			.path("acceptInvitation.organization.id").entity(String.class).isEqualTo(organizationId)
+			.path("acceptInvitation.user.id").entity(String.class).isEqualTo(invitee.getId().toString());
+
+		String token = asRepresentative.document("""
+				mutation($organizationId: ID!) { createInviteLink(organizationId: $organizationId) { token url } }
+				""")
+			.variable("organizationId", organizationId)
+			.execute()
+			.path("createInviteLink.token").entity(String.class).get();
+		asRepresentative.document("""
+				mutation($organizationId: ID!) { createInviteLink(organizationId: $organizationId) { url } }
+				""")
+			.variable("organizationId", organizationId)
+			.execute()
+			.path("createInviteLink.url").entity(String.class).isEqualTo("https://mozip.kr/invite/" + token);
+	}
+
 	private User saveUser() {
 		String phone = "0109" + String.format("%07d", ThreadLocalRandom.current().nextInt(10_000_000));
 		return userRepository.save(User.create(phone, "encoded", "테스트", false, LocalDateTime.now()));

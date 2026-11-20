@@ -11,6 +11,7 @@ import org.springframework.data.repository.query.Param;
 import com.mozip.domain.organization.entity.Member;
 import com.mozip.domain.organization.entity.MemberRole;
 import com.mozip.domain.organization.entity.Organization;
+import com.mozip.domain.organization.entity.Team;
 
 // 내보내진 운영진(leftAt not null)은 소속이 아니므로 모든 조회에 leftAt is null 조건을 붙임
 public interface MemberRepository extends JpaRepository<Member, Long> {
@@ -36,5 +37,8 @@ public interface MemberRepository extends JpaRepository<Member, Long> {
 	// 운영진 관리 표: 대표자 먼저, 그 뒤 합류일 오름차순
 	@Query("select m from Member m join fetch m.user left join fetch m.team where m.organization.id = :organizationId and m.leftAt is null order by case when m.role = com.mozip.domain.organization.entity.MemberRole.REPRESENTATIVE then 0 else 1 end, m.createdAt, m.id")
 	List<Member> findAllActiveWithUserAndTeamByOrganizationId(@Param("organizationId") Long organizationId);
+
+	// 팀 삭제 시 소속 해제 대상. 내보낸 운영진 행도 팀 FK를 들고 있어 함께 가져옴
+	List<Member> findAllByTeamIn(Collection<Team> teams);
 
 }

@@ -48,6 +48,11 @@ auth:
   cors:
     allowed-origins: ${CORS_ALLOWED_ORIGINS:}
 
+mozip:
+  invite:
+    # 공용 초대 링크 주소 앞부분 (프론트 주소), 응답의 InviteLink.url = base-url + token
+    base-url: ${INVITE_BASE_URL:https://mozip.kr/invite/}
+
 management:
   endpoints:
     web:

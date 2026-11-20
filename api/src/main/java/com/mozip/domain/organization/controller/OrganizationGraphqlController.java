@@ -10,11 +10,15 @@ import org.springframework.graphql.data.method.annotation.Argument;
 import org.springframework.graphql.data.method.annotation.BatchMapping;
 import org.springframework.graphql.data.method.annotation.MutationMapping;
 import org.springframework.graphql.data.method.annotation.QueryMapping;
+import org.springframework.graphql.data.method.annotation.SchemaMapping;
 import org.springframework.security.core.annotation.AuthenticationPrincipal;
 import org.springframework.stereotype.Controller;
 
 import com.mozip.domain.organization.dto.CreateOrganizationInput;
+import com.mozip.domain.organization.dto.TeamInput;
 import com.mozip.domain.organization.dto.UpdateOrganizationInput;
+import com.mozip.domain.organization.entity.Invitation;
+import com.mozip.domain.organization.entity.InviteLink;
 import com.mozip.domain.organization.entity.Member;
 import com.mozip.domain.organization.entity.Organization;
 import com.mozip.domain.organization.entity.OrganizationField;
@@ -27,8 +31,11 @@ import com.mozip.domain.organization.repository.OrganizationFieldTagRepository;
 import com.mozip.domain.organization.repository.OrganizationKeywordRepository;
 import com.mozip.domain.organization.repository.OrganizationLinkRepository;
 import com.mozip.domain.organization.repository.TeamRepository;
+import com.mozip.domain.organization.service.InvitationService;
+import com.mozip.domain.organization.service.InviteProperties;
 import com.mozip.domain.organization.service.MemberService;
 import com.mozip.domain.organization.service.OrganizationService;
+import com.mozip.domain.organization.service.TeamService;
 import com.mozip.domain.user.entity.User;
 import com.mozip.global.security.AuthUser;
 
@@ -41,6 +48,9 @@ public class OrganizationGraphqlController {
 
 	private final OrganizationService organizationService;
 	private final MemberService memberService;
+	private final InvitationService invitationService;
+	private final TeamService teamService;
+	private final InviteProperties inviteProperties;
 	private final TeamRepository teamRepository;
 	private final MemberRepository memberRepository;
 	private final OrganizationKeywordRepository keywordRepository;
@@ -88,10 +98,38 @@ public class OrganizationGraphqlController {
 		return true;
 	}
 
+	@MutationMapping
+	public Invitation inviteMember(@Argument Long organizationId, @Argument String contact, @Argument Long teamId,
+		@AuthenticationPrincipal AuthUser authUser) {
+		return invitationService.inviteMember(authUser.userId(), organizationId, contact, teamId);
+	}
+
+	@MutationMapping
+	public InviteLink createInviteLink(@Argument Long organizationId, @AuthenticationPrincipal AuthUser authUser) {
+		return invitationService.createInviteLink(authUser.userId(), organizationId);
+	}
+
+	@MutationMapping
+	public Member acceptInvitation(@Argument String code, @AuthenticationPrincipal AuthUser authUser) {
+		return invitationService.acceptInvitation(authUser.userId(), code);
+	}
+
+	@MutationMapping
+	public List<Team> saveTeams(@Argument Long organizationId, @Argument List<TeamInput> teams,
+		@AuthenticationPrincipal AuthUser authUser) {
+		return teamService.saveTeams(authUser.userId(), organizationId, teams);
+	}
+
+	// 링크 주소는 저장하지 않고 응답할 때 설정의 base-url과 토큰을 이어 붙임 (도메인이 바뀌어도 데이터 수정 없음)
+	@SchemaMapping(typeName = "InviteLink")
+	public String url(InviteLink link) {
+		return inviteProperties.linkUrl(link.getToken());
+	}
+
 	// 단체 N개를 응답 시 배치 조회
 	@BatchMapping(typeName = "Organization")
 	public Map<Organization, List<Team>> teams(List<Organization> organizations) {
-		return groupByOrganization(organizations, teamRepository.findAllByOrganizationInOrderById(organizations),
+		return groupByOrganization(organizations, teamRepository.findAllByOrganizationInOrderBySortOrderAscIdAsc(organizations),
 			Team::getOrganization, Function.identity());
 	}
 
