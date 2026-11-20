@@ -10,6 +10,6 @@ public enum OrganizationInputReason {
 	// 학생회가 아닌 단체는 활동 분야 1개 이상, 학생회는 활동 분야 없음
 	FIELDS_REQUIRED,
 	FIELDS_NOT_ALLOWED,
-	// 호스트를 읽을 수 없는 링크 (예: 공백, 스킴만 있는 문자열)
+	// http, https가 아니거나 500자를 넘거나 호스트를 읽을 수 없는 링크 (예: javascript:, 스킴만 있는 문자열)
 	LINK_URL_INVALID
 }
