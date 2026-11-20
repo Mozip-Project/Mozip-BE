@@ -47,3 +47,6 @@
 
 - 위 표에서 "제안", "미정"인 항목은 A와 합의되면 "결정"으로 바꾸고 날짜를 적는다
 - 운영 DB `ddl-auto`를 `validate`로 바꿀지 (`db/README.md`)
+- 결정 006의 "Redis 리스너는 worker"는 비동기 작업 기준이고, 알림 SSE용 Redis 구독(`NotificationRedisListener`, #48)은
+  연결이 각 api 파드에 로컬로 있어 api에 둠. worker로 옮길지, 이런 "파드 로컬 상태가 필요한 리스너"를 예외로 문서화할지
+  확인 필요
