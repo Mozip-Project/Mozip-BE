@@ -196,3 +196,138 @@ type Report {
     detail: String
     createdAt: DateTime!
 }
+
+"목록 정렬 기준"
+enum PostingSort {
+    "bumpedAt 최신순 (기본)"
+    LATEST
+    "모집 마감 임박순"
+    CLOSING_SOON
+    "조회수 많은 순"
+    POPULAR
+}
+
+"모집 중 공고 목록 필터"
+input PostingFilter {
+    keyword: String
+    schoolId: ID
+    organizationType: OrganizationType
+    "TODO: 기준 데이터가 아직 없어 받기만 하고 적용하지 않음"
+    fields: [String!]
+    hasInterview: Boolean
+    "마감 3일 이내"
+    closingSoon: Boolean
+}
+
+type PostingPage {
+    items: [Posting!]!
+    totalCount: Int!
+    hasNext: Boolean!
+}
+
+input PostingImageInput {
+    url: String!
+    sortOrder: Int!
+}
+
+input PositionInput {
+    teamId: ID
+    name: String!
+    "null = 모집 인원 미정"
+    headcount: Int
+    sortOrder: Int!
+}
+
+"해당 유형 값만 채움"
+input QuestionOptionsInput {
+    choices: [String!]
+    columns: [String!]
+    maxRows: Int
+    maxFiles: Int
+}
+
+input QuestionInput {
+    "null = 공통 문항. 2단계에서 먼저 저장된 Position의 id"
+    positionId: ID
+    type: QuestionType!
+    title: String!
+    description: String
+    required: Boolean!
+    maxLength: Int
+    options: QuestionOptionsInput
+    sortOrder: Int!
+}
+
+input InterviewTimeRangeInput {
+    "null = 포지션 없는 모집 또는 전체 공통. 2단계에서 먼저 저장된 Position의 id"
+    positionId: ID
+    date: Date!
+    startTime: LocalTime!
+    endTime: LocalTime!
+    closedSlots: [LocalTime!]
+}
+
+"5단계 입력을 한 타입에 모아두고, 단계별로 그 단계에 해당하는 필드만 채워서 보냄 (나머지는 null = 기존 값 유지)"
+input PostingDraftInput {
+    "1단계 basic"
+    title: String
+    content: String
+    semester: String
+    region: String
+    fee: String
+    allowEnrolled: Boolean
+    allowOnLeave: Boolean
+    eligibilityNote: String
+    activityStartedOn: Date
+    activityEndedOn: Date
+    recruitStartAt: DateTime
+    recruitEndAt: DateTime
+    "최대 5장"
+    images: [PostingImageInput!]
+
+    "2단계 positions"
+    noPosition: Boolean
+    positions: [PositionInput!]
+
+    "3단계 interview"
+    hasInterview: Boolean
+    interviewMethod: InterviewMethod
+    interviewMinutes: Int
+    breakMinutes: Int
+    assignRule: AssignRule
+    maxApplicantsPerInterview: Int
+    maxParallelInterviews: Int
+    interviewTimeRanges: [InterviewTimeRangeInput!]
+
+    "4단계 questions"
+    docScorePerQuestion: Boolean
+    questions: [QuestionInput!]
+
+    "5단계 exposure"
+    publishAt: DateTime
+    representativeImageId: ID
+}
+
+extend type Query {
+    "공고 상세. DRAFT는 그 단체 운영진만 조회 가능 (아니면 POSTING_404로 숨김)"
+    posting(id: ID!): Posting! @public
+    "모집 중(RECRUITING) 공고 카드 목록"
+    postings(filter: PostingFilter, sort: PostingSort = LATEST, page: Int = 0, size: Int = 20): PostingPage! @public
+    "운영진 홈의 단체 공고 목록 (draftStep 포함). COMMON_403이면 그 단체 운영진이 아님"
+    organizationPostings(organizationId: ID!, status: [PostingStatus!]): [Posting!]!
+}
+
+extend type Mutation {
+    """
+    공고 작성/수정. id가 없으면 새 DRAFT를 만들고, 있으면 그 공고를 이어서 수정함.
+    input은 보내는 단계의 필드만 채우면 되고 나머지는 null로 두면 기존 값이 유지됨.
+    DRAFT가 아닌 공고를 수정하면 POSTING_409(reason: NOT_DRAFT)
+    """
+    savePostingDraft(organizationId: ID!, id: ID, input: PostingDraftInput!): Posting!
+    """
+    공고 게시. publishAt이 없으면 즉시 RECRUITING으로 전환하고, 있으면 DRAFT로 두고 스케줄러에 맡김.
+    필수 단계가 비어 있으면 POSTING_400(fieldErrors에 단계 표시), 이미 게시됨이면 POSTING_409(reason: ALREADY_PUBLISHED),
+    단체 이용권이 없으면 ORG_402
+    """
+    publishPosting(id: ID!): Posting!
+}
