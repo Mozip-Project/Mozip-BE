@@ -35,17 +35,35 @@
 |---|---|---|---|
 | `USER_001` | 409 | `DUPLICATE_PHONE` | 이미 가입된 휴대폰 번호 |
 
-## 단체 (`OrganizationErrorCode`, PR #40)
+## 단체 (`OrganizationErrorCode`)
+
+B의 PR #40 전까지 #65(공고)가 필요한 코드 두 개만 임시로 먼저 둠. B가 단체 도메인을 구현하면 이 enum 전체를 이어받음
 
 | 코드 | HTTP | 상수 | 언제 |
 |---|---|---|---|
-| `ORG_402` | 402 | `SUBSCRIPTION_REQUIRED` | 이용권 없는 단체의 유료 기능 호출 (A 이용권에서 사용) |
-| `ORG_404` | 404 | `ORGANIZATION_NOT_FOUND` | 단체 없음 |
+| `ORG_402` | 402 | `SUBSCRIPTION_REQUIRED` | 이용권 없는 단체의 유료 기능 호출 (`publishPosting`에서 사용, #65) |
+| `ORG_404` | 404 | `ORGANIZATION_NOT_FOUND` | 단체 없음 (`OrganizationAccessChecker` 임시 구현, #65) |
+
+## 공고 (`PostingErrorCode`, #65)
+
+| 코드 | HTTP | 상수 | 언제 |
+|---|---|---|---|
+| `POSTING_404` | 404 | `NOT_FOUND` | 공고 없음. DRAFT인데 그 단체 운영진이 아니면 있어도 이 코드로 숨김 |
+| `POSTING_409` | 409 | `CONFLICT` | `reason`으로 구분 (`PostingConflictReason`) |
+| `POSTING_400` | 400 | `INVALID_INPUT` | `publishPosting`에서 필수 단계 누락. `fieldErrors`에 어느 단계인지 담김 |
 
 ## reason enum
 
-같은 코드 안에서 상황을 나누는 값. 응답의 `extensions.reason`에 enum 이름이 들어간다.
+같은 코드 안에서 상황을 나누는 값. 응답의 `extensions.reason`에 enum 이름이 들어간다. `BusinessException(errorCode, reason)`
+생성자와 `GraphqlExceptionResolver`의 처리는 결정 003에서 #36 몫으로 적어뒀지만 #36이 아직 안 머지돼서 #65에서 먼저 구현함
 
 | enum | 코드 | 값 |
 |---|---|---|
 | `OrganizationInputReason` | `COMMON_400` | `COUNCIL_LEVEL_REQUIRED`, `COUNCIL_LEVEL_NOT_ALLOWED`, `SCHOOL_REQUIRED`, `SCHOOL_NOT_ALLOWED`, `SCHOOL_NOT_FOUND` (#37), `FIELDS_REQUIRED`, `FIELDS_NOT_ALLOWED`, `LINK_URL_INVALID` (#38 예정) |
+| `PostingConflictReason` | `POSTING_409` | `NOT_DRAFT`(DRAFT 아닌 공고 수정), `ALREADY_PUBLISHED`(이미 게시된 공고 재게시) |
+
+## fieldErrors를 응답에 담는 BusinessException
+
+Bean Validation(`@Valid`, `ConstraintViolationException`)이 아닌 서비스 레벨 검증도 `extensions.fieldErrors`로
+필드별 메시지를 보내야 할 때는 `BusinessException.withFieldErrors(List<FieldErrorResponse>)`를 쓴다 (#65에서
+`FieldErrorResponse`를 api에서 common으로 옮기고 추가함). `addContext`와 달리 응답에 실제로 포함된다.
