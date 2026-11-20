@@ -7,6 +7,11 @@ spring:
     password: ${DB_PASSWORD}
     driver-class-name: org.postgresql.Driver
 
+  jpa:
+    hibernate:
+      # 엔티티 기준으로 dev 스키마를 자동 반영 (prod와 같음, 없으면 기본 none이라 빈 DB에서 기동 실패)
+      ddl-auto: update
+
   data:
     redis:
       host: ${REDIS_HOST}
