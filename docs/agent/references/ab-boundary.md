@@ -31,7 +31,8 @@
 | `OrganizationAccessChecker.getOrganization(organizationId)` | B | A (없으면 `ORG_404`) | 구현됨 (#36) |
 | `SubscriptionService.startFreeTrial(organizationId)` | A | B (단체 생성 직후) | 임시 구현 `TemporarySubscriptionService` (#37). 이용권 모델이 들어오면 A가 교체 |
 | 이용권 검사 (`ORG_402 SUBSCRIPTION_REQUIRED`) | A | B (유료 기능 호출 시) | 코드만 예약 (#36) |
-| `MailSender`, `NotificationService` | A | B (결과 안내 발송) | 미정. B 결과 안내 순서 전에 A가 만들거나 B가 임시 구현 |
+| `NotificationService.send(userId, type, organizationId, title, linkUrl)` (messageId를 받는 오버로드 포함) | A | B (`inviteMember`→INVITATION, `assignReviewers`→EVALUATION_REQUEST, 결과 안내→DOC_RESULT/FINAL_RESULT) | 구현됨 (#48) |
+| `MailSender` | A | B (결과 안내 발송) | 미정. B 결과 안내 순서 전에 A가 만들거나 B가 임시 구현 |
 | `User.contactEmail` | A | B (결과 안내 수신 주소) | 미정. A가 컬럼만 먼저 추가하거나 B가 지원서 `profile_snapshot`에서 임시로 꺼냄 |
 
 ## 공유하는 엔티티
@@ -46,3 +47,6 @@
 
 - 위 표에서 "제안", "미정"인 항목은 A와 합의되면 "결정"으로 바꾸고 날짜를 적는다
 - 운영 DB `ddl-auto`를 `validate`로 바꿀지 (`db/README.md`)
+- 결정 006의 "Redis 리스너는 worker"는 비동기 작업 기준이고, 알림 SSE용 Redis 구독(`NotificationRedisListener`, #48)은
+  연결이 각 api 파드에 로컬로 있어 api에 둠. worker로 옮길지, 이런 "파드 로컬 상태가 필요한 리스너"를 예외로 문서화할지
+  확인 필요
