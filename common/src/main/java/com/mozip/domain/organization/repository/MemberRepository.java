@@ -19,6 +19,10 @@ public interface MemberRepository extends JpaRepository<Member, Long> {
 
 	List<Member> findAllByUserId(Long userId);
 
+	// GraphQL Me.memberships, 단체 드롭다운이 organization / role / team을 읽으므로 한 번에 가져옴
+	@Query("select m from Member m join fetch m.organization o left join fetch o.school join fetch m.user left join fetch m.team where m.user.id = :userId order by o.id")
+	List<Member> findAllWithOrganizationAndTeamByUserId(@Param("userId") Long userId);
+
 	// GraphQL Organization.members 배치 조회, user와 team을 같이 가져와 하위 필드도 추가 쿼리 없이 응답
 	@Query("select m from Member m join fetch m.user left join fetch m.team where m.organization in :organizations order by m.id")
 	List<Member> findAllWithUserAndTeamByOrganizationIn(@Param("organizations") Collection<Organization> organizations);

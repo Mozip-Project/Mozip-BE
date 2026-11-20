@@ -28,6 +28,7 @@ import com.mozip.domain.organization.repository.OrganizationKeywordRepository;
 import com.mozip.domain.organization.repository.OrganizationLinkRepository;
 import com.mozip.domain.organization.repository.TeamRepository;
 import com.mozip.domain.organization.service.OrganizationService;
+import com.mozip.domain.user.entity.User;
 import com.mozip.global.security.AuthUser;
 
 import jakarta.validation.Valid;
@@ -56,9 +57,10 @@ public class OrganizationGraphqlController {
 		return organizationService.updateOrganization(authUser.userId(), id, input);
 	}
 
-	@QueryMapping
-	public List<Organization> myOrganizations(@AuthenticationPrincipal AuthUser authUser) {
-		return organizationService.getMyOrganizations(authUser.userId());
+	// 반환 타입 Me는 User 엔티티로 그림 (UserGraphqlController의 me와 같음)
+	@MutationMapping
+	public User selectOrganization(@Argument Long organizationId, @AuthenticationPrincipal AuthUser authUser) {
+		return organizationService.selectOrganization(authUser.userId(), organizationId);
 	}
 
 	@QueryMapping

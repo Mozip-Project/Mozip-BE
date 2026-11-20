@@ -109,9 +109,19 @@ public class OrganizationService {
 			PageRequest.of(0, KEYWORD_SUGGESTION_LIMIT));
 	}
 
-	// 내가 운영진(Member)으로 들어가 있는 단체, 운영진 홈의 단체 전환 메뉴에서 사용
-	public List<Organization> getMyOrganizations(Long userId) {
-		return organizationRepository.findAllByMemberUserId(userId);
+	// 운영진 홈 드롭다운에서 단체 선택. 없는 단체(ORG_404)를 먼저 거르고 소속이 아니면 COMMON_403
+	@Transactional
+	public User selectOrganization(Long userId, Long organizationId) {
+		Organization organization = getOrganization(organizationId);
+		if (!memberRepository.existsByOrganizationIdAndUserId(organizationId, userId)) {
+			throw new BusinessException(CommonErrorCode.FORBIDDEN)
+				.addContext("organizationId", organizationId)
+				.addContext("userId", userId);
+		}
+		User user = userRepository.findById(userId)
+			.orElseThrow(() -> new BusinessException(CommonErrorCode.NOT_FOUND).addContext("userId", userId));
+		user.selectOrganization(organization);
+		return user;
 	}
 
 	public Organization getOrganization(Long organizationId) {

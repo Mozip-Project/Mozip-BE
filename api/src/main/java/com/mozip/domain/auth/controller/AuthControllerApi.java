@@ -25,7 +25,8 @@ public interface AuthControllerApi {
 	@Operation(summary = "로그인", description = """
 		로그인에 성공하면 `access_token`, `refresh_token` 쿠키를 HttpOnly로 발급합니다.
 		토큰은 응답 body에 담지 않으며, 이후 요청에는 브라우저가 쿠키를 자동으로 보냅니다.
-		(프론트엔드가 다른 주소라면 요청에 `credentials: 'include'`가 필요합니다.)""")
+		(프론트엔드가 다른 주소라면 요청에 `credentials: 'include'`가 필요합니다.)
+		`accessTokenExpiresIn`은 액세스 토큰이 만료되기까지 남은 초입니다. 만료 전에 미리 재발급하려면 이 값으로 타이머를 잡으면 됩니다.""")
 	@SecurityRequirements
 	@ApiErrorCodes({"COMMON_400", "AUTH_001", "AUTH_005", "AUTH_006"})
 	ApiResponse<LoginResponse> login(LoginRequest request, HttpServletResponse response);

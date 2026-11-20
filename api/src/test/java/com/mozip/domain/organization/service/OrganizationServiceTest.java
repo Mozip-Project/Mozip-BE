@@ -41,6 +41,7 @@ import com.mozip.domain.organization.repository.OrganizationKeywordRepository;
 import com.mozip.domain.organization.repository.OrganizationLinkRepository;
 import com.mozip.domain.school.entity.School;
 import com.mozip.domain.school.repository.SchoolRepository;
+import com.mozip.domain.user.entity.Role;
 import com.mozip.domain.user.entity.User;
 import com.mozip.domain.user.repository.UserRepository;
 import com.mozip.global.exception.BusinessException;
@@ -141,17 +142,23 @@ class OrganizationServiceTest {
 	}
 
 	@Test
-	@DisplayName("내 단체 목록은 내가 운영진으로 들어간 단체만 id 순으로 돌려준다")
-	void getMyOrganizations() {
-		Organization first = organizationService.createOrganization(user.getId(), SeedFixtures.createOrganizationInput());
-		Organization second = organizationService.createOrganization(user.getId(), new CreateOrganizationInput(
-			"두 번째", OrganizationType.ACADEMIC, null, OrganizationScope.CAMPUS, school.getId(), false, null, null));
-		organizationService.createOrganization(other.getId(), SeedFixtures.createOrganizationInput());
+	@DisplayName("소속 단체를 고르면 lastOrganization과 lastRole(OPERATOR)이 바뀌고, 소속이 아니면 COMMON_403이다")
+	void selectOrganization() {
+		Organization organization = organizationService.createOrganization(user.getId(),
+			SeedFixtures.createOrganizationInput());
 
-		assertThat(organizationService.getMyOrganizations(user.getId()))
-			.extracting(Organization::getId)
-			.containsExactly(first.getId(), second.getId());
-		assertThat(organizationService.getMyOrganizations(other.getId())).hasSize(1);
+		User selected = organizationService.selectOrganization(user.getId(), organization.getId());
+
+		assertThat(selected.getLastOrganization().getId()).isEqualTo(organization.getId());
+		assertThat(selected.getLastRole()).isEqualTo(Role.OPERATOR);
+		assertThatThrownBy(() -> organizationService.selectOrganization(other.getId(), organization.getId()))
+			.isInstanceOfSatisfying(BusinessException.class, e -> {
+				assertThat(e.getErrorCode()).isEqualTo(CommonErrorCode.FORBIDDEN);
+				assertThat(e.getContext()).containsEntry("organizationId", organization.getId());
+			});
+		assertThatThrownBy(() -> organizationService.selectOrganization(user.getId(), Long.MAX_VALUE))
+			.isInstanceOfSatisfying(BusinessException.class,
+				e -> assertThat(e.getErrorCode()).isEqualTo(OrganizationErrorCode.ORGANIZATION_NOT_FOUND));
 	}
 
 	@Test
