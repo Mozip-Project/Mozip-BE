@@ -144,7 +144,7 @@ public class OrganizationService {
 	public Organization getVisibleOrganization(Long organizationId, Long userId) {
 		Organization organization = getOrganization(organizationId);
 		if (organization.getReviewStatus() != ReviewStatus.APPROVED
-		&& (userId == null
+			&& (userId == null
 			|| !memberRepository.existsByOrganizationIdAndUserIdAndLeftAtIsNull(organizationId, userId))) {
 			throw new BusinessException(OrganizationErrorCode.ORGANIZATION_NOT_FOUND)
 				.addContext("organizationId", organizationId);

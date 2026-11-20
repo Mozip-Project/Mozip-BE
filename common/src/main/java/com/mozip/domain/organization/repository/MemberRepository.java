@@ -21,6 +21,8 @@ public interface MemberRepository extends JpaRepository<Member, Long> {
 
 	List<Member> findAllByUserIdAndLeftAtIsNull(Long userId);
 
+	boolean existsByUserIdAndLeftAtIsNull(Long userId);
+
 	// 내보내기가 organization(권한 검사)과 user(lastOrganization 정리)를 바로 읽으므로 한 번에 가져옴
 	@Query("select m from Member m join fetch m.organization join fetch m.user where m.id = :id and m.leftAt is null")
 	Optional<Member> findActiveWithOrganizationAndUserById(@Param("id") Long id);
