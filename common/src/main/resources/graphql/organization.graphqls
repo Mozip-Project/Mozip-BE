@@ -84,7 +84,9 @@ type Organization {
     "단체 메일"
     email: String
     noTeam: Boolean!
+    "심사 증빙. 소속 운영진에게만 보이고 그 외에는 null"
     proofLink: String
+    "심사 증빙. 소속 운영진에게만 보이고 그 외에는 null"
     proofFileUrl: String
     reviewStatus: ReviewStatus!
     rejectReason: String
@@ -97,6 +99,7 @@ type Organization {
     fields: [OrganizationField!]!
     links: [OrganizationLink!]!
     teams: [Team!]!
+    "소속 운영진만 조회 가능. 그 외에는 COMMON_403"
     members: [Member!]!
     createdAt: DateTime!
 }
@@ -173,7 +176,7 @@ input CreateOrganizationInput {
 extend type Query {
     "내가 운영진으로 속한 단체 (운영진 홈의 단체 전환 메뉴)"
     myOrganizations: [Organization!]!
-    "단체 상세, 로그인 없이 조회 가능. 없으면 ORG_404"
+    "단체 상세, 로그인 없이 조회 가능. 없거나 심사 승인 전인데 소속 운영진이 아니면 ORG_404"
     organization(id: ID!): Organization! @public
 }
 

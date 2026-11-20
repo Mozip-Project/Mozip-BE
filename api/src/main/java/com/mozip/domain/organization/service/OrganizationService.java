@@ -1,6 +1,8 @@
 package com.mozip.domain.organization.service;
 
+import java.util.Collection;
 import java.util.List;
+import java.util.Set;
 
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
@@ -11,6 +13,7 @@ import com.mozip.domain.organization.entity.MemberRole;
 import com.mozip.domain.organization.entity.Organization;
 import com.mozip.domain.organization.entity.OrganizationScope;
 import com.mozip.domain.organization.entity.OrganizationType;
+import com.mozip.domain.organization.entity.ReviewStatus;
 import com.mozip.domain.organization.exception.OrganizationErrorCode;
 import com.mozip.domain.organization.exception.OrganizationInputReason;
 import com.mozip.domain.organization.repository.MemberRepository;
@@ -37,7 +40,7 @@ public class OrganizationService {
 	private final SubscriptionService subscriptionService;
 
 	// 단체를 만들고 호출자를 대표자로 등록
-	// 동시 요청은 DDL의 부분 unique index로 방지
+	// 같은 요청이 두 번 오면 단체가 두 개 생김. 대표자 부분 unique index는 단체마다 걸려 막지 못하므로 프론트에서 중복 제출을 막음
 	@Transactional
 	public Organization createOrganization(Long userId, CreateOrganizationInput input) {
 		validate(input);
@@ -60,6 +63,25 @@ public class OrganizationService {
 		return organizationRepository.findWithSchoolById(organizationId)
 			.orElseThrow(() -> new BusinessException(OrganizationErrorCode.ORGANIZATION_NOT_FOUND)
 				.addContext("organizationId", organizationId));
+	}
+
+	// 로그인 없이 여는 단체 상세. 심사 전이거나 반려된 단체는 소속 운영진에게만 보이고 그 외에는 없는 단체처럼 ORG_404
+	public Organization getVisibleOrganization(Long organizationId, Long userId) {
+		Organization organization = getOrganization(organizationId);
+		if (organization.getReviewStatus() != ReviewStatus.APPROVED
+			&& (userId == null || !memberRepository.existsByOrganizationIdAndUserId(organizationId, userId))) {
+			throw new BusinessException(OrganizationErrorCode.ORGANIZATION_NOT_FOUND)
+				.addContext("organizationId", organizationId);
+		}
+		return organization;
+	}
+
+	// 운영진 전용 필드(members, 심사 증빙)를 볼 수 있는 단체 id. 단체 상세가 공개라 하위 필드에서 소속을 다시 확인
+	public Set<Long> getManageableOrganizationIds(Long userId, Collection<Organization> organizations) {
+		if (userId == null || organizations.isEmpty()) {
+			return Set.of();
+		}
+		return Set.copyOf(memberRepository.findOrganizationIdsByUserIdAndOrganizationIn(userId, organizations));
 	}
 
 	// 필드 간 규칙은 Bean Validation으로 표현하기 어려워 여기서 검사
