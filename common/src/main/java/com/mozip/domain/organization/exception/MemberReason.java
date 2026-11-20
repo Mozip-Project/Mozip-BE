@@ -8,6 +8,8 @@ public enum MemberReason {
 	ALREADY_MEMBER,
 	// 같은 연락처로 만료 전 대기 중인 초대가 있음
 	ALREADY_INVITED,
-	// 이미 수락/거절/취소된 초대
-	ALREADY_HANDLED
+	// 이미 수락/거절/취소된 초대나 대표자 인수 요청
+	ALREADY_HANDLED,
+	// 그 단체에 대기 중인 대표자 인수 요청이 이미 있음
+	TRANSFER_IN_PROGRESS
 }

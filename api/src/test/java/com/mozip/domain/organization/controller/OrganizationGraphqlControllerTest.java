@@ -23,8 +23,10 @@ import com.mozip.TestcontainersConfiguration;
 import com.mozip.domain.organization.entity.Member;
 import com.mozip.domain.organization.entity.MemberRole;
 import com.mozip.domain.organization.entity.Organization;
+import com.mozip.domain.organization.entity.Team;
 import com.mozip.domain.organization.repository.MemberRepository;
 import com.mozip.domain.organization.repository.OrganizationRepository;
+import com.mozip.domain.organization.repository.TeamRepository;
 import com.mozip.domain.school.entity.School;
 import com.mozip.domain.school.repository.SchoolRepository;
 import com.mozip.domain.user.entity.User;
@@ -73,6 +75,9 @@ class OrganizationGraphqlControllerTest {
 
 	@Autowired
 	private MemberRepository memberRepository;
+
+	@Autowired
+	private TeamRepository teamRepository;
 
 	@Autowired
 	private JwtProvider jwtProvider;
@@ -476,6 +481,48 @@ class OrganizationGraphqlControllerTest {
 			.variable("organizationId", organizationId)
 			.execute()
 			.path("createInviteLink.url").entity(String.class).isEqualTo("https://mozip.kr/invite/" + token);
+	}
+
+	@Test
+	@DisplayName("대표자 인수를 요청하고 대상이 수락하면 from은 OPERATOR, to는 REPRESENTATIVE로 응답한다")
+	void representativeTransfer() {
+		User representative = saveUser();
+		User operator = saveUser();
+		HttpGraphQlTester asRepresentative = asUser(representative);
+		String organizationId = asRepresentative.document(CREATE)
+			.variable("input", Map.of("name", "인수 동아리", "type", "CLUB", "scope", "UNION"))
+			.execute()
+			.path("createOrganization.id").entity(String.class).get();
+		Organization organization = organizationRepository.findById(Long.valueOf(organizationId)).orElseThrow();
+		Team team = teamRepository.save(Team.create(organization, "기획팀", 0));
+		Member operatorMember = memberRepository.save(Member.create(organization, operator, team, MemberRole.OPERATOR));
+		String fields = "id status organization { name } from { role user { name } team { name } } "
+			+ "to { role user { id name } team { name } }";
+
+		String transferId = asRepresentative.document(
+				"mutation($memberId: ID!) { requestRepresentativeTransfer(memberId: $memberId) { " + fields + " } }")
+			.variable("memberId", operatorMember.getId().toString())
+			.execute()
+			.path("requestRepresentativeTransfer.status").entity(String.class).isEqualTo("PENDING")
+			.path("requestRepresentativeTransfer.organization.name").entity(String.class).isEqualTo("인수 동아리")
+			.path("requestRepresentativeTransfer.from.user.name").entity(String.class).isEqualTo("테스트")
+			.path("requestRepresentativeTransfer.to.user.id").entity(String.class).isEqualTo(operator.getId().toString())
+			.path("requestRepresentativeTransfer.to.team.name").entity(String.class).isEqualTo("기획팀")
+			.path("requestRepresentativeTransfer.id").entity(String.class).get();
+
+		asUser(operator).document(
+				"mutation($id: ID!) { respondRepresentativeTransfer(id: $id, accept: true) { " + fields + " } }")
+			.variable("id", transferId)
+			.execute()
+			.path("respondRepresentativeTransfer.status").entity(String.class).isEqualTo("APPROVED")
+			.path("respondRepresentativeTransfer.from.role").entity(String.class).isEqualTo("OPERATOR")
+			.path("respondRepresentativeTransfer.to.role").entity(String.class).isEqualTo("REPRESENTATIVE");
+
+		asUser(operator).document(MEMBERS)
+			.variable("organizationId", organizationId)
+			.execute()
+			.path("members[0].user.id").entity(String.class).isEqualTo(operator.getId().toString())
+			.path("members[0].role").entity(String.class).isEqualTo("REPRESENTATIVE");
 	}
 
 	private User saveUser() {

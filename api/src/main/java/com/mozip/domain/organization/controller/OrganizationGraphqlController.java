@@ -20,6 +20,7 @@ import com.mozip.domain.organization.dto.UpdateOrganizationInput;
 import com.mozip.domain.organization.entity.Invitation;
 import com.mozip.domain.organization.entity.InviteLink;
 import com.mozip.domain.organization.entity.Member;
+import com.mozip.domain.organization.entity.RepresentativeTransfer;
 import com.mozip.domain.organization.entity.Organization;
 import com.mozip.domain.organization.entity.OrganizationField;
 import com.mozip.domain.organization.entity.OrganizationFieldTag;
@@ -35,6 +36,7 @@ import com.mozip.domain.organization.service.InvitationService;
 import com.mozip.domain.organization.service.InviteProperties;
 import com.mozip.domain.organization.service.MemberService;
 import com.mozip.domain.organization.service.OrganizationService;
+import com.mozip.domain.organization.service.RepresentativeTransferService;
 import com.mozip.domain.organization.service.TeamService;
 import com.mozip.domain.user.entity.User;
 import com.mozip.global.security.AuthUser;
@@ -50,6 +52,7 @@ public class OrganizationGraphqlController {
 	private final MemberService memberService;
 	private final InvitationService invitationService;
 	private final TeamService teamService;
+	private final RepresentativeTransferService representativeTransferService;
 	private final InviteProperties inviteProperties;
 	private final TeamRepository teamRepository;
 	private final MemberRepository memberRepository;
@@ -118,6 +121,29 @@ public class OrganizationGraphqlController {
 	public List<Team> saveTeams(@Argument Long organizationId, @Argument List<TeamInput> teams,
 		@AuthenticationPrincipal AuthUser authUser) {
 		return teamService.saveTeams(authUser.userId(), organizationId, teams);
+	}
+
+	@MutationMapping
+	public RepresentativeTransfer requestRepresentativeTransfer(@Argument Long memberId,
+		@AuthenticationPrincipal AuthUser authUser) {
+		return representativeTransferService.request(authUser.userId(), memberId);
+	}
+
+	@MutationMapping
+	public RepresentativeTransfer respondRepresentativeTransfer(@Argument Long id, @Argument boolean accept,
+		@AuthenticationPrincipal AuthUser authUser) {
+		return representativeTransferService.respond(authUser.userId(), id, accept);
+	}
+
+	// from/to는 JPQL 예약어와 겹쳐 엔티티 필드는 fromMember/toMember로 두고 스키마 이름에 이어 줌
+	@SchemaMapping(typeName = "RepresentativeTransfer", field = "from")
+	public Member transferFrom(RepresentativeTransfer transfer) {
+		return transfer.getFromMember();
+	}
+
+	@SchemaMapping(typeName = "RepresentativeTransfer", field = "to")
+	public Member transferTo(RepresentativeTransfer transfer) {
+		return transfer.getToMember();
 	}
 
 	// 링크 주소는 저장하지 않고 응답할 때 설정의 base-url과 토큰을 이어 붙임 (도메인이 바뀌어도 데이터 수정 없음)

@@ -84,6 +84,14 @@ public class Member extends BaseEntity {
 		this.leftAt = now;
 	}
 
+	// 대표자 인수 수락 시 두 사람의 역할을 바꿈. 대표자 unique index 때문에 기존 대표자를 먼저 내리고 flush해야 함
+	public void changeRole(MemberRole role) {
+		if (leftAt != null) {
+			throw new IllegalStateException("단체를 나간 운영진의 역할은 바꿀 수 없습니다.");
+		}
+		this.role = role;
+	}
+
 	// 소속 팀이 삭제되면 팀 미지정으로 둠 (팀 목록 저장에서 호출)
 	public void leaveTeam() {
 		this.team = null;

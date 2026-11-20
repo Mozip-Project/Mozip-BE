@@ -20,6 +20,9 @@ public interface MemberRepository extends JpaRepository<Member, Long> {
 
 	boolean existsByOrganizationIdAndUserIdAndRoleAndLeftAtIsNull(Long organizationId, Long userId, MemberRole role);
 
+	Optional<Member> findByOrganizationIdAndUserIdAndRoleAndLeftAtIsNull(Long organizationId, Long userId,
+		MemberRole role);
+
 	List<Member> findAllByUserIdAndLeftAtIsNull(Long userId);
 
 	// 내보내기가 organization(권한 검사)과 user(lastOrganization 정리)를 바로 읽으므로 한 번에 가져옴

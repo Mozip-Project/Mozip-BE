@@ -8,15 +8,18 @@ import org.springframework.transaction.annotation.Transactional;
 
 import com.mozip.domain.organization.entity.Member;
 import com.mozip.domain.organization.entity.MemberRole;
+import com.mozip.domain.organization.entity.RepresentativeTransfer;
+import com.mozip.domain.organization.entity.TransferStatus;
 import com.mozip.domain.organization.exception.MemberErrorCode;
 import com.mozip.domain.organization.exception.MemberReason;
 import com.mozip.domain.organization.repository.MemberRepository;
+import com.mozip.domain.organization.repository.RepresentativeTransferRepository;
 import com.mozip.global.exception.BusinessException;
 import com.mozip.global.exception.CommonErrorCode;
 
 import lombok.RequiredArgsConstructor;
 
-// 운영진 관리 (목록, 내보내기). 초대와 대표자 인수는 뒤 이슈에서 이 서비스에 추가
+// 운영진 관리 (목록, 내보내기). 초대는 InvitationService, 대표자 인수는 RepresentativeTransferService
 @Service
 @RequiredArgsConstructor
 @Transactional(readOnly = true)
@@ -24,6 +27,7 @@ public class MemberService {
 
 	private final MemberRepository memberRepository;
 	private final OrganizationService organizationService;
+	private final RepresentativeTransferRepository representativeTransferRepository;
 
 	// 그 단체 운영진만 조회 가능. 없는 단체(ORG_404)를 먼저 거르고 소속이 아니면 COMMON_403
 	public List<Member> getMembers(Long userId, Long organizationId) {
@@ -49,8 +53,12 @@ public class MemberService {
 			throw new BusinessException(MemberErrorCode.MEMBER_CONFLICT, MemberReason.REPRESENTATIVE)
 				.addContext("memberId", memberId);
 		}
-		member.leave(LocalDateTime.now());
+		LocalDateTime now = LocalDateTime.now();
+		member.leave(now);
 		member.getUser().leaveOrganization(member.getOrganization());
+		// 나간 운영진이 대상인 대표자 인수 요청은 수락할 사람이 없어지므로 취소
+		representativeTransferRepository.findAllByMemberAndStatus(member, TransferStatus.PENDING)
+			.forEach(transfer -> transfer.cancel(now));
 	}
 
 	private static BusinessException forbidden(Long organizationId, Long userId) {
