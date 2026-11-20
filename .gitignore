@@ -58,6 +58,7 @@ HELP.md
 
 ### 개인 문서 ###
 local/
+.claude/settings.local.json
 
 ### k8s secret
 /k8s/overlays/*/secret*.yaml
