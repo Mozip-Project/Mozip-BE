@@ -8,11 +8,14 @@ import jakarta.validation.constraints.Email;
 import jakarta.validation.constraints.NotBlank;
 import jakarta.validation.constraints.NotEmpty;
 import jakarta.validation.constraints.NotNull;
+import jakarta.validation.constraints.Pattern;
 import jakarta.validation.constraints.Size;
 
 // 단체 프로필 수정 입력 (GraphQL UpdateOrganizationInput)
 public record UpdateOrganizationInput(
-	@Size(max = 500, message = "로고 주소는 500자 이하여야 합니다.") String logoUrl,
+	// 공개 상세에 이미지로 그려지므로 http, https만 받음. 로고를 지울 때 보내는 빈 문자열은 허용
+	@Size(max = 500, message = "로고 주소는 500자 이하여야 합니다.")
+	@Pattern(regexp = "(?i)^(|https?://\\S+)$", message = "로고 주소는 http 또는 https 주소여야 합니다.") String logoUrl,
 	@NotBlank(message = "한 줄 소개를 입력해 주세요") @Size(max = 40, message = "최대 40자까지 입력할 수 있어요") String tagline,
 	@Size(max = 2000, message = "소개는 2000자 이하여야 합니다.") String description,
 	@Email(message = "올바른 이메일 주소를 입력해 주세요") @Size(max = 255, message = "이메일은 255자 이하여야 합니다.") String email,
