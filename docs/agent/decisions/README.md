@@ -30,4 +30,5 @@
 | 004 | DDL은 db/ddl SQL 파일로 수동 관리, Flyway 안 씀 | proposed |
 | 005 | 다른 담당 기능은 쓰는 쪽이 인터페이스와 임시 구현을 먼저 넣음 | proposed |
 | 006 | 모듈 분리 기준: 엔티티는 common, 로직은 api, 둘 다 쓸 때만 내림 | accepted |
-| 007 | 운영진의 현재 단체는 쿠키로 전달, 선택과 전환은 REST | accepted |
+| 007 | 운영진의 현재 단체는 쿠키로 전달, 선택과 전환은 REST | superseded (008) |
+| 008 | 운영진의 현재 단체는 서버에 저장하고 GraphQL로 고름, 쿠키는 프론트가 굽는다 | accepted |
