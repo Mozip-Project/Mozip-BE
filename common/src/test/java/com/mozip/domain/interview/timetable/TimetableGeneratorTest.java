@@ -1,6 +1,7 @@
 package com.mozip.domain.interview.timetable;
 
 import static org.assertj.core.api.Assertions.assertThat;
+import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.assertj.core.groups.Tuple.tuple;
 
 import java.time.LocalDate;
@@ -10,6 +11,7 @@ import java.util.ArrayList;
 import java.util.Collections;
 import java.util.List;
 import java.util.Map;
+import java.util.Random;
 import java.util.Set;
 
 import org.junit.jupiter.api.DisplayName;
@@ -64,10 +66,84 @@ class TimetableGeneratorTest {
 			candidates, PANELISTS, TEAM_BY_POSITION);
 
 		assertThat(result.interviews()).extracting(AssignedInterview::startAt, AssignedInterview::track,
-			AssignedInterview::applicationIds).containsExactly(
-			tuple(T10, 1, List.of(1L)),
-			tuple(T10, 2, List.of(2L)));
+			AssignedInterview::applicationIds, AssignedInterview::memberIds).containsExactly(
+			tuple(T10, 1, List.of(1L), List.of(100L, 101L)),
+			tuple(T10, 2, List.of(2L), List.of(102L, 103L)));
 		assertThat(result.unassignedApplicationIds()).containsExactly(3L);
+	}
+
+	@Test
+	@DisplayName("먼저 낸 지원자가 다른 시각도 되면 그쪽으로 옮겨 늦게 낸 지원자 자리를 만든다")
+	void relocatesEarlierCandidate() {
+		// 1번은 10:00/10:30 둘 다, 2번은 10:00만 가능. 먼저 온 순서대로만 채우면 1번이 10:00을 잡아 2번이 미배정됨
+		List<Candidate> candidates = List.of(candidate(1L, DEV, 1, T10, T10_30), candidate(2L, DEV, 2, T10));
+
+		TimetableResult result = TimetableGenerator.generate(SLOTS, setting(1, 1, AssignRule.ALL_MEMBERS),
+			candidates, PANELISTS, TEAM_BY_POSITION);
+
+		assertThat(result.interviews()).extracting(AssignedInterview::startAt, AssignedInterview::applicationIds)
+			.containsExactly(tuple(T10, List.of(2L)), tuple(T10_30, List.of(1L)));
+		assertThat(result.unassignedApplicationIds()).isEmpty();
+	}
+
+	@Test
+	@DisplayName("포지션이 달라 한 칸에 못 묶일 때도 옮길 수 있는 지원자를 옮겨 모두 배정한다")
+	void relocatesAcrossPositions() {
+		List<Candidate> candidates = List.of(
+			candidate(1L, DEV, 1, T10, T10_30),
+			candidate(2L, DESIGN, 2, T10),
+			candidate(3L, DESIGN, 3, T10));
+
+		TimetableResult result = TimetableGenerator.generate(SLOTS, setting(2, 1, AssignRule.ALL_MEMBERS),
+			candidates, PANELISTS, TEAM_BY_POSITION);
+
+		assertThat(result.interviews()).extracting(AssignedInterview::startAt, AssignedInterview::positionId,
+			AssignedInterview::applicationIds).containsExactly(
+			tuple(T10, DESIGN, List.of(2L, 3L)),
+			tuple(T10_30, DEV, List.of(1L)));
+		assertThat(result.unassignedApplicationIds()).isEmpty();
+	}
+
+	@Test
+	@DisplayName("자리가 모자라면 먼저 낸 지원자가 남고 늦게 낸 지원자가 미배정된다")
+	void earlierSubmissionKeepsSeat() {
+		List<Candidate> candidates = List.of(candidate(2L, DEV, 2, T10), candidate(1L, DEV, 1, T10));
+
+		TimetableResult result = TimetableGenerator.generate(SLOTS, setting(1, 1, AssignRule.ALL_MEMBERS),
+			candidates, PANELISTS, TEAM_BY_POSITION);
+
+		assertThat(result.interviews()).extracting(AssignedInterview::applicationIds)
+			.containsExactly(List.of(1L));
+		assertThat(result.unassignedApplicationIds()).containsExactly(2L);
+	}
+
+	@Test
+	@DisplayName("같은 시각 여러 칸이 같은 팀 면접관을 쓰면 나눠 맡아 한 사람이 두 면접에 겹치지 않는다")
+	void splitsInterviewersAcrossTracks() {
+		List<Candidate> candidates = List.of(
+			candidate(1L, DEV, 1, T10), candidate(2L, DEV, 2, T10), candidate(3L, DESIGN, 3, T10));
+
+		TimetableResult result = TimetableGenerator.generate(SLOTS, setting(1, 3, AssignRule.SAME_TEAM),
+			candidates, PANELISTS, TEAM_BY_POSITION);
+
+		assertThat(result.interviews()).extracting(AssignedInterview::track, AssignedInterview::applicationIds,
+			AssignedInterview::memberIds).containsExactly(
+			tuple(1, List.of(1L), List.of(100L)),
+			tuple(2, List.of(2L), List.of(101L)),
+			tuple(3, List.of(3L), List.of(102L)));
+	}
+
+	@Test
+	@DisplayName("지원서 id가 비었거나 겹치면 거부한다")
+	void rejectsInvalidCandidates() {
+		InterviewSetting setting = setting(1, 1, AssignRule.ALL_MEMBERS);
+
+		assertThatThrownBy(() -> TimetableGenerator.generate(SLOTS, setting,
+			List.of(candidate(1L, DEV, 1, T10), candidate(1L, DEV, 2, T10_30)), PANELISTS, TEAM_BY_POSITION))
+			.isInstanceOf(IllegalArgumentException.class);
+		assertThatThrownBy(() -> TimetableGenerator.generate(SLOTS, setting,
+			List.of(new Candidate(null, DEV, T10, Set.of(T10))), PANELISTS, TEAM_BY_POSITION))
+			.isInstanceOf(NullPointerException.class);
 	}
 
 	@Test
@@ -149,7 +225,7 @@ class TimetableGeneratorTest {
 
 		List<Slot> shuffledSlots = new ArrayList<>(SLOTS);
 		Collections.reverse(shuffledSlots);
-		Collections.shuffle(candidates);
+		Collections.shuffle(candidates, new Random(42));
 
 		assertThat(TimetableGenerator.generate(shuffledSlots, setting, candidates, PANELISTS, TEAM_BY_POSITION))
 			.isEqualTo(expected);

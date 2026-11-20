@@ -15,8 +15,4 @@ public record Candidate(Long applicationId, Long positionId, LocalDateTime submi
 		return availableTimes.contains(startAt);
 	}
 
-	boolean hasSamePosition(Candidate other) {
-		return positionId == null ? other.positionId == null : positionId.equals(other.positionId);
-	}
-
 }

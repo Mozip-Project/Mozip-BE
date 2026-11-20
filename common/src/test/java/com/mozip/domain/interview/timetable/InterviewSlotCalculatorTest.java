@@ -22,7 +22,7 @@ class InterviewSlotCalculatorTest {
 	@Test
 	@DisplayName("구간을 면접 1회 시간 + 쉬는 시간 단위로 자르고 끝의 자투리는 버린다")
 	void splitsWithBreak() {
-		// 10:00~11:10, 20분 면접 + 10분 쉬는 시간 → 10:00, 10:30, 11:00 (11:00~11:20은 11:10을 넘어 버림)
+		// 10:00~11:10, 20분 면접 + 10분 쉬는 시간 → 10:00, 10:30 (11:00~11:20은 11:10을 넘어 버림)
 		List<Slot> slots = InterviewSlotCalculator.calculate(
 			List.of(new TimeRange(DAY1, LocalTime.of(10, 0), LocalTime.of(11, 10), Set.of())),
 			setting(20, 10));
@@ -35,9 +35,9 @@ class InterviewSlotCalculatorTest {
 	@Test
 	@DisplayName("마지막 블록은 뒤에 쉬는 시간이 없어도 면접만 들어가면 포함된다")
 	void lastBlockNeedsNoTrailingBreak() {
-		// 60분 구간, 20 + 10 → (60 + 10) / 30 = 2.33 → 2개. 10:30~10:50은 들어가고 11:00은 넘침
+		// 10:00~10:50, 20 + 10 → 10:30~10:50 블록은 쉬는 시간까지 치면 11:00이라 넘치지만 면접은 딱 들어가서 포함
 		List<Slot> slots = InterviewSlotCalculator.calculate(
-			List.of(new TimeRange(DAY1, LocalTime.of(10, 0), LocalTime.of(11, 0), Set.of())),
+			List.of(new TimeRange(DAY1, LocalTime.of(10, 0), LocalTime.of(10, 50), Set.of())),
 			setting(20, 10));
 
 		assertThat(slots).extracting(Slot::startAt).containsExactly(at(DAY1, 10, 0), at(DAY1, 10, 30));
@@ -99,6 +99,27 @@ class InterviewSlotCalculatorTest {
 			setting(20, 10));
 
 		assertThat(slots).extracting(Slot::startAt).containsExactly(at(DAY1, 23, 0), at(DAY1, 23, 30));
+	}
+
+	@Test
+	@DisplayName("같은 날 구간이 겹치면 거부하고 맞닿은 구간은 이어 붙인다")
+	void overlappingRanges() {
+		assertThatThrownBy(() -> InterviewSlotCalculator.calculate(List.of(
+				new TimeRange(DAY1, LocalTime.of(10, 0), LocalTime.of(12, 0), Set.of()),
+				new TimeRange(DAY1, LocalTime.of(11, 0), LocalTime.of(13, 0), Set.of())),
+			setting(30, 0))).isInstanceOf(IllegalArgumentException.class);
+		assertThatThrownBy(() -> InterviewSlotCalculator.calculate(List.of(
+				new TimeRange(DAY1, LocalTime.of(10, 0), LocalTime.of(11, 0), Set.of()),
+				new TimeRange(DAY1, LocalTime.of(10, 0), LocalTime.of(11, 0), Set.of())),
+			setting(30, 0))).isInstanceOf(IllegalArgumentException.class);
+
+		List<Slot> slots = InterviewSlotCalculator.calculate(List.of(
+				new TimeRange(DAY1, LocalTime.of(11, 0), LocalTime.of(12, 0), Set.of()),
+				new TimeRange(DAY1, LocalTime.of(10, 0), LocalTime.of(11, 0), Set.of()),
+				new TimeRange(DAY2, LocalTime.of(10, 0), LocalTime.of(11, 0), Set.of())),
+			setting(30, 0));
+		assertThat(slots).extracting(Slot::startAt).containsExactly(
+			at(DAY1, 10, 0), at(DAY1, 10, 30), at(DAY1, 11, 0), at(DAY1, 11, 30), at(DAY2, 10, 0), at(DAY2, 10, 30));
 	}
 
 	@Test

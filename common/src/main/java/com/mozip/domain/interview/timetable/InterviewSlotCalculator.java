@@ -18,6 +18,7 @@ public final class InterviewSlotCalculator {
 		List<TimeRange> sorted = ranges.stream()
 			.sorted(Comparator.comparing(TimeRange::date).thenComparing(TimeRange::startTime))
 			.toList();
+		rejectOverlap(sorted);
 		List<Slot> slots = new ArrayList<>();
 		for (TimeRange range : sorted) {
 			LocalTime start = range.startTime();
@@ -32,7 +33,19 @@ public final class InterviewSlotCalculator {
 				start = start.plusMinutes(setting.blockMinutes());
 			}
 		}
-		return slots;
+		return List.copyOf(slots);
+	}
+
+	// 같은 날 구간이 겹치면 같은 시각 블록이 두 번 생겨 한 사람이 동시에 두 면접에 배정될 수 있어 입력 단계에서 막음
+	// 맞닿은 구간(10~12시, 12~14시)은 겹침이 아님
+	private static void rejectOverlap(List<TimeRange> sorted) {
+		for (int i = 1; i < sorted.size(); i++) {
+			TimeRange before = sorted.get(i - 1);
+			TimeRange current = sorted.get(i);
+			if (before.date().equals(current.date()) && current.startTime().isBefore(before.endTime())) {
+				throw new IllegalArgumentException("같은 날 면접 가능 구간이 겹칩니다: " + current.date());
+			}
+		}
 	}
 
 	// LocalTime 덧셈은 자정을 넘으면 다음 날로 감겨 무한 루프가 되므로 하루 안에 드는지 먼저 확인
