@@ -51,6 +51,9 @@ public class Organization extends BaseEntity {
 	@Column(nullable = false, length = 30)
 	private ReviewStatus reviewStatus;
 
+	@Column(length = 500)
+	private String logoUrl;
+
 	private Organization(String name, OrganizationType type, OrganizationScope scope, School school,
 		boolean noTeam) {
 		this.name = name;
@@ -68,6 +71,10 @@ public class Organization extends BaseEntity {
 			throw new IllegalArgumentException("연합 단체에는 학교를 지정할 수 없습니다.");
 		}
 		return new Organization(name, type, scope, school, noTeam);
+	}
+
+	public void updateLogo(String logoUrl) {
+		this.logoUrl = logoUrl;
 	}
 
 }

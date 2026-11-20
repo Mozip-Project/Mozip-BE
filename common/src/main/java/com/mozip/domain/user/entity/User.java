@@ -1,7 +1,10 @@
 package com.mozip.domain.user.entity;
 
 import java.time.LocalDateTime;
+import java.util.ArrayList;
+import java.util.List;
 
+import com.mozip.domain.organization.entity.Organization;
 import com.mozip.domain.school.entity.School;
 import com.mozip.global.common.BaseEntity;
 
@@ -15,6 +18,7 @@ import jakarta.persistence.GenerationType;
 import jakarta.persistence.Id;
 import jakarta.persistence.JoinColumn;
 import jakarta.persistence.ManyToOne;
+import jakarta.persistence.OneToMany;
 import jakarta.persistence.Table;
 import lombok.AccessLevel;
 import lombok.Getter;
@@ -53,6 +57,11 @@ public class User extends BaseEntity {
 	@Column(nullable = false, length = 20)
 	private Role lastRole;
 
+	// 운영진 홈에서 마지막으로 고른 단체 (GNB 단체 전환), 운영진으로 전환한 적이 없으면 null
+	@ManyToOne(fetch = FetchType.LAZY)
+	@JoinColumn(name = "last_organization_id")
+	private Organization lastOrganization;
+
 	// 학교 인증 승인 시 채움, null = 미인증 (공고 열람만 가능)
 	@ManyToOne(fetch = FetchType.LAZY)
 	@JoinColumn(name = "school_id")
@@ -64,6 +73,36 @@ public class User extends BaseEntity {
 	@Column(nullable = false)
 	private LocalDateTime termsAgreedAt;
 
+	// 아래 프로필 필드는 전부 선택 입력이라 가입 시점엔 비어 있고, 프로필 수정 기능에서 채워짐
+	@Column(length = 500)
+	private String profileImageUrl;
+
+	@Column(length = 100)
+	private String department;
+
+	private Integer grade;
+
+	@Column(length = 100)
+	private String contactEmail;
+
+	// TODO: 알림 기능 구현 전까지는 항상 true로 생성됨. 실제 토글 뮤테이션이 생기면 UserService.toMe()의
+	// NotificationSettings.defaults()도 이 컬럼을 읽도록 같이 바꿔야 함 (지금은 두 값이 우연히 같을 뿐, 연결 안 돼 있음)
+	@Column(nullable = false)
+	private boolean notifyResult;
+
+	@Column(nullable = false)
+	private boolean notifyScrap;
+
+	@Column(nullable = false)
+	private boolean notifyOperator;
+
+	// TODO: 지금은 엔티티 getter를 그대로 GraphQL property fetcher로 쓰고 있어, 회원을 여러 명 조회해서
+	// 각각 experiences를 요청하면(예: organizations.members.user.experiences) N+1이 발생함.
+	// Organization.members에 적용한 것처럼 @BatchMapping(typeName = "User", field = "experiences")로
+	// ExperienceRepository.findByUserIdIn(...) 배치 조회를 나중에 추가해야 함
+	@OneToMany(mappedBy = "user", fetch = FetchType.LAZY)
+	private List<Experience> experiences = new ArrayList<>();
+
 	private User(String phone, String encodedPassword, String name, Authority authority, Role lastRole,
 		boolean marketingAgreed, LocalDateTime termsAgreedAt) {
 		this.phone = phone;
@@ -74,6 +113,9 @@ public class User extends BaseEntity {
 		this.lastRole = lastRole;
 		this.marketingAgreed = marketingAgreed;
 		this.termsAgreedAt = termsAgreedAt;
+		this.notifyResult = true;
+		this.notifyScrap = true;
+		this.notifyOperator = true;
 	}
 
 	// 일반 가입 (비밀번호는 암호화한 값으로 전달)
@@ -90,6 +132,15 @@ public class User extends BaseEntity {
 
 	public boolean isActive() {
 		return status == UserStatus.ACTIVE;
+	}
+
+	// 지원자/운영진 홈 전환. 운영진으로 전환할 때만 organization을 같이 갱신 (지원자 전환은 이전 선택을 유지)
+	public void updateLastRole(Role lastRole) {
+		this.lastRole = lastRole;
+	}
+
+	public void updateLastOrganization(Organization lastOrganization) {
+		this.lastOrganization = lastOrganization;
 	}
 
 }

@@ -156,3 +156,15 @@ type RepresentativeTransfer {
     status: TransferStatus!
     createdAt: DateTime!
 }
+
+# 프로젝트 전체에서 Mutation 최상위 타입이 처음 쓰이는 곳이라 extend 대신 직접 선언
+# 다른 도메인 파일에서 뮤테이션을 추가할 때는 schema.graphqls의 Query처럼 extend type Mutation 사용
+type Mutation {
+    "단체 로고를 변경합니다. fileKey는 파일 업로드 URL 발급(POST /api/files/presigned-url, purpose=ORG_LOGO)으로 받아 S3에 업로드를 마친 값입니다."
+    updateOrganizationLogo(input: UpdateOrganizationLogoInput!): Organization!
+}
+
+input UpdateOrganizationLogoInput {
+    organizationId: ID!
+    fileKey: String!
+}
