@@ -22,4 +22,13 @@ public interface MemberRepository extends JpaRepository<Member, Long> {
 		""")
 	List<Member> findByUserId(@Param("userId") Long userId);
 
+	// Organization.members 배치 로딩용 (@BatchMapping). user, team까지 같이 당겨와 그 하위 필드 조회 시 추가 N+1을 막음
+	@Query("""
+		SELECT m FROM Member m
+		JOIN FETCH m.user
+		LEFT JOIN FETCH m.team
+		WHERE m.organization.id IN :organizationIds
+		""")
+	List<Member> findByOrganizationIdIn(@Param("organizationIds") List<Long> organizationIds);
+
 }
