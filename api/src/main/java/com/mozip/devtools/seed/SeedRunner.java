@@ -40,7 +40,7 @@ public class SeedRunner implements ApplicationRunner {
 	@Transactional
 	public void run(ApplicationArguments args) {
 		Long operatorId = mockUserRegistry.get(MockRole.OPERATOR).userId();
-		List<Member> memberships = memberRepository.findAllByUserId(operatorId);
+		List<Member> memberships = memberRepository.findAllByUserIdAndLeftAtIsNull(operatorId);
 		Organization organization = memberships.isEmpty()
 			? organizationService.createOrganization(operatorId, SeedFixtures.createOrganizationInput())
 			: memberships.getFirst().getOrganization();

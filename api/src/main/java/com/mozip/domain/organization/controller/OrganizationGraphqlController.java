@@ -27,6 +27,7 @@ import com.mozip.domain.organization.repository.OrganizationFieldTagRepository;
 import com.mozip.domain.organization.repository.OrganizationKeywordRepository;
 import com.mozip.domain.organization.repository.OrganizationLinkRepository;
 import com.mozip.domain.organization.repository.TeamRepository;
+import com.mozip.domain.organization.service.MemberService;
 import com.mozip.domain.organization.service.OrganizationService;
 import com.mozip.domain.user.entity.User;
 import com.mozip.global.security.AuthUser;
@@ -39,6 +40,7 @@ import lombok.RequiredArgsConstructor;
 public class OrganizationGraphqlController {
 
 	private final OrganizationService organizationService;
+	private final MemberService memberService;
 	private final TeamRepository teamRepository;
 	private final MemberRepository memberRepository;
 	private final OrganizationKeywordRepository keywordRepository;
@@ -71,6 +73,19 @@ public class OrganizationGraphqlController {
 	@QueryMapping
 	public List<String> keywordSuggestions(@Argument String prefix) {
 		return organizationService.getKeywordSuggestions(prefix);
+	}
+
+	// 운영진 관리 표. 목록 한 번에 단체 하나라 배치 조회 없이 user/team을 join fetch
+	@QueryMapping
+	public List<Member> members(@Argument Long organizationId, @AuthenticationPrincipal AuthUser authUser) {
+		return memberService.getMembers(authUser.userId(), organizationId);
+	}
+
+	// 성공하면 true, 실패는 전부 errors[]로 가므로 false를 돌려줄 일은 없음
+	@MutationMapping
+	public boolean removeMember(@Argument Long memberId, @AuthenticationPrincipal AuthUser authUser) {
+		memberService.removeMember(authUser.userId(), memberId);
+		return true;
 	}
 
 	// 단체 N개를 응답 시 배치 조회

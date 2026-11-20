@@ -1,5 +1,7 @@
 package com.mozip.domain.organization.entity;
 
+import java.time.LocalDateTime;
+
 import com.mozip.domain.user.entity.User;
 import com.mozip.global.common.BaseEntity;
 
@@ -14,16 +16,15 @@ import jakarta.persistence.Id;
 import jakarta.persistence.JoinColumn;
 import jakarta.persistence.ManyToOne;
 import jakarta.persistence.Table;
-import jakarta.persistence.UniqueConstraint;
 import lombok.AccessLevel;
 import lombok.Getter;
 import lombok.NoArgsConstructor;
 
 // 단체 운영진 (회원의 단체 소속)
+// 같은 회원의 소속 unique는 소속 중인 행(left_at is null)에만 걸리는 부분 unique index라 DDL에만 있음
 @Getter
 @Entity
-@Table(name = "members",
-	uniqueConstraints = @UniqueConstraint(columnNames = {"organization_id", "user_id"}))
+@Table(name = "members")
 @NoArgsConstructor(access = AccessLevel.PROTECTED)
 public class Member extends BaseEntity {
 
@@ -48,6 +49,9 @@ public class Member extends BaseEntity {
 	@Column(nullable = false, length = 30)
 	private MemberRole role;
 
+	// 내보내진 시각, 소속 중이면 null. 평가 기록이 운영진을 참조해 행은 지우지 않고 이 값으로 소속 여부를 가름
+	private LocalDateTime leftAt;
+
 	private Member(Organization organization, User user, Team team, MemberRole role) {
 		this.organization = organization;
 		this.user = user;
@@ -66,6 +70,18 @@ public class Member extends BaseEntity {
 			}
 		}
 		return new Member(organization, user, team, role);
+	}
+
+	public boolean isRepresentative() {
+		return role == MemberRole.REPRESENTATIVE;
+	}
+
+	// 내보내기 (soft delete). 이미 나간 운영진을 다시 내보내는 건 호출 쪽 조회 누락이라 예외
+	public void leave(LocalDateTime now) {
+		if (leftAt != null) {
+			throw new IllegalStateException("이미 단체를 나간 운영진입니다.");
+		}
+		this.leftAt = now;
 	}
 
 	// 프록시와 실제 객체가 섞일 수 있어 저장된 경우 id로 비교

@@ -75,7 +75,7 @@ class AuthBypassIntegrationTest {
 	@Transactional
 	@DisplayName("앱 시작 시 개발용 운영진은 개발용 단체의 대표자로 등록된다")
 	void devOperatorIsRepresentativeOfSeedOrganization() {
-		List<Member> memberships = memberRepository.findAllByUserId(userId(MockRole.OPERATOR));
+		List<Member> memberships = memberRepository.findAllByUserIdAndLeftAtIsNull(userId(MockRole.OPERATOR));
 
 		assertThat(memberships).hasSize(1);
 		assertThat(memberships.getFirst().getRole()).isEqualTo(MemberRole.REPRESENTATIVE);

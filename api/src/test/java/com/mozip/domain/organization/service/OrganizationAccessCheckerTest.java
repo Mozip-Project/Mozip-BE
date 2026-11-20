@@ -71,6 +71,15 @@ class OrganizationAccessCheckerTest {
 	}
 
 	@Test
+	@DisplayName("내보내진 운영진은 isOperatorOf와 isRepresentativeOf 모두 false다")
+	void leftMember() {
+		memberRepository.findAllByUserIdAndLeftAtIsNull(operator.getId()).getFirst().leave(LocalDateTime.now());
+
+		assertThat(accessChecker.isOperatorOf(operator.getId(), organization.getId())).isFalse();
+		assertThat(accessChecker.isRepresentativeOf(operator.getId(), organization.getId())).isFalse();
+	}
+
+	@Test
 	@DisplayName("isRepresentativeOf는 대표자만 true다")
 	void isRepresentativeOf() {
 		assertThat(accessChecker.isRepresentativeOf(representative.getId(), organization.getId())).isTrue();

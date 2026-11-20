@@ -19,14 +19,14 @@ public class OrganizationAccessChecker {
 	private final MemberRepository memberRepository;
 	private final OrganizationService organizationService;
 
-	// 대표자, 운영진 구분 없이 단체 소속이면 true
+	// 대표자, 운영진 구분 없이 단체 소속이면 true. 내보내진 운영진(leftAt)은 소속이 아님
 	public boolean isOperatorOf(Long userId, Long organizationId) {
-		return memberRepository.existsByOrganizationIdAndUserId(organizationId, userId);
+		return memberRepository.existsByOrganizationIdAndUserIdAndLeftAtIsNull(organizationId, userId);
 	}
 
 	// 대표자만 할 수 있는 일(운영진 내보내기, 대표자 인수 승인 등)의 권한 검사
 	public boolean isRepresentativeOf(Long userId, Long organizationId) {
-		return memberRepository.existsByOrganizationIdAndUserIdAndRole(organizationId, userId,
+		return memberRepository.existsByOrganizationIdAndUserIdAndRoleAndLeftAtIsNull(organizationId, userId,
 			MemberRole.REPRESENTATIVE);
 	}
 

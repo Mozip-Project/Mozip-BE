@@ -74,7 +74,7 @@ public class OrganizationService {
 	@Transactional
 	public Organization updateOrganization(Long userId, Long organizationId, UpdateOrganizationInput input) {
 		Organization organization = getOrganization(organizationId);
-		if (!memberRepository.existsByOrganizationIdAndUserId(organizationId, userId)) {
+		if (!memberRepository.existsByOrganizationIdAndUserIdAndLeftAtIsNull(organizationId, userId)) {
 			throw new BusinessException(CommonErrorCode.FORBIDDEN)
 				.addContext("organizationId", organizationId)
 				.addContext("userId", userId);
@@ -113,7 +113,7 @@ public class OrganizationService {
 	@Transactional
 	public User selectOrganization(Long userId, Long organizationId) {
 		Organization organization = getOrganization(organizationId);
-		if (!memberRepository.existsByOrganizationIdAndUserId(organizationId, userId)) {
+		if (!memberRepository.existsByOrganizationIdAndUserIdAndLeftAtIsNull(organizationId, userId)) {
 			throw new BusinessException(CommonErrorCode.FORBIDDEN)
 				.addContext("organizationId", organizationId)
 				.addContext("userId", userId);
