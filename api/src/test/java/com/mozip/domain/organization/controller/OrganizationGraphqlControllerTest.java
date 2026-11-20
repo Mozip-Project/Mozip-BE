@@ -16,6 +16,7 @@ import org.springframework.boot.graphql.test.autoconfigure.tester.AutoConfigureH
 import org.springframework.boot.test.context.SpringBootTest;
 import org.springframework.boot.webmvc.test.autoconfigure.AutoConfigureMockMvc;
 import org.springframework.context.annotation.Import;
+import org.springframework.jdbc.core.JdbcTemplate;
 import org.springframework.graphql.execution.ErrorType;
 import org.springframework.graphql.test.tester.HttpGraphQlTester;
 
@@ -66,6 +67,9 @@ class OrganizationGraphqlControllerTest {
 	@Autowired
 	private JwtProvider jwtProvider;
 
+	@Autowired
+	private JdbcTemplate jdbcTemplate;
+
 	private static final String ME = """
 		{
 			me {
@@ -86,7 +90,7 @@ class OrganizationGraphqlControllerTest {
 		""";
 
 	@Test
-	@DisplayName("단체를 만들면 me의 memberships에 나오고, 상세는 로그인 없이도 볼 수 있다")
+	@DisplayName("단체를 만들면 me의 memberships에 나오고, 심사 전 상세는 소속 운영진만 볼 수 있다")
 	void createThenListThenDetail() {
 		User user = saveUser();
 		School school = schoolRepository.save(School.create("테스트대학교", null));
@@ -120,16 +124,77 @@ class OrganizationGraphqlControllerTest {
 			.path("me.memberships[0].organization.school.name").entity(String.class).isEqualTo("테스트대학교")
 			.path("me.memberships[0].team").valueIsNull();
 
-		graphQlTester.document("query($id: ID!) { organization(id: $id) { name councilLevel school { name } } }")
+		asUser.document("query($id: ID!) { organization(id: $id) { name councilLevel school { name } proofLink } }")
 			.variable("id", organizationId)
 			.execute()
 			.path("organization.name").entity(String.class).isEqualTo("총학생회")
 			.path("organization.councilLevel").entity(String.class).isEqualTo("COLLEGE")
-			.path("organization.school.name").entity(String.class).isEqualTo("테스트대학교");
+			.path("organization.school.name").entity(String.class).isEqualTo("테스트대학교")
+			.path("organization.proofLink").entity(String.class).isEqualTo("https://example.com/proof");
+
+		graphQlTester.document("query($id: ID!) { organization(id: $id) { id } }")
+			.variable("id", organizationId)
+			.execute()
+			.errors()
+			.satisfy(errors -> assertThat(errors.getFirst().getExtensions()).containsEntry("code", "ORG_404"));
 	}
 
 	@Test
-	@DisplayName("운영진이 프로필을 수정하면 상세 조회에 키워드/분야/링크가 나오고, 다른 회원은 COMMON_403이다")
+	@DisplayName("승인된 단체 상세는 로그인 없이 볼 수 있지만 증빙은 null이고 운영진 명단은 COMMON_403이다")
+	void anonymousSeesPublicFieldsOnly() {
+		User user = saveUser();
+		String organizationId = createOrganization(asUser(user));
+		approve(organizationId);
+
+		graphQlTester.document("query($id: ID!) { organization(id: $id) { name proofLink proofFileUrl } }")
+			.variable("id", organizationId)
+			.execute()
+			.path("organization.name").entity(String.class).isEqualTo("동아리")
+			.path("organization.proofLink").valueIsNull()
+			.path("organization.proofFileUrl").valueIsNull();
+
+		graphQlTester.document("query($id: ID!) { organization(id: $id) { name members { user { phone } } } }")
+			.variable("id", organizationId)
+			.execute()
+			.errors()
+			.satisfy(errors -> assertThat(errors.getFirst().getExtensions()).containsEntry("code", "COMMON_403"));
+
+		asUser(saveUser()).document("query($id: ID!) { organization(id: $id) { members { id } } }")
+			.variable("id", organizationId)
+			.execute()
+			.errors()
+			.satisfy(errors -> assertThat(errors.getFirst().getExtensions()).containsEntry("code", "COMMON_403"));
+	}
+
+	@Test
+	@DisplayName("운영진 명단과 팀에서 단체, 학교까지 중첩해 조회해도 LAZY 예외 없이 응답한다")
+	void nestedFieldsResolve() {
+		User user = saveUser();
+		School school = schoolRepository.save(School.create("중첩대학교", null));
+		jdbcTemplate.update("update users set school_id = ? where id = ?", school.getId(), user.getId());
+		HttpGraphQlTester asUser = asUser(user);
+		String organizationId = createOrganization(asUser);
+		jdbcTemplate.update("insert into teams (organization_id, name, created_at, updated_at) values (?, '기획', now(), now())",
+			Long.valueOf(organizationId));
+
+		asUser.document("""
+				query($id: ID!) {
+					organization(id: $id) {
+						members { organization { name school { name } } user { school { name } } team { id } }
+						teams { name organization { name school { name } } }
+					}
+				}
+				""")
+			.variable("id", organizationId)
+			.execute()
+			.errors().verify()
+			.path("organization.members[0].organization.name").entity(String.class).isEqualTo("동아리")
+			.path("organization.members[0].user.school.name").entity(String.class).isEqualTo("중첩대학교")
+			.path("organization.teams[0].organization.name").entity(String.class).isEqualTo("동아리");
+	}
+
+	@Test
+	@DisplayName("운영진이 프로필을 수정하면 승인된 단체 상세에 키워드/분야/링크가 나오고, 다른 회원은 COMMON_403이다")
 	void updateThenDetail() {
 		User user = saveUser();
 		HttpGraphQlTester asUser = asUser(user);
@@ -155,6 +220,8 @@ class OrganizationGraphqlControllerTest {
 			.path("updateOrganization.links[0].url").entity(String.class).isEqualTo("https://instagram.com/mozip")
 			.path("updateOrganization.links[1].type").entity(String.class).isEqualTo("WEBSITE");
 
+		// 승인된 단체여야 로그인 없이 상세와 자동완성에 나옴
+		approve(organizationId);
 		graphQlTester.document("query($id: ID!) { organization(id: $id) { tagline keywords } }")
 			.variable("id", organizationId)
 			.execute()
@@ -304,6 +371,31 @@ class OrganizationGraphqlControllerTest {
 					.singleElement()
 					.hasFieldOrPropertyWithValue("field", "input.name");
 			});
+	}
+
+	private String createOrganization(HttpGraphQlTester asUser) {
+		return asUser.document(CREATE)
+			.variable("input", Map.of("name", "동아리", "type", "CLUB", "scope", "UNION",
+				"proofLink", "https://example.com/proof"))
+			.execute()
+			.path("createOrganization.id").entity(String.class).get();
+	}
+
+	// 심사 승인 API가 아직 없어 상태만 직접 바꿈
+	private void approve(String organizationId) {
+		jdbcTemplate.update("update organizations set review_status = 'APPROVED' where id = ?",
+			Long.valueOf(organizationId));
+	}
+
+	@Test
+	@DisplayName("증빙 링크가 http, https 주소가 아니면 COMMON_400이다")
+	void proofLinkMustBeHttp() {
+		asUser(saveUser()).document(CREATE)
+			.variable("input", Map.of("name", "동아리", "type", "CLUB", "scope", "UNION",
+				"proofLink", "javascript:alert(1)"))
+			.execute()
+			.errors()
+			.satisfy(errors -> assertThat(errors.getFirst().getExtensions()).containsEntry("code", "COMMON_400"));
 	}
 
 	private User saveUser() {
