@@ -12,6 +12,7 @@ import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.jdbc.core.JdbcTemplate;
 import org.springframework.boot.test.context.SpringBootTest;
 import org.springframework.context.annotation.Import;
 import org.springframework.dao.DataIntegrityViolationException;
@@ -72,6 +73,9 @@ class OrganizationServiceTest {
 
 	@Autowired
 	private OrganizationLinkRepository linkRepository;
+
+	@Autowired
+	private JdbcTemplate jdbcTemplate;
 
 	private User user;
 	private User other;
@@ -243,18 +247,33 @@ class OrganizationServiceTest {
 	}
 
 	@Test
-	@DisplayName("호스트를 읽을 수 없는 링크면 COMMON_400 LINK_URL_INVALID다")
+	@DisplayName("호스트를 읽을 수 없거나 http, https가 아니거나 https://를 붙여 500자를 넘는 링크면 COMMON_400 LINK_URL_INVALID다")
 	void linkUrlInvalid() {
 		Organization organization = organizationService.createOrganization(user.getId(),
 			SeedFixtures.createOrganizationInput());
 
-		assertInvalidUpdate(organization,
-			profileInput(List.of(OrganizationField.ETC), List.of("키워드"), List.of("https://")),
-			OrganizationInputReason.LINK_URL_INVALID);
+		for (String link : List.of("https://", "javascript://example.com/%0aalert(1)", "ftp://example.com",
+			"a".repeat(490) + ".com")) {
+			assertInvalidUpdate(organization,
+				profileInput(List.of(OrganizationField.ETC), List.of("키워드"), List.of(link)),
+				OrganizationInputReason.LINK_URL_INVALID);
+		}
 	}
 
 	@Test
-	@DisplayName("키워드 자동완성은 접두 일치만, 많이 쓰인 순으로 돌려주고 빈 접두어면 빈 목록이다")
+	@DisplayName("빈 이메일은 null로 저장한다")
+	void blankEmailBecomesNull() {
+		Organization organization = organizationService.createOrganization(user.getId(),
+			SeedFixtures.createOrganizationInput());
+
+		organizationService.updateOrganization(user.getId(), organization.getId(), new UpdateOrganizationInput(
+			null, "한 줄 소개", null, " ", List.of(OrganizationField.ETC), List.of("키워드"), List.of("https://mozip.kr")));
+
+		assertThat(organization.getEmail()).isNull();
+	}
+
+	@Test
+	@DisplayName("키워드 자동완성은 승인된 단체의 접두 일치만, 많이 쓰인 순으로 돌려주고 빈 접두어면 빈 목록이다")
 	void keywordSuggestions() {
 		Organization first = organizationService.createOrganization(user.getId(), SeedFixtures.createOrganizationInput());
 		Organization second = organizationService.createOrganization(user.getId(), SeedFixtures.createOrganizationInput());
@@ -264,12 +283,17 @@ class OrganizationServiceTest {
 		organizationService.updateOrganization(user.getId(), second.getId(),
 			profileInput(List.of(OrganizationField.ETC), List.of("개발자", "디자인"), List.of("https://mozip.kr")));
 		organizationService.updateOrganization(other.getId(), third.getId(),
-			profileInput(List.of(OrganizationField.ETC), List.of("개발자", "웹개발"), List.of("https://mozip.kr")));
+			profileInput(List.of(OrganizationField.ETC), List.of("개발팀", "웹개발"), List.of("https://mozip.kr")));
+		keywordRepository.flush();
+		// 심사 승인 API가 아직 없어 상태만 직접 바꿈. third는 심사 전으로 남김
+		jdbcTemplate.update("update organizations set review_status = 'APPROVED' where id in (?, ?)",
+			first.getId(), second.getId());
 
 		assertThat(organizationService.getKeywordSuggestions("개")).containsExactly("개발자", "개발");
 		assertThat(organizationService.getKeywordSuggestions("개발자")).containsExactly("개발자");
 		assertThat(organizationService.getKeywordSuggestions("%")).isEmpty();
 		assertThat(organizationService.getKeywordSuggestions("  ")).isEmpty();
+		assertThat(organizationService.getKeywordSuggestions("개".repeat(21))).isEmpty();
 	}
 
 	private static UpdateOrganizationInput profileInput(List<OrganizationField> fields, List<String> keywords,

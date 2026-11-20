@@ -5,6 +5,7 @@ import java.net.URISyntaxException;
 import java.util.Collection;
 import java.util.LinkedHashSet;
 import java.util.List;
+import java.util.Locale;
 import java.util.Set;
 
 import org.springframework.data.domain.PageRequest;
@@ -47,6 +48,9 @@ import lombok.RequiredArgsConstructor;
 public class OrganizationService {
 
 	private static final int KEYWORD_SUGGESTION_LIMIT = 10;
+	// 키워드와 링크 컬럼 길이 (UpdateOrganizationInput의 @Size, DDL과 같음)
+	private static final int KEYWORD_MAX_LENGTH = 20;
+	private static final int LINK_MAX_LENGTH = 500;
 
 	private final OrganizationRepository organizationRepository;
 	private final MemberRepository memberRepository;
@@ -75,6 +79,8 @@ public class OrganizationService {
 	// 단체 프로필 수정, 운영진(대표자 포함)만 가능. 키워드/분야/링크는 보낸 목록으로 전체 교체
 	@Transactional
 	public Organization updateOrganization(Long userId, Long organizationId, UpdateOrganizationInput input) {
+		// 같은 단체를 동시에 수정하면 전체 교체가 겹쳐 키워드 unique 위반(500)이나 링크 중복이 생겨 단체 행을 먼저 잠가 차례로 처리
+		organizationRepository.lockById(organizationId);
 		Organization organization = getOrganization(organizationId);
 		if (!memberRepository.existsByOrganizationIdAndUserId(organizationId, userId)) {
 			throw new BusinessException(CommonErrorCode.FORBIDDEN)
@@ -84,7 +90,8 @@ public class OrganizationService {
 		validateFields(organization, input.fields());
 		List<OrganizationLink> links = toLinks(organization, input.links());
 
-		organization.updateProfile(input.logoUrl(), input.tagline(), input.description(), input.email());
+		organization.updateProfile(blankToNull(input.logoUrl()), input.tagline(), input.description(),
+			blankToNull(input.email()));
 
 		fieldTagRepository.deleteAllByOrganization(organization);
 		fieldTagRepository.saveAll(new LinkedHashSet<>(input.fields()).stream()
@@ -102,12 +109,13 @@ public class OrganizationService {
 	}
 
 	// 키워드 자동완성, 전 단체 키워드 중 접두 일치 상위 10개 (많이 쓰인 순, 같으면 사전순)
+	// 심사 승인된 단체의 키워드만. 심사 전이나 반려된 단체 키워드가 다른 단체 화면에 나오지 않게 함
 	public List<String> getKeywordSuggestions(String prefix) {
 		String trimmed = prefix == null ? "" : prefix.strip();
-		if (trimmed.isEmpty()) {
+		if (trimmed.isEmpty() || trimmed.length() > KEYWORD_MAX_LENGTH) {
 			return List.of();
 		}
-		return keywordRepository.findKeywordsByPrefix(escapeLike(trimmed) + "%",
+		return keywordRepository.findKeywordsByPrefix(escapeLike(trimmed) + "%", ReviewStatus.APPROVED,
 			PageRequest.of(0, KEYWORD_SUGGESTION_LIMIT));
 	}
 
@@ -180,12 +188,16 @@ public class OrganizationService {
 	}
 
 	// 스킴 없이 적은 주소는 https://를 붙여 저장하고, 호스트로 type을 추정
+	// 공개 상세에서 링크로 열리므로 http, https만 받음. 길이는 https://를 붙인 뒤 컬럼 길이로 다시 확인
 	private static List<OrganizationLink> toLinks(Organization organization, List<String> urls) {
 		Set<String> seen = new LinkedHashSet<>();
 		for (String raw : urls) {
 			String url = raw.strip();
 			if (!url.contains("://")) {
 				url = "https://" + url;
+			}
+			if (!isHttp(url) || url.length() > LINK_MAX_LENGTH) {
+				throw invalid(OrganizationInputReason.LINK_URL_INVALID).addContext("url", url);
 			}
 			seen.add(url);
 		}
@@ -204,6 +216,16 @@ public class OrganizationService {
 		} catch (URISyntaxException e) {
 			throw invalid(OrganizationInputReason.LINK_URL_INVALID).addContext("url", url);
 		}
+	}
+
+	private static boolean isHttp(String url) {
+		String lower = url.toLowerCase(Locale.ROOT);
+		return lower.startsWith("http://") || lower.startsWith("https://");
+	}
+
+	// 빈 문자열을 그대로 저장하면 이메일 칸이 ""로 남아 프론트가 값이 있는 것으로 읽음
+	private static String blankToNull(String value) {
+		return value == null || value.isBlank() ? null : value.strip();
 	}
 
 	// like 패턴 문자는 !로 이스케이프 (쿼리의 escape '!'와 짝)
