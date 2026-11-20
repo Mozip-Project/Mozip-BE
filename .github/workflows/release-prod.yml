@@ -6,6 +6,8 @@ on:
       - develop
     paths-ignore:
       - 'k8s/overlays/**'
+      # Application 정의만 바뀌면 이미지를 다시 만들 필요가 없음. root가 반영함
+      - 'k8s/argocd/**'
 
 permissions:
   contents: write
