@@ -7,6 +7,7 @@ import java.util.Map;
 import java.util.Optional;
 import java.util.regex.Pattern;
 
+import org.springframework.dao.DataIntegrityViolationException;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
@@ -55,13 +56,14 @@ public class InvitationService {
 	// 운영진만 초대 가능. 가입자(휴대폰 일치)면 invitee를 채우고 알림, 미가입자면 연락처만 저장
 	@Transactional
 	public Invitation inviteMember(Long userId, Long organizationId, String contact, Long teamId) {
-		Organization organization = organizationService.getOrganization(organizationId);
+		Organization organization = organizationService.getOrganizationForUpdate(organizationId);
 		checkOperator(organizationId, userId);
 		String normalizedContact = normalizeContact(contact);
 		Team team = findTeam(organization, teamId);
 
 		// TODO(A 회원 연락처 이메일) contactEmail 컬럼이 생기면 이메일로도 가입자를 찾음. 지금은 휴대폰만
-		User invitee = isEmail(normalizedContact) ? null : userRepository.findByPhone(normalizedContact).orElse(null);
+		User invitee = isEmail(normalizedContact) ? null
+			: userRepository.findWithSchoolByPhone(normalizedContact).orElse(null);
 		if (invitee != null && memberRepository.existsByOrganizationIdAndUserIdAndLeftAtIsNull(organizationId,
 			invitee.getId())) {
 			throw conflict(MemberReason.ALREADY_MEMBER).addContext("inviteeId", invitee.getId());
@@ -74,7 +76,7 @@ public class InvitationService {
 			throw conflict(MemberReason.ALREADY_INVITED).addContext("organizationId", organizationId);
 		}
 
-		User inviter = userRepository.findById(userId)
+		User inviter = userRepository.findWithSchoolById(userId)
 			.orElseThrow(() -> new BusinessException(CommonErrorCode.NOT_FOUND).addContext("userId", userId));
 		Invitation invitation = invitationRepository.save(Invitation.create(organization, inviter, invitee,
 			normalizedContact, team, newToken(), now));
@@ -86,19 +88,21 @@ public class InvitationService {
 	}
 
 	// 운영진만 발급 가능. 유효한 링크가 있으면 그대로 돌려줘 링크가 여러 개 돌지 않게 함
+	// 만료가 하루 안으로 남은 링크는 공유하자마자 끊길 수 있어 새로 발급
 	@Transactional
 	public InviteLink createInviteLink(Long userId, Long organizationId) {
-		Organization organization = organizationService.getOrganization(organizationId);
+		Organization organization = organizationService.getOrganizationForUpdate(organizationId);
 		checkOperator(organizationId, userId);
 		LocalDateTime now = LocalDateTime.now();
-		return inviteLinkRepository.findFirstByOrganizationIdAndExpiresAtAfterOrderByExpiresAtDesc(organizationId, now)
+		return inviteLinkRepository.findFirstByOrganizationIdAndExpiresAtAfterOrderByExpiresAtDesc(organizationId,
+				now.plusDays(1))
 			.orElseGet(() -> inviteLinkRepository.save(InviteLink.create(organization, newToken(), now)));
 	}
 
 	// 개인 초대 코드를 먼저 찾고 없으면 공용 링크 토큰으로 찾음. 둘 다 없으면 MEMBER_404
 	@Transactional
 	public Member acceptInvitation(Long userId, String code) {
-		User user = userRepository.findById(userId)
+		User user = userRepository.findWithSchoolById(userId)
 			.orElseThrow(() -> new BusinessException(CommonErrorCode.NOT_FOUND).addContext("userId", userId));
 		LocalDateTime now = LocalDateTime.now();
 		Optional<Invitation> invitation = invitationRepository.findWithOrganizationAndTeamByCode(code);
@@ -145,7 +149,12 @@ public class InvitationService {
 		if (memberRepository.existsByOrganizationIdAndUserIdAndLeftAtIsNull(organization.getId(), user.getId())) {
 			throw conflict(MemberReason.ALREADY_MEMBER).addContext("organizationId", organization.getId());
 		}
-		return memberRepository.save(Member.create(organization, user, team, MemberRole.OPERATOR));
+		// 같은 코드로 두 번 눌러 동시에 들어오면 둘 다 검사를 통과하고 소속 unique index에서 막혀 500이 나므로 409로 바꿈
+		try {
+			return memberRepository.saveAndFlush(Member.create(organization, user, team, MemberRole.OPERATOR));
+		} catch (DataIntegrityViolationException e) {
+			throw conflict(MemberReason.ALREADY_MEMBER).addContext("organizationId", organization.getId());
+		}
 	}
 
 	private Team findTeam(Organization organization, Long teamId) {

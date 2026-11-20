@@ -15,7 +15,9 @@ public class LoggingNotificationService implements NotificationService {
 
 	@Override
 	public void send(Long userId, NotificationType type, Map<String, Object> payload) {
-		log.info("Notification (not persisted yet): userId={}, type={}, payload={}", userId, type, payload);
+		// payload에 초대 코드처럼 수락에 쓰는 값이 실려 키만 남김
+		log.info("Notification (not persisted yet): userId={}, type={}, payloadKeys={}", userId, type,
+			payload.keySet());
 	}
 
 }

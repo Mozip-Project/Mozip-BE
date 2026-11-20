@@ -2,8 +2,10 @@ package com.mozip.domain.organization.service;
 
 import java.net.URI;
 import java.net.URISyntaxException;
+import java.util.Collection;
 import java.util.LinkedHashSet;
 import java.util.List;
+import java.util.Locale;
 import java.util.Set;
 
 import org.springframework.data.domain.PageRequest;
@@ -22,6 +24,7 @@ import com.mozip.domain.organization.entity.OrganizationLink;
 import com.mozip.domain.organization.entity.OrganizationLinkType;
 import com.mozip.domain.organization.entity.OrganizationScope;
 import com.mozip.domain.organization.entity.OrganizationType;
+import com.mozip.domain.organization.entity.ReviewStatus;
 import com.mozip.domain.organization.exception.OrganizationErrorCode;
 import com.mozip.domain.organization.exception.OrganizationInputReason;
 import com.mozip.domain.organization.repository.MemberRepository;
@@ -45,6 +48,9 @@ import lombok.RequiredArgsConstructor;
 public class OrganizationService {
 
 	private static final int KEYWORD_SUGGESTION_LIMIT = 10;
+	// 키워드와 링크 컬럼 길이 (UpdateOrganizationInput의 @Size, DDL과 같음)
+	private static final int KEYWORD_MAX_LENGTH = 20;
+	private static final int LINK_MAX_LENGTH = 500;
 
 	private final OrganizationRepository organizationRepository;
 	private final MemberRepository memberRepository;
@@ -56,7 +62,7 @@ public class OrganizationService {
 	private final SubscriptionService subscriptionService;
 
 	// 단체를 만들고 호출자를 대표자로 등록
-	// 동시 요청은 DDL의 부분 unique index로 방지
+	// 같은 요청이 두 번 오면 단체가 두 개 생김. 대표자 부분 unique index는 단체마다 걸려 막지 못하므로 프론트에서 중복 제출을 막음
 	@Transactional
 	public Organization createOrganization(Long userId, CreateOrganizationInput input) {
 		validate(input);
@@ -73,6 +79,8 @@ public class OrganizationService {
 	// 단체 프로필 수정, 운영진(대표자 포함)만 가능. 키워드/분야/링크는 보낸 목록으로 전체 교체
 	@Transactional
 	public Organization updateOrganization(Long userId, Long organizationId, UpdateOrganizationInput input) {
+		// 같은 단체를 동시에 수정하면 전체 교체가 겹쳐 키워드 unique 위반(500)이나 링크 중복이 생겨 단체 행을 먼저 잠가 차례로 처리
+		organizationRepository.lockById(organizationId);
 		Organization organization = getOrganization(organizationId);
 		if (!memberRepository.existsByOrganizationIdAndUserIdAndLeftAtIsNull(organizationId, userId)) {
 			throw new BusinessException(CommonErrorCode.FORBIDDEN)
@@ -82,7 +90,8 @@ public class OrganizationService {
 		validateFields(organization, input.fields());
 		List<OrganizationLink> links = toLinks(organization, input.links());
 
-		organization.updateProfile(input.logoUrl(), input.tagline(), input.description(), input.email());
+		organization.updateProfile(blankToNull(input.logoUrl()), input.tagline(), input.description(),
+			blankToNull(input.email()));
 
 		fieldTagRepository.deleteAllByOrganization(organization);
 		fieldTagRepository.saveAll(new LinkedHashSet<>(input.fields()).stream()
@@ -100,12 +109,13 @@ public class OrganizationService {
 	}
 
 	// 키워드 자동완성, 전 단체 키워드 중 접두 일치 상위 10개 (많이 쓰인 순, 같으면 사전순)
+	// 심사 승인된 단체의 키워드만. 심사 전이나 반려된 단체 키워드가 다른 단체 화면에 나오지 않게 함
 	public List<String> getKeywordSuggestions(String prefix) {
 		String trimmed = prefix == null ? "" : prefix.strip();
-		if (trimmed.isEmpty()) {
+		if (trimmed.isEmpty() || trimmed.length() > KEYWORD_MAX_LENGTH) {
 			return List.of();
 		}
-		return keywordRepository.findKeywordsByPrefix(escapeLike(trimmed) + "%",
+		return keywordRepository.findKeywordsByPrefix(escapeLike(trimmed) + "%", ReviewStatus.APPROVED,
 			PageRequest.of(0, KEYWORD_SUGGESTION_LIMIT));
 	}
 
@@ -128,6 +138,34 @@ public class OrganizationService {
 		return organizationRepository.findWithSchoolById(organizationId)
 			.orElseThrow(() -> new BusinessException(OrganizationErrorCode.ORGANIZATION_NOT_FOUND)
 				.addContext("organizationId", organizationId));
+	}
+
+	// 검사 후 저장하는 쓰기(초대, 링크 발급, 팀 저장)가 동시에 오면 둘 다 검사를 통과해 중복이 생겨 단체 행을 잠가 차례로 처리
+	// 학교를 같이 가져온 뒤 잠가 응답의 organization { school }이 트랜잭션 밖에서도 읽힘
+	public Organization getOrganizationForUpdate(Long organizationId) {
+		Organization organization = getOrganization(organizationId);
+		organizationRepository.lockById(organizationId);
+		return organization;
+	}
+
+	// 로그인 없이 여는 단체 상세. 심사 전이거나 반려된 단체는 소속 운영진에게만 보이고 그 외에는 없는 단체처럼 ORG_404
+	public Organization getVisibleOrganization(Long organizationId, Long userId) {
+		Organization organization = getOrganization(organizationId);
+		if (organization.getReviewStatus() != ReviewStatus.APPROVED
+			&& (userId == null
+			|| !memberRepository.existsByOrganizationIdAndUserIdAndLeftAtIsNull(organizationId, userId))) {
+			throw new BusinessException(OrganizationErrorCode.ORGANIZATION_NOT_FOUND)
+				.addContext("organizationId", organizationId);
+		}
+		return organization;
+	}
+
+	// 운영진 전용 필드(members, 심사 증빙)를 볼 수 있는 단체 id. 단체 상세가 공개라 하위 필드에서 소속을 다시 확인
+	public Set<Long> getManageableOrganizationIds(Long userId, Collection<Organization> organizations) {
+		if (userId == null || organizations.isEmpty()) {
+			return Set.of();
+		}
+		return Set.copyOf(memberRepository.findOrganizationIdsByUserIdAndOrganizationIn(userId, organizations));
 	}
 
 	// 필드 간 규칙은 Bean Validation으로 표현하기 어려워 여기서 검사
@@ -169,12 +207,16 @@ public class OrganizationService {
 	}
 
 	// 스킴 없이 적은 주소는 https://를 붙여 저장하고, 호스트로 type을 추정
+	// 공개 상세에서 링크로 열리므로 http, https만 받음. 길이는 https://를 붙인 뒤 컬럼 길이로 다시 확인
 	private static List<OrganizationLink> toLinks(Organization organization, List<String> urls) {
 		Set<String> seen = new LinkedHashSet<>();
 		for (String raw : urls) {
 			String url = raw.strip();
 			if (!url.contains("://")) {
 				url = "https://" + url;
+			}
+			if (!isHttp(url) || url.length() > LINK_MAX_LENGTH) {
+				throw invalid(OrganizationInputReason.LINK_URL_INVALID).addContext("url", url);
 			}
 			seen.add(url);
 		}
@@ -193,6 +235,16 @@ public class OrganizationService {
 		} catch (URISyntaxException e) {
 			throw invalid(OrganizationInputReason.LINK_URL_INVALID).addContext("url", url);
 		}
+	}
+
+	private static boolean isHttp(String url) {
+		String lower = url.toLowerCase(Locale.ROOT);
+		return lower.startsWith("http://") || lower.startsWith("https://");
+	}
+
+	// 빈 문자열을 그대로 저장하면 이메일 칸이 ""로 남아 프론트가 값이 있는 것으로 읽음
+	private static String blankToNull(String value) {
+		return value == null || value.isBlank() ? null : value.strip();
 	}
 
 	// like 패턴 문자는 !로 이스케이프 (쿼리의 escape '!'와 짝)

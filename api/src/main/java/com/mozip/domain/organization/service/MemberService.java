@@ -12,6 +12,7 @@ import com.mozip.domain.organization.entity.RepresentativeTransfer;
 import com.mozip.domain.organization.entity.TransferStatus;
 import com.mozip.domain.organization.exception.MemberErrorCode;
 import com.mozip.domain.organization.exception.MemberReason;
+import com.mozip.domain.organization.repository.InviteLinkRepository;
 import com.mozip.domain.organization.repository.MemberRepository;
 import com.mozip.domain.organization.repository.RepresentativeTransferRepository;
 import com.mozip.global.exception.BusinessException;
@@ -26,6 +27,7 @@ import lombok.RequiredArgsConstructor;
 public class MemberService {
 
 	private final MemberRepository memberRepository;
+	private final InviteLinkRepository inviteLinkRepository;
 	private final OrganizationService organizationService;
 	private final RepresentativeTransferRepository representativeTransferRepository;
 
@@ -55,10 +57,15 @@ public class MemberService {
 		}
 		LocalDateTime now = LocalDateTime.now();
 		member.leave(now);
-		member.getUser().leaveOrganization(member.getOrganization());
+		// 공용 링크는 누구나 토큰으로 합류하므로 내보낸 운영진이 그 링크로 바로 돌아오지 못하게 유효한 링크를 모두 만료
+		inviteLinkRepository.findAllByOrganizationIdAndExpiresAtAfter(organizationId, now)
+			.forEach(link -> link.expire(now));
 		// 나간 운영진이 대상인 대표자 인수 요청은 수락할 사람이 없어지므로 취소
 		representativeTransferRepository.findAllByMemberAndStatus(member, TransferStatus.PENDING)
 			.forEach(transfer -> transfer.cancel(now));
+		// exists 쿼리 전에 auto flush로 left_at이 반영되어 방금 나간 소속은 세지 않음
+		boolean stillOperator = memberRepository.existsByUserIdAndLeftAtIsNull(member.getUser().getId());
+		member.getUser().leaveOrganization(member.getOrganization(), stillOperator);
 	}
 
 	private static BusinessException forbidden(Long organizationId, Long userId) {

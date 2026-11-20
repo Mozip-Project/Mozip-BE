@@ -134,6 +134,7 @@ class AuthIntegrationTest {
 
 		MockHttpServletResponse reissued = mockMvc.perform(post("/auth/reissue").cookie(oldRefresh))
 			.andExpect(status().isOk())
+			.andExpect(jsonPath("$.data.accessTokenExpiresIn").value(1800))
 			.andExpect(cookie().httpOnly(AuthCookieManager.ACCESS_TOKEN_COOKIE, true))
 			.andReturn().getResponse();
 		assertThat(reissued.getCookie(AuthCookieManager.REFRESH_TOKEN_COOKIE).getValue())

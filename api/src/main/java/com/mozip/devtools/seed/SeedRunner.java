@@ -1,7 +1,5 @@
 package com.mozip.devtools.seed;
 
-import java.util.List;
-
 import org.springframework.boot.ApplicationArguments;
 import org.springframework.boot.ApplicationRunner;
 import org.springframework.core.annotation.Order;
@@ -11,6 +9,7 @@ import org.springframework.transaction.annotation.Transactional;
 import com.mozip.devtools.authbypass.MockRole;
 import com.mozip.devtools.authbypass.MockUserRegistry;
 import com.mozip.domain.organization.entity.Member;
+import com.mozip.domain.organization.entity.MemberRole;
 import com.mozip.domain.organization.entity.Organization;
 import com.mozip.domain.organization.repository.MemberRepository;
 import com.mozip.domain.organization.service.OrganizationService;
@@ -40,10 +39,13 @@ public class SeedRunner implements ApplicationRunner {
 	@Transactional
 	public void run(ApplicationArguments args) {
 		Long operatorId = mockUserRegistry.get(MockRole.OPERATOR).userId();
-		List<Member> memberships = memberRepository.findAllByUserIdAndLeftAtIsNull(operatorId);
-		Organization organization = memberships.isEmpty()
-			? organizationService.createOrganization(operatorId, SeedFixtures.createOrganizationInput())
-			: memberships.getFirst().getOrganization();
+		// 다른 단체에 운영진으로만 들어가 있어도 시드 단체를 따로 만들도록 대표자인 시드 단체만 재사용
+		Organization organization = memberRepository.findAllByUserIdAndLeftAtIsNull(operatorId).stream()
+			.filter(member -> member.getRole() == MemberRole.REPRESENTATIVE)
+			.map(Member::getOrganization)
+			.filter(candidate -> SeedFixtures.ORGANIZATION_NAME.equals(candidate.getName()))
+			.findFirst()
+			.orElseGet(() -> organizationService.createOrganization(operatorId, SeedFixtures.createOrganizationInput()));
 		log.warn("개발용 단체 준비: organizationId={}, representativeUserId={}", organization.getId(), operatorId);
 	}
 

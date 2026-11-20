@@ -77,6 +77,10 @@ class OrganizationAccessCheckerTest {
 
 		assertThat(accessChecker.isOperatorOf(operator.getId(), organization.getId())).isFalse();
 		assertThat(accessChecker.isRepresentativeOf(operator.getId(), organization.getId())).isFalse();
+
+		memberRepository.findAllByUserIdAndLeftAtIsNull(representative.getId()).getFirst().leave(LocalDateTime.now());
+
+		assertThat(accessChecker.isRepresentativeOf(representative.getId(), organization.getId())).isFalse();
 	}
 
 	@Test
