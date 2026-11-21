@@ -42,6 +42,13 @@
 | `ORG_402` | 402 | `SUBSCRIPTION_REQUIRED` | 이용권 없는 단체의 유료 기능 호출 (A 이용권에서 사용) |
 | `ORG_404` | 404 | `ORGANIZATION_NOT_FOUND` | 단체 없음. 심사 전이거나 반려된 단체를 소속이 아닌 사람이 상세 조회할 때도 같음 |
 
+## 운영진 (`MemberErrorCode`, PR #58)
+
+| 코드 | HTTP | 상수 | 언제 |
+|---|---|---|---|
+| `MEMBER_404` | 404 | `MEMBER_NOT_FOUND` | 운영진 없음, 이미 내보낸 운영진 |
+| `MEMBER_409` | 409 | `MEMBER_CONFLICT` | 지금 운영진 상태로는 처리할 수 없음 (`MemberReason`으로 구분) |
+
 ## reason enum
 
 같은 코드 안에서 상황을 나누는 값. 응답의 `extensions.reason`에 enum 이름이 들어간다.
@@ -49,3 +56,4 @@
 | enum | 코드 | 값 |
 |---|---|---|
 | `OrganizationInputReason` | `COMMON_400` | `COUNCIL_LEVEL_REQUIRED`, `COUNCIL_LEVEL_NOT_ALLOWED`, `SCHOOL_REQUIRED`, `SCHOOL_NOT_ALLOWED`, `SCHOOL_NOT_FOUND` (#37), `FIELDS_REQUIRED`, `FIELDS_NOT_ALLOWED`, `LINK_URL_INVALID` (#38) |
+| `MemberReason` | `MEMBER_409` | `REPRESENTATIVE` (#58) |

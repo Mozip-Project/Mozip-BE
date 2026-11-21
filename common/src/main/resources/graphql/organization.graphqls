@@ -195,6 +195,8 @@ extend type Query {
     organization(id: ID!): Organization! @public
     "키워드 자동완성, 심사 승인된 단체 키워드 중 접두 일치 상위 10개 (많이 쓰인 순). 빈 접두어거나 20자를 넘으면 빈 목록"
     keywordSuggestions(prefix: String!): [String!]!
+    "운영진 관리 표. 그 단체 운영진만 조회 가능 (아니면 COMMON_403), 없으면 ORG_404. 내보내진 운영진은 빼고 대표자 먼저, 그 뒤 합류일 오름차순"
+    members(organizationId: ID!): [Member!]!
 }
 
 extend type Mutation {
@@ -204,4 +206,6 @@ extend type Mutation {
     selectOrganization(organizationId: ID!): Me!
     "단체 프로필 수정, 그 단체의 운영진만 가능 (아니면 COMMON_403). 없으면 ORG_404"
     updateOrganization(id: ID!, input: UpdateOrganizationInput!): Organization!
+    "운영진 내보내기, 대표자만 가능 (아니면 COMMON_403). 대표자 행은 못 내보냄 (MEMBER_409, reason REPRESENTATIVE), 없거나 이미 나간 운영진이면 MEMBER_404. 행은 남기고 leftAt을 찍으며 그 회원의 lastOrganization이 이 단체면 null로 돌림"
+    removeMember(memberId: ID!): Boolean!
 }

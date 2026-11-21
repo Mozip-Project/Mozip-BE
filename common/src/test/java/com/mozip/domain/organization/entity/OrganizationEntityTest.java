@@ -80,4 +80,16 @@ class OrganizationEntityTest {
 			null, null);
 	}
 
+	@Test
+	@DisplayName("운영진을 내보내면 leftAt이 찍히고, 이미 나간 운영진은 다시 내보낼 수 없다")
+	void leave() {
+		Member member = Member.create(campus(true), user, null, MemberRole.OPERATOR);
+		LocalDateTime now = LocalDateTime.now();
+
+		member.leave(now);
+
+		assertThat(member.getLeftAt()).isEqualTo(now);
+		assertThatThrownBy(() -> member.leave(now)).isInstanceOf(IllegalStateException.class);
+	}
+
 }

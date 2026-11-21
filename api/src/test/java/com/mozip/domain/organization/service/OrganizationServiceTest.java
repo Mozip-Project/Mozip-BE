@@ -102,7 +102,7 @@ class OrganizationServiceTest {
 		assertThat(organization.isNoTeam()).isTrue();
 		assertThat(organization.getProofLink()).isEqualTo("https://example.com/proof");
 
-		List<Member> memberships = memberRepository.findAllByUserId(user.getId());
+		List<Member> memberships = memberRepository.findAllByUserIdAndLeftAtIsNull(user.getId());
 		assertThat(memberships).hasSize(1);
 		assertThat(memberships.getFirst().getRole()).isEqualTo(MemberRole.REPRESENTATIVE);
 		assertThat(memberships.getFirst().getOrganization().getId()).isEqualTo(organization.getId());
