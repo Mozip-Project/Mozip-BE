@@ -138,15 +138,14 @@ public class OrganizationService {
 				.addContext("organizationId", organizationId));
 	}
 
-	// 검사 후 저장하는 쓰기(초대, 링크 발급, 팀 저장)가 동시에 오면 둘 다 검사를 통과해 중복이 생겨 단체 행을 잠가 차례로 처리
-	// 학교를 같이 가져온 뒤 잠가 응답의 organization { school }이 트랜잭션 밖에서도 읽힘
+	// 단체(학교 포함)를 읽고 행을 잠금, 같은 단체의 쓰기(초대, 링크 발급, 팀 저장)를 차례로 처리
 	public Organization getOrganizationForUpdate(Long organizationId) {
 		Organization organization = getOrganization(organizationId);
 		organizationRepository.lockById(organizationId);
 		return organization;
 	}
 
-	// 로그인 없이 여는 단체 상세. 심사 전이거나 반려된 단체는 소속 운영진에게만 보이고 그 외에는 없는 단체처럼 ORG_404
+	// 심사 전이거나 반려된 단체는 소속 운영진에게만 보이고, 그 외에는 ORG_404
 	public Organization getVisibleOrganization(Long organizationId, Long userId) {
 		Organization organization = getOrganization(organizationId);
 		if (organization.getReviewStatus() != ReviewStatus.APPROVED

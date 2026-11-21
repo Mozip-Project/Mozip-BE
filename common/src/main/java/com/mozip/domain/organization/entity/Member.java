@@ -84,7 +84,7 @@ public class Member extends BaseEntity {
 		this.leftAt = now;
 	}
 
-	// 소속 팀이 삭제되면 팀 미지정으로 둠 (팀 목록 저장에서 호출)
+	// 팀 미지정으로 되돌림 (팀 삭제 시 호출)
 	public void leaveTeam() {
 		this.team = null;
 	}

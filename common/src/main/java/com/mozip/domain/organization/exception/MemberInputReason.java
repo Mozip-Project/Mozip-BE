@@ -1,6 +1,6 @@
 package com.mozip.domain.organization.exception;
 
-// 운영진 초대/팀 저장 입력의 규칙 위반 (COMMON_400의 reason으로 응답해 프론트가 문구를 분기)
+// 운영진 초대/팀 저장 입력의 규칙 위반, COMMON_400의 reason으로 응답
 public enum MemberInputReason {
 	// 휴대폰 번호(01로 시작하는 10~11자리)나 이메일 형식이 아님
 	CONTACT_INVALID,

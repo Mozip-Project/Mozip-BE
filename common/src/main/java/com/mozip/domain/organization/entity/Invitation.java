@@ -20,7 +20,7 @@ import lombok.AccessLevel;
 import lombok.Getter;
 import lombok.NoArgsConstructor;
 
-// 운영진 개인 초대. 연락처(휴대폰 또는 이메일)로 보내고 수락하는 회원의 연락처가 같아야 함
+// 운영진 개인 초대, 수락하는 회원의 연락처(휴대폰 또는 이메일)가 같아야 함
 @Getter
 @Entity
 @Table(name = "invitations")
@@ -54,7 +54,7 @@ public class Invitation extends BaseEntity {
 	@JoinColumn(name = "team_id")
 	private Team team;
 
-	// 초대 수락에 쓰는 코드, 알림 링크에 담김
+	// 초대 수락 코드
 	@Column(nullable = false, unique = true, length = 64)
 	private String code;
 
@@ -79,7 +79,7 @@ public class Invitation extends BaseEntity {
 		this.expiresAt = expiresAt;
 	}
 
-	// 팀은 같은 단체의 것만. 팀 없는 단체(noTeam) 검사는 서비스에서 (단체 설정은 엔티티 밖 정보)
+	// 팀은 같은 단체의 것만 (팀 없는 단체 검사는 서비스에서)
 	public static Invitation create(Organization organization, User inviter, User invitee, String inviteeContact,
 		Team team, String code, LocalDateTime now) {
 		if (team != null && !isSameOrganization(team.getOrganization(), organization)) {
@@ -97,12 +97,12 @@ public class Invitation extends BaseEntity {
 		return !now.isBefore(expiresAt);
 	}
 
-	// 지정한 팀이 삭제되면 팀 없이 합류하게 둠 (팀 목록 저장에서 호출)
+	// 팀 미지정으로 되돌림 (팀 삭제 시 호출)
 	public void clearTeam() {
 		this.team = null;
 	}
 
-	// 미가입자 초대는 여기서 invitee가 채워짐. 상태/만료 검사는 서비스가 에러 코드별로 먼저 하고 들어옴
+	// invitee를 채우고 수락 처리 (상태/만료 검사는 서비스에서)
 	public void accept(User user, LocalDateTime now) {
 		if (!isPending()) {
 			throw new IllegalStateException("이미 처리된 초대입니다.");
@@ -112,7 +112,7 @@ public class Invitation extends BaseEntity {
 		this.respondedAt = now;
 	}
 
-	// 프록시와 실제 객체가 섞일 수 있어 저장된 경우 id로 비교 (Member와 같은 규칙)
+	// 같은 단체인지 비교, 저장된 단체는 id로
 	private static boolean isSameOrganization(Organization a, Organization b) {
 		if (a == b) {
 			return true;

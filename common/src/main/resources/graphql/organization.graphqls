@@ -152,7 +152,7 @@ type InviteLink {
     organization: Organization!
     "acceptInvitation의 code로 씀"
     token: String!
-    "공유할 링크 주소 (서버 설정 mozip.invite.base-url + token)"
+    "공유할 링크 주소"
     url: String!
     "생성 후 7일"
     expiresAt: DateTime!

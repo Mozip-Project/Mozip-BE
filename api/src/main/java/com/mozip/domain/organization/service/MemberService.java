@@ -53,10 +53,10 @@ public class MemberService {
 		}
 		LocalDateTime now = LocalDateTime.now();
 		member.leave(now);
-		// 공용 링크는 누구나 토큰으로 합류하므로 내보낸 운영진이 그 링크로 바로 돌아오지 못하게 유효한 링크를 모두 만료
+		// 내보낸 운영진이 공용 링크로 돌아오지 못하게 유효한 링크를 모두 만료
 		inviteLinkRepository.findAllByOrganizationIdAndExpiresAtAfter(organizationId, now)
 			.forEach(link -> link.expire(now));
-		// exists 쿼리 전에 auto flush로 left_at이 반영되어 방금 나간 소속은 세지 않음
+		// 방금 나간 소속은 빼고 셈
 		boolean stillOperator = memberRepository.existsByUserIdAndLeftAtIsNull(member.getUser().getId());
 		member.getUser().leaveOrganization(member.getOrganization(), stillOperator);
 	}

@@ -123,13 +123,12 @@ public class OrganizationGraphqlController {
 		return teamService.saveTeams(authUser.userId(), organizationId, teams);
 	}
 
-	// 링크 주소는 저장하지 않고 응답할 때 설정의 base-url과 토큰을 이어 붙임 (도메인이 바뀌어도 데이터 수정 없음)
+	// 링크 주소 = 설정의 base-url + 토큰
 	@SchemaMapping(typeName = "InviteLink")
 	public String url(InviteLink link) {
 		return inviteProperties.linkUrl(link.getToken());
 	}
 
-	// 단체 N개를 응답 시 배치 조회
 	@BatchMapping(typeName = "Organization")
 	public Map<Organization, List<Team>> teams(List<Organization> organizations) {
 		return groupByOrganization(organizations, teamRepository.findAllByOrganizationInOrderBySortOrderAscIdAsc(organizations),
