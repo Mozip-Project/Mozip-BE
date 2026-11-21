@@ -3,6 +3,8 @@ package com.mozip.domain.posting.entity;
 import java.util.List;
 
 import org.hibernate.annotations.JdbcTypeCode;
+import org.hibernate.annotations.OnDelete;
+import org.hibernate.annotations.OnDeleteAction;
 import org.hibernate.type.SqlTypes;
 
 import com.mozip.global.common.BaseEntity;
@@ -37,9 +39,10 @@ public class Question extends BaseEntity {
 	@JoinColumn(name = "posting_id", nullable = false)
 	private Posting posting;
 
-	// 적용 포지션, null = 공통 문항
+	// 적용 포지션, null = 공통 문항. 2단계 재저장으로 포지션이 지워지면 공통 문항으로 떨어짐
 	@ManyToOne(fetch = FetchType.LAZY)
 	@JoinColumn(name = "position_id")
+	@OnDelete(action = OnDeleteAction.SET_NULL)
 	private Position position;
 
 	@Enumerated(EnumType.STRING)

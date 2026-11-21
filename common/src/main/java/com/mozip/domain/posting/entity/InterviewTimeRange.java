@@ -5,6 +5,8 @@ import java.time.LocalTime;
 import java.util.List;
 
 import org.hibernate.annotations.JdbcTypeCode;
+import org.hibernate.annotations.OnDelete;
+import org.hibernate.annotations.OnDeleteAction;
 import org.hibernate.type.SqlTypes;
 
 import com.mozip.global.common.BaseEntity;
@@ -37,9 +39,10 @@ public class InterviewTimeRange extends BaseEntity {
 	@JoinColumn(name = "posting_id", nullable = false)
 	private Posting posting;
 
-	// 이 시간을 쓰는 포지션(팀), null = 포지션 없는 모집 또는 전체 공통
+	// 이 시간을 쓰는 포지션(팀), null = 포지션 없는 모집 또는 전체 공통. 2단계 재저장으로 포지션이 지워지면 전체 공통으로 떨어짐
 	@ManyToOne(fetch = FetchType.LAZY)
 	@JoinColumn(name = "position_id")
+	@OnDelete(action = OnDeleteAction.SET_NULL)
 	private Position position;
 
 	@Column(nullable = false)

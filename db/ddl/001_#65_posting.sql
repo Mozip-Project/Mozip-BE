@@ -87,7 +87,8 @@ create table questions (
     created_at timestamp(6) not null,
     updated_at timestamp(6) not null,
     constraint fk_questions_posting_id foreign key (posting_id) references postings (id),
-    constraint fk_questions_position_id foreign key (position_id) references positions (id)
+    -- 2단계(포지션) 재저장으로 포지션이 통째로 교체돼도 지워지지 않게 하고, 끊어진 연결은 공통 문항으로 떨어뜨림
+    constraint fk_questions_position_id foreign key (position_id) references positions (id) on delete set null
 );
 
 create table posting_images (
@@ -112,5 +113,6 @@ create table interview_time_ranges (
     created_at timestamp(6) not null,
     updated_at timestamp(6) not null,
     constraint fk_interview_time_ranges_posting_id foreign key (posting_id) references postings (id),
-    constraint fk_interview_time_ranges_position_id foreign key (position_id) references positions (id)
+    -- 2단계(포지션) 재저장으로 포지션이 통째로 교체돼도 지워지지 않게 하고, 끊어진 연결은 전체 공통으로 떨어뜨림
+    constraint fk_interview_time_ranges_position_id foreign key (position_id) references positions (id) on delete set null
 );
