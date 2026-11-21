@@ -38,12 +38,13 @@ public class GraphqlExceptionResolver extends DataFetcherExceptionResolverAdapte
 			} else {
 				log.warn("Business exception: code={}, context={}", errorCode.getCode(), e.getContext());
 			}
-			return toGraphqlError(errorCode, e.getMessage(), env, null);
+			return toGraphqlError(errorCode, e.getMessage(), env, e.getFieldErrors().isEmpty() ? null : e.getFieldErrors(),
+				e.getReason());
 		}
 		// @PreAuthorize 거부 (인증 자체는 GraphqlAuthInstrumentation이 먼저 검사하므로 여기 오면 권한 부족)
 		if (ex instanceof AccessDeniedException) {
 			log.warn("Access denied: {}", ex.getMessage());
-			return toGraphqlError(CommonErrorCode.FORBIDDEN, CommonErrorCode.FORBIDDEN.getMessage(), env, null);
+			return toGraphqlError(CommonErrorCode.FORBIDDEN, CommonErrorCode.FORBIDDEN.getMessage(), env, null, null);
 		}
 		if (ex instanceof ConstraintViolationException e) {
 			List<FieldErrorResponse> fieldErrors = e.getConstraintViolations().stream()
@@ -53,15 +54,15 @@ public class GraphqlExceptionResolver extends DataFetcherExceptionResolverAdapte
 				.findFirst()
 				.map(FieldErrorResponse::toMessage)
 				.orElse(CommonErrorCode.INVALID_INPUT.getMessage());
-			return toGraphqlError(CommonErrorCode.INVALID_INPUT, message, env, fieldErrors);
+			return toGraphqlError(CommonErrorCode.INVALID_INPUT, message, env, fieldErrors, null);
 		}
 		log.error("Unhandled exception", ex);
 		return toGraphqlError(CommonErrorCode.INTERNAL_SERVER_ERROR, CommonErrorCode.INTERNAL_SERVER_ERROR.getMessage(),
-			env, null);
+			env, null, null);
 	}
 
 	private GraphQLError toGraphqlError(ErrorCode errorCode, String message, DataFetchingEnvironment env,
-		List<FieldErrorResponse> fieldErrors) {
+		List<FieldErrorResponse> fieldErrors, Enum<?> reason) {
 		Map<String, Object> extensions = new LinkedHashMap<>();
 		extensions.put("code", errorCode.getCode());
 		String traceId = MDC.get(TraceIdFilter.TRACE_ID_KEY);
@@ -71,6 +72,9 @@ public class GraphqlExceptionResolver extends DataFetcherExceptionResolverAdapte
 		// REST 실패 응답의 data와 같은 필드별 에러 목록
 		if (fieldErrors != null) {
 			extensions.put("fieldErrors", fieldErrors);
+		}
+		if (reason != null) {
+			extensions.put("reason", reason.name());
 		}
 		return GraphqlErrorBuilder.newError(env)
 			.errorType(toErrorType(errorCode))
