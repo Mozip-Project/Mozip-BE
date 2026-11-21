@@ -140,12 +140,67 @@ class ApplicationServiceTest {
 	}
 
 	@Test
+	@DisplayName("다른 공고의 포지션을 고르면 COMMON_400을 던진다")
+	void rejectsPositionFromAnotherPosting() {
+		Posting posting = recruitingPostingWithPosition();
+		Posting otherPosting = recruitingPostingWithPosition();
+		Position otherPosition = onlyPosition(otherPosting);
+
+		assertThatThrownBy(() -> applicationService.saveDraft(applicant.getId(), posting.getId(),
+			new ApplicationInput(otherPosition.getId(), List.of(), null)))
+			.isInstanceOf(BusinessException.class)
+			.extracting(e -> ((BusinessException)e).getErrorCode())
+			.isEqualTo(CommonErrorCode.INVALID_INPUT);
+	}
+
+	@Test
+	@DisplayName("제출된 지원서를 다시 저장(수정)하려 하면 APPLICATION_409(ALREADY_SUBMITTED)를 던진다")
+	void rejectsSavingAfterSubmit() {
+		Posting posting = recruitingPostingWithPosition();
+		Position position = onlyPosition(posting);
+		Long questionId = onlyQuestionId(posting);
+		applicant.verifySchool(school);
+		userRepository.save(applicant);
+		Application application = applicationService.saveDraft(applicant.getId(), posting.getId(),
+			new ApplicationInput(position.getId(), List.of(new AnswerInput(questionId, "답변", null)), null));
+		applicationService.submit(applicant.getId(), application.getId());
+
+		assertThatThrownBy(() -> applicationService.saveDraft(applicant.getId(), posting.getId(),
+			new ApplicationInput(position.getId(), List.of(new AnswerInput(questionId, "수정 시도", null)), null)))
+			.isInstanceOf(BusinessException.class)
+			.satisfies(e -> {
+				assertThat(((BusinessException)e).getErrorCode()).isEqualTo(ApplicationErrorCode.CONFLICT);
+				assertThat(((BusinessException)e).getReason()).isEqualTo(ApplicationConflictReason.ALREADY_SUBMITTED);
+			});
+	}
+
+	@Test
 	@DisplayName("모집 기간이 아니면(게시 전 DRAFT 공고) POSTING_409(NOT_RECRUITING)를 던진다")
 	void rejectsSavingWhenNotRecruiting() {
 		Posting draftPosting = postingService.saveDraft(operator.getId(), organization.getId(), null,
 			basicInput("아직 작성 중"));
 
 		assertThatThrownBy(() -> applicationService.saveDraft(applicant.getId(), draftPosting.getId(),
+			new ApplicationInput(null, null, null)))
+			.isInstanceOf(BusinessException.class)
+			.satisfies(e -> {
+				assertThat(((BusinessException)e).getErrorCode()).isEqualTo(PostingErrorCode.CONFLICT);
+				assertThat(((BusinessException)e).getReason()).isEqualTo(PostingConflictReason.NOT_RECRUITING);
+			});
+	}
+
+	@Test
+	@DisplayName("RECRUITING이어도 recruitEndAt이 지났으면 POSTING_409(NOT_RECRUITING)를 던진다")
+	void rejectsSavingWhenRecruitWindowExpired() {
+		Posting posting = postingService.saveDraft(operator.getId(), organization.getId(), null,
+			basicInput("마감 지난 공고 " + System.nanoTime(), LocalDateTime.now().minusDays(1)));
+		postingService.saveDraft(operator.getId(), organization.getId(), posting.getId(),
+			withPositions(List.of(new PositionInput(null, "백엔드", 1, 0))));
+		postingService.saveDraft(operator.getId(), organization.getId(), posting.getId(),
+			withQuestions(List.of(new QuestionInput(null, QuestionType.TEXT, "자기소개", null, true, 500, null, 0))));
+		postingService.publish(operator.getId(), posting.getId());
+
+		assertThatThrownBy(() -> applicationService.saveDraft(applicant.getId(), posting.getId(),
 			new ApplicationInput(null, null, null)))
 			.isInstanceOf(BusinessException.class)
 			.satisfies(e -> {
@@ -312,8 +367,12 @@ class ApplicationServiceTest {
 	}
 
 	private PostingDraftInput basicInput(String title) {
+		return basicInput(title, LocalDateTime.now().plusDays(7));
+	}
+
+	private PostingDraftInput basicInput(String title, LocalDateTime recruitEndAt) {
 		return new PostingDraftInput(title, "본문", "2026-2", "서울", "무료", true, false, null,
-			null, null, LocalDateTime.now(), LocalDateTime.now().plusDays(7), null,
+			null, null, LocalDateTime.now(), recruitEndAt, null,
 			null, null,
 			null, null, null, null, null, null, null, null,
 			null, null,
