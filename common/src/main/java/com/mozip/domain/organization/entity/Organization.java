@@ -52,7 +52,7 @@ public class Organization extends BaseEntity {
 	@Column(nullable = false)
 	private boolean noTeam;
 
-	// 단체 등록 심사용 증빙 (링크 또는 업로드 파일) nullable
+	// 등록 심사용 증빙 (링크 또는 업로드 파일)
 	@Column(length = 500)
 	private String proofLink;
 

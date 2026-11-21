@@ -39,8 +39,7 @@ public class OrganizationService {
 	private final SchoolRepository schoolRepository;
 	private final SubscriptionService subscriptionService;
 
-	// 단체를 만들고 호출자를 대표자로 등록
-	// 같은 요청이 두 번 오면 단체가 두 개 생김. 대표자 부분 unique index는 단체마다 걸려 막지 못하므로 프론트에서 중복 제출을 막음
+	// 단체를 만들고 호출자를 대표자로 등록, 같은 요청이 두 번 오면 단체가 두 개 생김 (중복 제출은 프론트에서 막음)
 	@Transactional
 	public Organization createOrganization(Long userId, CreateOrganizationInput input) {
 		validate(input);
@@ -54,7 +53,7 @@ public class OrganizationService {
 		return organization;
 	}
 
-	// 내가 운영진(Member)으로 들어가 있는 단체, 운영진 홈의 단체 전환 메뉴에서 사용
+	// 내가 운영진으로 속한 단체 목록
 	public List<Organization> getMyOrganizations(Long userId) {
 		return organizationRepository.findAllByMemberUserId(userId);
 	}
@@ -65,7 +64,7 @@ public class OrganizationService {
 				.addContext("organizationId", organizationId));
 	}
 
-	// 로그인 없이 여는 단체 상세. 심사 전이거나 반려된 단체는 소속 운영진에게만 보이고 그 외에는 없는 단체처럼 ORG_404
+	// 심사 전이거나 반려된 단체는 소속 운영진에게만 보이고, 그 외에는 ORG_404
 	public Organization getVisibleOrganization(Long organizationId, Long userId) {
 		Organization organization = getOrganization(organizationId);
 		if (organization.getReviewStatus() != ReviewStatus.APPROVED
@@ -76,7 +75,7 @@ public class OrganizationService {
 		return organization;
 	}
 
-	// 운영진 전용 필드(members, 심사 증빙)를 볼 수 있는 단체 id. 단체 상세가 공개라 하위 필드에서 소속을 다시 확인
+	// 운영진 전용 필드(members, 심사 증빙)를 볼 수 있는 단체 id
 	public Set<Long> getManageableOrganizationIds(Long userId, Collection<Organization> organizations) {
 		if (userId == null || organizations.isEmpty()) {
 			return Set.of();
@@ -84,8 +83,6 @@ public class OrganizationService {
 		return Set.copyOf(memberRepository.findOrganizationIdsByUserIdAndOrganizationIn(userId, organizations));
 	}
 
-	// 필드 간 규칙은 Bean Validation으로 표현하기 어려워 여기서 검사
-	// reason으로 어느 필드인지 알림
 	private static void validate(CreateOrganizationInput input) {
 		boolean council = input.type() == OrganizationType.STUDENT_COUNCIL;
 		if (council && input.councilLevel() == null) {

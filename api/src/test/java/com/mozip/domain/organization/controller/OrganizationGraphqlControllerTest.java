@@ -27,8 +27,7 @@ import com.mozip.domain.user.entity.Authority;
 import com.mozip.global.security.cookie.AuthCookieManager;
 import com.mozip.global.security.jwt.JwtProvider;
 
-// HTTP 요청은 서버 스레드에서 따로 커밋돼 테스트 트랜잭션으로 롤백할 수 없음
-// 따라서 @Transactional을 붙이지 않고, 테스트마다 회원을 새로 만들 때 전화번호를 무작위로 지어 unique 충돌을 피함
+// 롤백하지 않는 테스트라 회원마다 무작위 전화번호를 씀
 @Import(TestcontainersConfiguration.class)
 @SpringBootTest
 @AutoConfigureMockMvc
@@ -241,7 +240,6 @@ class OrganizationGraphqlControllerTest {
 		return userRepository.save(User.create(phone, "encoded", "테스트", false, LocalDateTime.now()));
 	}
 
-	// MockMvc는 Cookie 헤더 문자열을 파싱하지 않으므로 WebTestClient의 쿠키로 전달
 	private HttpGraphQlTester asUser(User user) {
 		String accessToken = jwtProvider.createAccessToken(user.getId(), Authority.USER);
 		return graphQlTester.mutate()
