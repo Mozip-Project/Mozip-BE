@@ -168,7 +168,7 @@ class GraphqlExceptionResolverTest {
 			throw new BusinessException(CommonErrorCode.FORBIDDEN, TestReason.NOT_OPERATOR);
 		}
 
-		// 409 CONFLICT는 GraphQL ErrorType에 대응하는 값이 없는 4xx
+		// ErrorType에 없는 4xx (409)
 		@QueryMapping
 		public String testConflict() {
 			throw new BusinessException(UserErrorCode.DUPLICATE_PHONE);

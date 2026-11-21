@@ -52,7 +52,7 @@ public class Organization extends BaseEntity {
 	@Column(nullable = false)
 	private boolean noTeam;
 
-	// 단체 등록 심사용 증빙 (링크 또는 업로드 파일) nullable
+	// 등록 심사용 증빙 (링크 또는 업로드 파일)
 	@Column(length = 500)
 	private String proofLink;
 
@@ -63,7 +63,7 @@ public class Organization extends BaseEntity {
 	@Column(nullable = false, length = 30)
 	private ReviewStatus reviewStatus;
 
-	// 프로필 (단체 프로필 화면에서 수정), 등록 직후에는 전부 null
+	// 프로필, 등록 직후에는 전부 null
 	@Column(length = 500)
 	private String logoUrl;
 
@@ -101,7 +101,7 @@ public class Organization extends BaseEntity {
 		return new Organization(name, type, councilLevel, scope, school, noTeam, proofLink, proofFileUrl);
 	}
 
-	// 키워드, 분야, 링크는 별도 테이블이므로 OrganizationService에서 교체. logoUrl null은 기본 이미지로 초기화
+	// logoUrl이 null이면 기본 이미지 (키워드, 분야, 링크는 OrganizationService에서 교체)
 	public void updateProfile(String logoUrl, String tagline, String description, String email) {
 		this.logoUrl = logoUrl;
 		this.tagline = tagline;

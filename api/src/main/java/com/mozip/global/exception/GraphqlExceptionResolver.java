@@ -64,7 +64,7 @@ public class GraphqlExceptionResolver extends DataFetcherExceptionResolverAdapte
 		DataFetchingEnvironment env, List<FieldErrorResponse> fieldErrors) {
 		Map<String, Object> extensions = new LinkedHashMap<>();
 		extensions.put("code", errorCode.getCode());
-		// 같은 code 안에서 상황을 나누는 enum 이름 (예: MEMBER_409의 ALREADY_MEMBER), 없으면 키 자체를 생략
+		// reason이 없으면 키를 생략
 		if (reason != null) {
 			extensions.put("reason", reason);
 		}
@@ -83,7 +83,7 @@ public class GraphqlExceptionResolver extends DataFetcherExceptionResolverAdapte
 			.build();
 	}
 
-	// GraphQL ErrorType에는 409, 422 같은 값이 없어 그 외 4xx는 BAD_REQUEST로 두고 세부 구분은 extensions.code로 함
+	// 그 외 4xx(409, 422 등)는 BAD_REQUEST로 응답, 구분은 extensions.code로
 	private ErrorType toErrorType(ErrorCode errorCode) {
 		return switch (errorCode.getStatus()) {
 			case BAD_REQUEST -> ErrorType.BAD_REQUEST;

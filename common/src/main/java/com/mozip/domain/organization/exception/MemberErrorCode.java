@@ -7,7 +7,6 @@ import com.mozip.global.exception.ErrorCode;
 import lombok.Getter;
 import lombok.RequiredArgsConstructor;
 
-// 운영진(소속) 관련 에러. 같은 코드 안의 상황 구분은 MemberReason
 @Getter
 @RequiredArgsConstructor
 public enum MemberErrorCode implements ErrorCode {
