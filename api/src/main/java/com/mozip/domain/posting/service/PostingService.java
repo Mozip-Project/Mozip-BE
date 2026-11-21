@@ -134,6 +134,22 @@ public class PostingService {
 		return posting;
 	}
 
+	@Transactional
+	public void delete(Long userId, Long postingId) {
+		Posting posting = findById(postingId);
+		requireOperator(userId, posting.getOrganization().getId());
+		if (!posting.isDraft()) {
+			throw new BusinessException(PostingErrorCode.CONFLICT, PostingConflictReason.NOT_DRAFT)
+				.addContext("postingId", postingId);
+		}
+
+		questionRepository.deleteAllByPosting(posting);
+		interviewTimeRangeRepository.deleteAllByPosting(posting);
+		positionRepository.deleteAllByPosting(posting);
+		postingImageRepository.deleteAllByPosting(posting);
+		postingRepository.delete(posting);
+	}
+
 	// B가 평가/면접 화면을 열어도 되는 단계인지 확인할 때 쓰는 연결 함수 (A -> B, ab-boundary.md)
 	public PostingStatus getPostingStatus(Long postingId) {
 		return findById(postingId).getStatus();

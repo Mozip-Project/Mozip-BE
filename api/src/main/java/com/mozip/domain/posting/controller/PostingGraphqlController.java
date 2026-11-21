@@ -86,6 +86,12 @@ public class PostingGraphqlController {
 		return postingService.advanceStatus(authUser.userId(), id, to);
 	}
 
+	@MutationMapping
+	public boolean deletePosting(@Argument Long id, @AuthenticationPrincipal AuthUser authUser) {
+		postingService.delete(authUser.userId(), id);
+		return true;
+	}
+
 	@BatchMapping(typeName = "Posting", field = "organization")
 	public Map<Posting, Organization> organization(List<Posting> postings) {
 		List<Long> organizationIds = postings.stream()

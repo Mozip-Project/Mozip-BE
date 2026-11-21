@@ -54,7 +54,7 @@
   B가 단체 쪽에 분야 데이터를 만들면 같이 연결 필요
 - `savePostingDraft`의 `PostingDraftInput`은 필드가 null이면 "그 값 유지"로 해석함 (명시적으로 비우는 것과 구분 안 됨).
   실제로 필드를 null로 비워야 하는 경우가 생기면 다른 방식(예: 필드별 Optional 래핑)으로 바꿔야 함
-- `advancePostingStatus`는 `publishPosting`과 같은 방식으로 posting에서 organizationId를 꺼내 `isOperatorOf`로
+- `advancePostingStatus`/`deletePosting`은 `publishPosting`과 같은 방식으로 posting에서 organizationId를 꺼내 `isOperatorOf`로
   검사함. "현재 단체" 쿠키(결정 007)는 아직 구현된 곳이 없어서(#66) 안 씀 — 쿠키 메커니즘이 생기면 다시 볼지 확인 필요
 - 게시된 공고를 중간 단계에서 바로 ENDED로 종료(조기 취소)할 수 있는지는 #66에서 결정 안 함.
   `advancePostingStatus`는 "정해진 순서로만 전환"만 구현했고, FINAL_RESULT 다음에만 ENDED로 갈 수 있음. 조기 취소가 필요하면 별도 이슈

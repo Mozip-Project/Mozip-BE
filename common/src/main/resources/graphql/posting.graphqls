@@ -338,4 +338,9 @@ extend type Mutation {
     최종 결과 미확정이면 POSTING_409(reason: FINAL_RESULT_NOT_CONFIRMED)
     """
     advancePostingStatus(id: ID!, to: PostingStatus!): Posting!
+    """
+    작성 중(DRAFT) 공고 삭제. 포지션, 문항, 이미지, 면접 가능 시간대를 같이 지움.
+    게시된 공고를 지우려 하면 POSTING_409(reason: NOT_DRAFT)
+    """
+    deletePosting(id: ID!): Boolean!
 }

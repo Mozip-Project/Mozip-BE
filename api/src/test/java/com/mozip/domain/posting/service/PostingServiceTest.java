@@ -48,6 +48,7 @@ import com.mozip.domain.posting.exception.PostingErrorCode;
 import com.mozip.domain.posting.repository.InterviewTimeRangeRepository;
 import com.mozip.domain.posting.repository.PositionRepository;
 import com.mozip.domain.posting.repository.PostingImageRepository;
+import com.mozip.domain.posting.repository.PostingRepository;
 import com.mozip.domain.posting.repository.QuestionRepository;
 import com.mozip.domain.school.entity.School;
 import com.mozip.domain.school.repository.SchoolRepository;
@@ -65,6 +66,9 @@ class PostingServiceTest {
 
 	@Autowired
 	private PostingService postingService;
+
+	@Autowired
+	private PostingRepository postingRepository;
 
 	@Autowired
 	private UserRepository userRepository;
@@ -731,6 +735,33 @@ class PostingServiceTest {
 			.isInstanceOf(BusinessException.class)
 			.extracting(e -> ((BusinessException)e).getErrorCode())
 			.isEqualTo(CommonErrorCode.FORBIDDEN);
+	}
+
+	@Test
+	@DisplayName("deletePosting은 DRAFT 공고와 그 하위 포지션/문항을 같이 지운다")
+	void deletesDraftPostingWithChildren() {
+		Posting posting = publishablePosting("지울 공고");
+		Long postingId = posting.getId();
+
+		postingService.delete(operator.getId(), postingId);
+
+		assertThat(postingRepository.findById(postingId)).isEmpty();
+		assertThat(positionRepository.findAllByPostingOrderBySortOrder(posting)).isEmpty();
+		assertThat(questionRepository.findAllByPostingOrderBySortOrder(posting)).isEmpty();
+	}
+
+	@Test
+	@DisplayName("게시된 공고를 deletePosting하면 POSTING_409(NOT_DRAFT)를 던진다")
+	void rejectsDeletingNonDraftPosting() {
+		Posting posting = publishablePosting("삭제 거부용");
+		postingService.publish(operator.getId(), posting.getId());
+
+		assertThatThrownBy(() -> postingService.delete(operator.getId(), posting.getId()))
+			.isInstanceOf(BusinessException.class)
+			.satisfies(e -> {
+				assertThat(((BusinessException)e).getErrorCode()).isEqualTo(PostingErrorCode.CONFLICT);
+				assertThat(((BusinessException)e).getReason()).isEqualTo(PostingConflictReason.NOT_DRAFT);
+			});
 	}
 
 	@Test
