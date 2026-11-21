@@ -117,7 +117,7 @@ public class OrganizationService {
 			PageRequest.of(0, KEYWORD_SUGGESTION_LIMIT));
 	}
 
-	// 운영진 홈 드롭다운에서 단체 선택. 없는 단체(ORG_404)를 먼저 거르고 소속이 아니면 COMMON_403
+	// 운영진 홈 드롭다운에서 단체 선택, 없으면 ORG_404이고 소속이 아니면 COMMON_403
 	@Transactional
 	public User selectOrganization(Long userId, Long organizationId) {
 		Organization organization = getOrganization(organizationId);

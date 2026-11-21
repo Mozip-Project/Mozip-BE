@@ -62,7 +62,6 @@ public class OrganizationGraphqlController {
 		return organizationService.updateOrganization(authUser.userId(), id, input);
 	}
 
-	// 반환 타입 Me는 User 엔티티로 그림 (UserGraphqlController의 me와 같음)
 	@MutationMapping
 	public User selectOrganization(@Argument Long organizationId, @AuthenticationPrincipal AuthUser authUser) {
 		return organizationService.selectOrganization(authUser.userId(), organizationId);

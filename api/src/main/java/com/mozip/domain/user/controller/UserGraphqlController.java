@@ -15,7 +15,7 @@ import com.mozip.global.security.AuthUser;
 
 import lombok.RequiredArgsConstructor;
 
-// GraphQL Me 타입은 User 엔티티로 그림 (id, name, lastRole, lastOrganization은 getter로 응답)
+// GraphQL Me 타입은 User 엔티티로 응답
 @Controller
 @RequiredArgsConstructor
 public class UserGraphqlController {
@@ -28,7 +28,6 @@ public class UserGraphqlController {
 		return userService.getMe(authUser.userId());
 	}
 
-	// me 한 번에 memberships 한 번이라 배치 조회가 필요 없음
 	@SchemaMapping(typeName = "Me")
 	public List<Member> memberships(User user) {
 		return memberRepository.findAllWithOrganizationAndTeamByUserId(user.getId());

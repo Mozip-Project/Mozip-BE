@@ -82,7 +82,7 @@ public class AuthService {
 		return new LoginResult(issueTokens(user), LoginResponse.from(user, accessTokenExpiresIn()));
 	}
 
-	// 만료 시간은 쿠키 Max-Age와 같은 설정값이라 프론트가 이 값으로 재발급 시점을 잡을 수 있음
+	// access token 만료 시간, 쿠키 Max-Age와 같은 값
 	public long accessTokenExpiresIn() {
 		return jwtProperties.accessTokenExpiration().toSeconds();
 	}

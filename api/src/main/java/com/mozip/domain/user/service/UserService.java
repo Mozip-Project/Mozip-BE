@@ -17,7 +17,7 @@ public class UserService {
 
 	private final UserRepository userRepository;
 
-	// 토큰은 유효한데 회원이 지워진 경우라 404로 응답
+	// 회원이 없으면 404
 	public User getMe(Long userId) {
 		return userRepository.findWithLastOrganizationById(userId)
 			.orElseThrow(() -> new BusinessException(CommonErrorCode.NOT_FOUND).addContext("userId", userId));
