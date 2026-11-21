@@ -37,7 +37,7 @@ public class SeedRunner implements ApplicationRunner {
 	@Transactional
 	public void run(ApplicationArguments args) {
 		Long operatorId = mockUserRegistry.get(MockRole.OPERATOR).userId();
-		// 다른 단체에 운영진으로만 들어가 있어도 시드 단체를 따로 만들도록 대표자인 시드 단체만 재사용
+		// 대표자로 있는 단체만 재사용
 		Organization organization = memberRepository.findAllByUserIdAndLeftAtIsNull(operatorId).stream()
 			.filter(member -> member.getRole() == MemberRole.REPRESENTATIVE)
 			.map(Member::getOrganization)

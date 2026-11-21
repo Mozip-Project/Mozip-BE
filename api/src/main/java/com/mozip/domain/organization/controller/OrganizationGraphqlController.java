@@ -79,20 +79,18 @@ public class OrganizationGraphqlController {
 		return organizationService.getKeywordSuggestions(prefix);
 	}
 
-	// 운영진 관리 표. 목록 한 번에 단체 하나라 배치 조회 없이 user/team을 join fetch
 	@QueryMapping
 	public List<Member> members(@Argument Long organizationId, @AuthenticationPrincipal AuthUser authUser) {
 		return memberService.getMembers(authUser.userId(), organizationId);
 	}
 
-	// 성공하면 true, 실패는 전부 errors[]로 가므로 false를 돌려줄 일은 없음
+	// 성공하면 true, 실패는 errors[]로 응답
 	@MutationMapping
 	public boolean removeMember(@Argument Long memberId, @AuthenticationPrincipal AuthUser authUser) {
 		memberService.removeMember(authUser.userId(), memberId);
 		return true;
 	}
 
-	// 단체 N개를 응답 시 배치 조회
 	@BatchMapping(typeName = "Organization")
 	public Map<Organization, List<Team>> teams(List<Organization> organizations) {
 		return groupByOrganization(organizations, teamRepository.findAllByOrganizationInOrderById(organizations),

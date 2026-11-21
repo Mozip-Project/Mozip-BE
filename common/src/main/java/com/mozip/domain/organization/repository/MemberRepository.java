@@ -12,7 +12,7 @@ import com.mozip.domain.organization.entity.Member;
 import com.mozip.domain.organization.entity.MemberRole;
 import com.mozip.domain.organization.entity.Organization;
 
-// 내보내진 운영진(leftAt not null)은 소속이 아니므로 모든 조회에 leftAt is null 조건을 붙임
+// 조회는 모두 소속 중(leftAt is null)인 행만
 public interface MemberRepository extends JpaRepository<Member, Long> {
 
 	boolean existsByOrganizationIdAndUserIdAndLeftAtIsNull(Long organizationId, Long userId);
@@ -23,7 +23,7 @@ public interface MemberRepository extends JpaRepository<Member, Long> {
 
 	boolean existsByUserIdAndLeftAtIsNull(Long userId);
 
-	// 내보내기가 organization(권한 검사)과 user(lastOrganization 정리)를 바로 읽으므로 한 번에 가져옴
+	// 단체와 회원을 함께 조회
 	@Query("select m from Member m join fetch m.organization join fetch m.user where m.id = :id and m.leftAt is null")
 	Optional<Member> findActiveWithOrganizationAndUserById(@Param("id") Long id);
 
@@ -38,7 +38,7 @@ public interface MemberRepository extends JpaRepository<Member, Long> {
 		+ "where m.organization in :organizations and m.leftAt is null order by m.id")
 	List<Member> findAllWithUserAndTeamByOrganizationIn(@Param("organizations") Collection<Organization> organizations);
 
-	// 운영진 전용 필드 접근 검사용. 요청에 들어온 단체 중 회원이 소속된 단체 id만 한 번에 조회
+	// 주어진 단체 중 회원이 소속된 단체 id
 	@Query("select m.organization.id from Member m where m.user.id = :userId and m.organization in :organizations "
 		+ "and m.leftAt is null")
 	List<Long> findOrganizationIdsByUserIdAndOrganizationIn(@Param("userId") Long userId,

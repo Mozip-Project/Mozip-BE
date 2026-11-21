@@ -30,7 +30,6 @@ import com.mozip.domain.user.repository.UserRepository;
 import com.mozip.global.exception.BusinessException;
 import com.mozip.global.exception.CommonErrorCode;
 
-// 테스트 메서드마다 트랜잭션을 열고 끝나면 롤백해 다른 테스트에 데이터가 남지 않음
 @Import(TestcontainersConfiguration.class)
 @SpringBootTest
 @Transactional
@@ -78,7 +77,7 @@ class MemberServiceTest {
 		User later = userRepository.save(User.create("01099990024", "encoded", "나중 합류", false, LocalDateTime.now()));
 		Member laterMember = memberRepository.save(Member.create(organization, later, null, MemberRole.OPERATOR));
 		memberRepository.flush();
-		// 대표자 인수를 받으면 대표자가 운영진보다 늦게 합류한 행일 수 있어 합류일과 상관없이 대표자가 먼저인지 봄
+		// 합류일이 늦은 대표자도 먼저 나오는지 확인
 		jdbcTemplate.update("update members set created_at = created_at + interval '1 day' where id = ?",
 			representativeMember.getId());
 
@@ -136,7 +135,7 @@ class MemberServiceTest {
 	@DisplayName("내보낸 회원은 같은 단체에 다시 등록할 수 있다 (부분 unique index)")
 	void rejoinAfterRemoval() {
 		memberService.removeMember(representative.getId(), operatorMember.getId());
-		// 실제로는 내보내기 트랜잭션이 먼저 커밋됨. 한 트랜잭션 안에서는 Hibernate가 insert를 update보다 먼저 보내므로 flush로 순서를 맞춤
+		// 내보내기를 먼저 DB에 반영
 		memberRepository.flush();
 
 		Member rejoined = memberRepository.saveAndFlush(

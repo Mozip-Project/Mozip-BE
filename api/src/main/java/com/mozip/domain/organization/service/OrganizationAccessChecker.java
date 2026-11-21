@@ -18,7 +18,7 @@ public class OrganizationAccessChecker {
 	private final MemberRepository memberRepository;
 	private final OrganizationService organizationService;
 
-	// 대표자, 운영진 구분 없이 단체 소속이면 true. 내보내진 운영진(leftAt)은 소속이 아님
+	// 대표자, 운영진 구분 없이 소속 중이면 true (내보내진 운영진 제외)
 	public boolean isOperatorOf(Long userId, Long organizationId) {
 		return memberRepository.existsByOrganizationIdAndUserIdAndLeftAtIsNull(organizationId, userId);
 	}

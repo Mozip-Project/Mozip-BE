@@ -16,7 +16,7 @@ import com.mozip.global.exception.CommonErrorCode;
 
 import lombok.RequiredArgsConstructor;
 
-// 운영진 관리 (목록, 내보내기). 초대와 대표자 인수는 뒤 이슈에서 이 서비스에 추가
+// 운영진 관리 (목록, 내보내기)
 @Service
 @RequiredArgsConstructor
 @Transactional(readOnly = true)
@@ -25,7 +25,7 @@ public class MemberService {
 	private final MemberRepository memberRepository;
 	private final OrganizationService organizationService;
 
-	// 그 단체 운영진만 조회 가능. 없는 단체(ORG_404)를 먼저 거르고 소속이 아니면 COMMON_403
+	// 그 단체 운영진만 조회 가능, 없으면 ORG_404이고 소속이 아니면 COMMON_403
 	public List<Member> getMembers(Long userId, Long organizationId) {
 		organizationService.getOrganization(organizationId);
 		if (!memberRepository.existsByOrganizationIdAndUserIdAndLeftAtIsNull(organizationId, userId)) {
@@ -34,8 +34,8 @@ public class MemberService {
 		return memberRepository.findAllActiveWithUserAndTeamByOrganizationId(organizationId);
 	}
 
-	// 대표자만 내보낼 수 있고 대표자 행은 못 내보냄. 단체당 대표자가 1명이라 대표자 행은 곧 호출자 본인
-	// 행은 남기고 leftAt만 찍어 평가 기록을 보존하고, 드롭다운이 나간 단체를 현재 단체로 잡지 않게 lastOrganization도 정리
+	// 대표자만 내보낼 수 있고 대표자 본인은 내보낼 수 없음
+	// 행은 남기고 leftAt을 찍으며, 그 회원의 lastOrganization이 이 단체면 비움
 	@Transactional
 	public void removeMember(Long userId, Long memberId) {
 		Member member = memberRepository.findActiveWithOrganizationAndUserById(memberId)
@@ -50,7 +50,7 @@ public class MemberService {
 				.addContext("memberId", memberId);
 		}
 		member.leave(LocalDateTime.now());
-		// exists 쿼리 전에 auto flush로 left_at이 반영되어 방금 나간 소속은 세지 않음
+		// 방금 나간 소속은 빼고 셈
 		boolean stillOperator = memberRepository.existsByUserIdAndLeftAtIsNull(member.getUser().getId());
 		member.getUser().leaveOrganization(member.getOrganization(), stillOperator);
 	}
