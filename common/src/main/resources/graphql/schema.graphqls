@@ -20,6 +20,9 @@ type Query {
     health: Health! @public
 }
 
+# 필드는 도메인 파일에서 extend type Mutation으로 추가
+type Mutation
+
 type Health {
     status: String!
 }

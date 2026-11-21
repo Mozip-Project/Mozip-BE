@@ -5,4 +5,6 @@ extend type Query {
     testServerError: String @public
     testUnexpected: String @public
     testValidation(name: String): String @public
+    testReason: String @public
+    testConflict: String @public
 }
