@@ -29,7 +29,7 @@ import lombok.extern.slf4j.Slf4j;
 public class GlobalExceptionHandler extends ResponseEntityExceptionHandler {
 
 	@ExceptionHandler(BusinessException.class)
-	public ResponseEntity<ApiResponse<Void>> handleBusinessException(BusinessException e) {
+	public ResponseEntity<ApiResponse<Object>> handleBusinessException(BusinessException e) {
 		ErrorCode errorCode = e.getErrorCode();
 		// 4xx는 warn, 5xx는 장애 발생이므로 error
 		if (errorCode.getStatus().is5xxServerError()) {
@@ -37,7 +37,9 @@ public class GlobalExceptionHandler extends ResponseEntityExceptionHandler {
 		} else {
 			log.warn("Business exception: code={}, context={}", errorCode.getCode(), e.getContext());
 		}
-		return toResponse(errorCode, e.getMessage());
+		Object data = e.getFieldErrors().isEmpty() ? null : e.getFieldErrors();
+		return ResponseEntity.status(errorCode.getStatus())
+			.body(ApiResponse.fail(errorCode.getCode(), e.getMessage(), data));
 	}
 
 	// 서비스 계층의 @Validated 검증 실패
