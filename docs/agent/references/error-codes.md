@@ -48,13 +48,14 @@
 
 | 코드 | HTTP | 상수 | 언제 |
 |---|---|---|---|
-| `POSTING_404` | 404 | `NOT_FOUND` | 공고 없음 (스크랩, 신고 대상 조회, #74) |
+| `POSTING_404` | 404 | `NOT_FOUND` | 공고 없음, 또는 아직 게시 전(DRAFT) (스크랩, 신고 대상 조회, #74) |
 
 ## 공고 신고 (`ReportErrorCode`, #74)
 
 | 코드 | HTTP | 상수 | 언제 |
 |---|---|---|---|
 | `REPORT_409` | 409 | `CONFLICT` | 같은 회원이 같은 공고를 두 번 신고. 상황이 하나뿐이라 reason 없음 |
+| `COMMON_400` | 400 | `INVALID_INPUT` | `reportPosting`의 `detail`이 300자 초과 (#74) |
 
 ## reason enum
 

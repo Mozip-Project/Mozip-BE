@@ -5,6 +5,7 @@ import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
 import com.mozip.domain.posting.entity.Posting;
+import com.mozip.domain.posting.entity.PostingStatus;
 import com.mozip.domain.posting.entity.Report;
 import com.mozip.domain.posting.entity.ReportReason;
 import com.mozip.domain.posting.exception.PostingErrorCode;
@@ -23,12 +24,19 @@ import lombok.RequiredArgsConstructor;
 @Transactional(readOnly = true)
 public class ReportService {
 
+	private static final int MAX_DETAIL_LENGTH = 300;
+
 	private final ReportRepository reportRepository;
 	private final PostingRepository postingRepository;
 	private final UserRepository userRepository;
 
 	@Transactional
 	public boolean report(Long userId, Long postingId, ReportReason reason, String detail) {
+		if (detail != null && detail.length() > MAX_DETAIL_LENGTH) {
+			throw new BusinessException(CommonErrorCode.INVALID_INPUT)
+				.addContext("detailLength", detail.length());
+		}
+
 		User user = findUser(userId);
 		Posting posting = findPosting(postingId);
 		if (reportRepository.existsByUserAndPosting(user, posting)) {
@@ -43,9 +51,14 @@ public class ReportService {
 		return true;
 	}
 
+	// DRAFT는 아직 게시 전이라 지원자에게 없는 공고와 같게 취급
 	private Posting findPosting(Long postingId) {
-		return postingRepository.findById(postingId)
+		Posting posting = postingRepository.findById(postingId)
 			.orElseThrow(() -> new BusinessException(PostingErrorCode.NOT_FOUND).addContext("postingId", postingId));
+		if (posting.getStatus() == PostingStatus.DRAFT) {
+			throw new BusinessException(PostingErrorCode.NOT_FOUND).addContext("postingId", postingId);
+		}
+		return posting;
 	}
 
 	private User findUser(Long userId) {

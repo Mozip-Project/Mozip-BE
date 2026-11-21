@@ -15,6 +15,7 @@ import org.springframework.boot.webmvc.test.autoconfigure.AutoConfigureMockMvc;
 import org.springframework.context.annotation.Import;
 import org.springframework.graphql.execution.ErrorType;
 import org.springframework.graphql.test.tester.HttpGraphQlTester;
+import org.springframework.test.util.ReflectionTestUtils;
 
 import com.mozip.TestcontainersConfiguration;
 import com.mozip.domain.organization.entity.Organization;
@@ -22,6 +23,7 @@ import com.mozip.domain.organization.entity.OrganizationScope;
 import com.mozip.domain.organization.entity.OrganizationType;
 import com.mozip.domain.organization.repository.OrganizationRepository;
 import com.mozip.domain.posting.entity.Posting;
+import com.mozip.domain.posting.entity.PostingStatus;
 import com.mozip.domain.posting.repository.PostingRepository;
 import com.mozip.domain.user.entity.Authority;
 import com.mozip.domain.user.entity.User;
@@ -60,6 +62,10 @@ class ScrapReportGraphqlControllerTest {
 		organization = organizationRepository.save(
 			Organization.create("테스트 단체", OrganizationType.CLUB, OrganizationScope.CAMPUS, null, false));
 		posting = postingRepository.save(Posting.create(organization, "공고", false, false));
+		// reportPosting은 DRAFT 공고를 POSTING_404로 거부함. 이 브랜치엔 상태 전환 API가 아직 없어(다른 이슈 몫)
+		// 테스트에서 직접 RECRUITING으로 바꿔서 "신고 가능한, 게시된 공고" 전제를 맞춤
+		ReflectionTestUtils.setField(posting, "status", PostingStatus.RECRUITING);
+		posting = postingRepository.save(posting);
 		String phone = "010" + ThreadLocalRandom.current().nextInt(10_000_000, 99_999_999);
 		user = userRepository.save(User.create(phone, "encoded", "지원자", false, LocalDateTime.now()));
 	}
