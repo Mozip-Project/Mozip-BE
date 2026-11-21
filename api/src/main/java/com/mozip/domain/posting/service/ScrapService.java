@@ -1,6 +1,7 @@
 package com.mozip.domain.posting.service;
 
-import org.springframework.dao.DataIntegrityViolationException;
+import java.util.Optional;
+
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.PageRequest;
 import org.springframework.stereotype.Service;
@@ -36,12 +37,15 @@ public class ScrapService {
 		User user = findUser(userId);
 		Posting posting = findPosting(postingId);
 
-		boolean scrapped = scrapRepository.findByUserAndPosting(user, posting)
-			.map(existing -> {
-				scrapRepository.delete(existing);
-				return false;
-			})
-			.orElseGet(() -> createScrap(user, posting));
+		boolean scrapped;
+		Optional<Scrap> existing = scrapRepository.findByUserAndPosting(user, posting);
+		if (existing.isPresent()) {
+			scrapRepository.delete(existing.get());
+			scrapped = false;
+		} else {
+			scrapRepository.insertIfAbsent(userId, postingId);
+			scrapped = true;
+		}
 
 		return new ScrapResult(scrapped, (int)scrapRepository.countByPosting(posting));
 	}
@@ -55,17 +59,6 @@ public class ScrapService {
 		User user = findUser(userId);
 		Page<Posting> result = scrapRepository.findPostingsByUser(user, PageRequest.of(page, size));
 		return new PostingPage(result.getContent(), result.getTotalElements(), result.hasNext());
-	}
-
-	// 동시에 같은 (user, posting)로 토글이 들어오면 uk_scraps_user_id_posting_id를 어길 수 있음.
-	// 그 경우는 "누군가는 이미 스크랩함"이므로 스크랩된 상태로 간주함 (test.md)
-	private boolean createScrap(User user, Posting posting) {
-		try {
-			scrapRepository.save(Scrap.create(user, posting));
-			return true;
-		} catch (DataIntegrityViolationException e) {
-			return true;
-		}
 	}
 
 	private Posting findPosting(Long postingId) {
