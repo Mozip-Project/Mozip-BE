@@ -5,7 +5,10 @@ import java.util.ArrayList;
 import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
+import java.util.function.Function;
+import java.util.stream.Collectors;
 
+import org.springframework.dao.DataIntegrityViolationException;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
@@ -65,8 +68,7 @@ public class ApplicationService {
 		requireRecruiting(posting);
 		User user = findUser(userId);
 
-		Application application = applicationRepository.findByPostingAndUser(posting, user)
-			.orElseGet(() -> applicationRepository.save(Application.create(posting, null, user)));
+		Application application = findOrCreateDraft(posting, user);
 		if (!application.isDraft()) {
 			throw new BusinessException(ApplicationErrorCode.CONFLICT, ApplicationConflictReason.ALREADY_SUBMITTED)
 				.addContext("applicationId", application.getId());
@@ -80,6 +82,21 @@ public class ApplicationService {
 			interviewAvailabilityService.save(application.getId(), input.availableTimes());
 		}
 		return application;
+	}
+
+	// 동시에 같은 (posting, user)로 saveApplicationDraft가 들어오면 uk_applications_posting_id_user_id를 어겨
+	// DataIntegrityViolationException이 날 수 있음. 500 대신 재요청하면 되는 409로 바꿔서 던짐 (test.md)
+	private Application findOrCreateDraft(Posting posting, User user) {
+		return applicationRepository.findByPostingAndUser(posting, user)
+			.orElseGet(() -> {
+				try {
+					return applicationRepository.save(Application.create(posting, null, user));
+				} catch (DataIntegrityViolationException e) {
+					throw new BusinessException(ApplicationErrorCode.CONFLICT, ApplicationConflictReason.CONCURRENT_SAVE)
+						.addContext("postingId", posting.getId())
+						.addContext("userId", user.getId());
+				}
+			});
 	}
 
 	@Transactional
@@ -144,13 +161,20 @@ public class ApplicationService {
 	private void replaceAnswers(Application application, Posting posting, Position position,
 		List<AnswerInput> answerInputs) {
 		answerRepository.deleteAllByApplication(application);
-		if (answerInputs == null) {
+		if (answerInputs == null || answerInputs.isEmpty()) {
 			return;
 		}
+		// 답변마다 따로 조회하면 N+1이라, 문항을 한 번에 묶어서 가져옴
+		List<Long> questionIds = answerInputs.stream().map(AnswerInput::questionId).distinct().toList();
+		Map<Long, Question> questionById = questionRepository.findAllById(questionIds).stream()
+			.collect(Collectors.toMap(Question::getId, Function.identity()));
+
 		for (AnswerInput i : answerInputs) {
-			Question question = questionRepository.findById(i.questionId())
-				.orElseThrow(() -> new BusinessException(CommonErrorCode.INVALID_INPUT)
-					.addContext("questionId", i.questionId()));
+			Question question = questionById.get(i.questionId());
+			if (question == null) {
+				throw new BusinessException(CommonErrorCode.INVALID_INPUT)
+					.addContext("questionId", i.questionId());
+			}
 			if (!question.getPosting().getId().equals(posting.getId())) {
 				throw new BusinessException(CommonErrorCode.INVALID_INPUT)
 					.addContext("reason", "다른 공고의 문항입니다")
