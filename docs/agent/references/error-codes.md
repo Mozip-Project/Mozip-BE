@@ -42,6 +42,20 @@
 | `ORG_402` | 402 | `SUBSCRIPTION_REQUIRED` | 이용권 없는 단체의 유료 기능 호출 (A 이용권에서 사용) |
 | `ORG_404` | 404 | `ORGANIZATION_NOT_FOUND` | 단체 없음 |
 
+## 공고 (`PostingErrorCode`, #74)
+
+스크랩/신고가 필요한 코드 하나만 먼저 둠. 공고 작성/게시 이슈에서 이 enum에 코드를 더 추가함
+
+| 코드 | HTTP | 상수 | 언제 |
+|---|---|---|---|
+| `POSTING_404` | 404 | `NOT_FOUND` | 공고 없음 (스크랩, 신고 대상 조회, #74) |
+
+## 공고 신고 (`ReportErrorCode`, #74)
+
+| 코드 | HTTP | 상수 | 언제 |
+|---|---|---|---|
+| `REPORT_409` | 409 | `CONFLICT` | 같은 회원이 같은 공고를 두 번 신고. 상황이 하나뿐이라 reason 없음 |
+
 ## reason enum
 
 같은 코드 안에서 상황을 나누는 값. 응답의 `extensions.reason`에 enum 이름이 들어간다.
