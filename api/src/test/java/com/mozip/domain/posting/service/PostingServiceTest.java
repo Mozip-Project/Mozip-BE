@@ -36,6 +36,7 @@ import com.mozip.domain.posting.dto.QuestionOptionsInput;
 import com.mozip.domain.posting.entity.AssignRule;
 import com.mozip.domain.posting.entity.InterviewMethod;
 import com.mozip.domain.posting.entity.InterviewTimeRange;
+import com.mozip.domain.posting.entity.Position;
 import com.mozip.domain.posting.entity.Posting;
 import com.mozip.domain.posting.entity.PostingImage;
 import com.mozip.domain.posting.entity.PostingSort;
@@ -208,6 +209,41 @@ class PostingServiceTest {
 		assertThat(images).filteredOn(PostingImage::isRepresentative)
 			.extracting(PostingImage::getUrl)
 			.containsExactly("https://img/a.png");
+	}
+
+	@Test
+	@DisplayName("noPosition을 true로만 보내도(positions 없이) 이전에 저장된 포지션이 지워진다")
+	void settingNoPositionClearsExistingPositions() {
+		Posting posting = postingService.saveDraft(operator.getId(), organization.getId(), null,
+			basicInput("제목"));
+		postingService.saveDraft(operator.getId(), organization.getId(), posting.getId(),
+			withPositions(List.of(new PositionInput(null, "백엔드", 1, 0))));
+
+		postingService.saveDraft(operator.getId(), organization.getId(), posting.getId(), withNoPosition(true));
+
+		List<Position> positions = positionRepository.findAllByPostingOrderBySortOrder(posting);
+		assertThat(positions).isEmpty();
+	}
+
+	@Test
+	@DisplayName("hasInterview을 false로만 보내도(interviewTimeRanges 없이) 이전에 저장된 면접 시간대가 지워진다")
+	void settingHasInterviewFalseClearsExistingTimeRanges() {
+		Posting posting = postingService.saveDraft(operator.getId(), organization.getId(), null,
+			basicInput("제목"));
+		postingService.saveDraft(operator.getId(), organization.getId(), posting.getId(),
+			withPositions(List.of(new PositionInput(null, "백엔드", 1, 0))));
+		Long positionId = positionRepository.findAllByPostingOrderBySortOrder(posting).get(0).getId();
+		postingService.saveDraft(operator.getId(), organization.getId(), posting.getId(),
+			withInterview(true, InterviewMethod.ONLINE, 20, 5, AssignRule.SAME_TEAM, 1, 2,
+				List.of(new InterviewTimeRangeInput(positionId, LocalDate.now().plusDays(3), LocalTime.of(10, 0),
+					LocalTime.of(12, 0), null))));
+
+		postingService.saveDraft(operator.getId(), organization.getId(), posting.getId(),
+			withInterview(false, null, null, null, null, null, null, null));
+
+		List<InterviewTimeRange> ranges = interviewTimeRangeRepository
+			.findAllByPostingOrderByDateAscStartTimeAsc(posting);
+		assertThat(ranges).isEmpty();
 	}
 
 	@Test
@@ -554,6 +590,15 @@ class PostingServiceTest {
 		return new PostingDraftInput(null, null, null, null, null, null, null, null,
 			null, null, null, null, null,
 			false, positions,
+			null, null, null, null, null, null, null, null,
+			null, null,
+			null, null);
+	}
+
+	private PostingDraftInput withNoPosition(boolean noPosition) {
+		return new PostingDraftInput(null, null, null, null, null, null, null, null,
+			null, null, null, null, null,
+			noPosition, null,
 			null, null, null, null, null, null, null, null,
 			null, null,
 			null, null);

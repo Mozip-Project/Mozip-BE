@@ -188,9 +188,13 @@ public class PostingService {
 		if (!touchesPositionsStep(input)) {
 			return;
 		}
-		posting.updatePositionsStep(orElse(input.noPosition(), posting.isNoPosition()));
+		boolean noPosition = orElse(input.noPosition(), posting.isNoPosition());
+		posting.updatePositionsStep(noPosition);
 		if (input.positions() != null) {
 			replacePositions(posting, input.positions());
+		} else if (noPosition) {
+			// 포지션 없음으로 바꾸면서 positions를 안 보내도 이전에 저장된 포지션은 지워야 함
+			replacePositions(posting, List.of());
 		}
 	}
 
@@ -208,6 +212,9 @@ public class PostingService {
 			orElse(input.maxParallelInterviews(), posting.getMaxParallelInterviews()));
 		if (input.interviewTimeRanges() != null) {
 			replaceInterviewTimeRanges(posting, input.interviewTimeRanges());
+		} else if (!input.hasInterview()) {
+			// 면접 없음으로 바꾸면서 interviewTimeRanges를 안 보내도 이전에 저장된 시간대는 지워야 함
+			replaceInterviewTimeRanges(posting, List.of());
 		}
 	}
 
