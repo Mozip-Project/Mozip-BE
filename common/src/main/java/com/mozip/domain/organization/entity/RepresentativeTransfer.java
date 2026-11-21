@@ -19,8 +19,8 @@ import lombok.AccessLevel;
 import lombok.Getter;
 import lombok.NoArgsConstructor;
 
-// 대표자 인수 요청. 현재 대표자가 같은 단체 운영진에게 요청하고 대상이 수락하면 두 사람의 역할이 바뀜
-// 단체당 대기 중 요청 1개는 부분 unique index라 DDL에만 있음
+// 대표자 인수 요청, 대상이 수락하면 두 사람의 역할이 바뀜
+// 단체당 대기 중 요청 1개 제약은 DDL에만 있음
 @Getter
 @Entity
 @Table(name = "representative_transfers")
@@ -35,12 +35,10 @@ public class RepresentativeTransfer extends BaseEntity {
 	@JoinColumn(name = "organization_id", nullable = false)
 	private Organization organization;
 
-	// 요청한 대표자
 	@ManyToOne(fetch = FetchType.LAZY, optional = false)
 	@JoinColumn(name = "from_member_id", nullable = false)
 	private Member fromMember;
 
-	// 넘겨받을 운영진
 	@ManyToOne(fetch = FetchType.LAZY, optional = false)
 	@JoinColumn(name = "to_member_id", nullable = false)
 	private Member toMember;
@@ -58,7 +56,7 @@ public class RepresentativeTransfer extends BaseEntity {
 		this.status = TransferStatus.PENDING;
 	}
 
-	// 요청자는 대표자, 대상은 같은 단체의 다른 운영진만. 권한/본인 지정은 서비스가 에러 코드별로 먼저 거름
+	// 요청자는 대표자, 대상은 같은 단체의 다른 운영진만
 	public static RepresentativeTransfer create(Member fromMember, Member toMember) {
 		if (!fromMember.isRepresentative() || toMember.isRepresentative()) {
 			throw new IllegalArgumentException("대표자가 운영진에게만 요청할 수 있습니다.");
@@ -73,7 +71,7 @@ public class RepresentativeTransfer extends BaseEntity {
 		return status == TransferStatus.PENDING;
 	}
 
-	// 역할 교체는 대표자 unique index 때문에 flush 순서가 필요해 서비스에서 하고, 여기선 상태만 바꿈
+	// 상태만 바꿈 (역할 교체는 서비스에서)
 	public void approve(LocalDateTime now) {
 		respond(TransferStatus.APPROVED, now);
 	}

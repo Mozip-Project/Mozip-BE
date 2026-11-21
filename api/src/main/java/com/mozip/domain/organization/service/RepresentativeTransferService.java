@@ -33,8 +33,7 @@ public class RepresentativeTransferService {
 	private final NotificationService notificationService;
 	private final OrganizationService organizationService;
 
-	// 대상 운영진으로 단체를 정한 뒤 호출자가 그 단체 대표자인지 확인. 대기 요청 중복은 부분 unique index가 최종 방어선
-	// 같은 요청이 두 번 오면 둘 다 대기 요청 없음으로 보고 unique index에서 500이 나 단체 행을 잠가 차례로 처리
+	// 대상 운영진이 속한 단체의 대표자만 요청 가능, 단체 행을 잠가 같은 요청을 차례로 처리
 	@Transactional
 	public RepresentativeTransfer request(Long userId, Long memberId) {
 		Long organizationId = memberRepository.findOrganizationIdById(memberId)
@@ -58,12 +57,12 @@ public class RepresentativeTransferService {
 		Long transferId = transferRepository.saveAndFlush(RepresentativeTransfer.create(representative, target)).getId();
 		notificationService.send(target.getUser().getId(), NotificationType.TRANSFER_REQUEST, Map.of(
 			"organizationId", organizationId, "transferId", transferId));
-		// 대표자 행의 user/team이 지연 로딩 프록시로 남아 있어 응답에 필요한 연관을 fetch join으로 다시 채움
+		// 응답에 필요한 회원, 팀을 함께 다시 조회
 		return transferRepository.findWithMembersById(transferId).orElseThrow();
 	}
 
-	// 요청 대상만 응답 가능. 수락하면 한 트랜잭션에서 기존 대표자 → OPERATOR, 대상 → REPRESENTATIVE
-	// 운영진 내보내기와 겹치면 나간 운영진이 대표자가 될 수 있어 단체 행을 먼저 잠그고 요청 상태와 소속을 읽음
+	// 요청 대상만 응답 가능, 수락하면 기존 대표자는 OPERATOR, 대상은 REPRESENTATIVE
+	// 단체 행을 먼저 잠그고 요청 상태와 소속을 읽음
 	@Transactional
 	public RepresentativeTransfer respond(Long userId, Long transferId, boolean accept) {
 		Long organizationId = transferRepository.findOrganizationIdById(transferId)
@@ -89,7 +88,7 @@ public class RepresentativeTransferService {
 			notifyRequester(transfer, NotificationType.TRANSFER_REJECTED);
 			return transfer;
 		}
-		// 대표자 unique index(단체당 소속 중인 REPRESENTATIVE 1명)는 문장마다 검사돼, 기존 대표자를 먼저 내려 DB에 반영한 뒤 대상을 올림
+		// 기존 대표자를 먼저 내려 DB에 반영한 뒤 대상을 올림
 		from.changeRole(MemberRole.OPERATOR);
 		memberRepository.flush();
 		to.changeRole(MemberRole.REPRESENTATIVE);

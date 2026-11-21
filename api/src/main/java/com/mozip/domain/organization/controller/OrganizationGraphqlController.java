@@ -138,7 +138,7 @@ public class OrganizationGraphqlController {
 		return representativeTransferService.respond(authUser.userId(), id, accept);
 	}
 
-	// from/to는 JPQL 예약어와 겹쳐 엔티티 필드는 fromMember/toMember로 두고 스키마 이름에 이어 줌
+	// 스키마 from/to를 엔티티 fromMember/toMember에 연결
 	@SchemaMapping(typeName = "RepresentativeTransfer", field = "from")
 	public Member transferFrom(RepresentativeTransfer transfer) {
 		return transfer.getFromMember();
@@ -149,7 +149,7 @@ public class OrganizationGraphqlController {
 		return transfer.getToMember();
 	}
 
-	// 링크 주소는 저장하지 않고 응답할 때 설정의 base-url과 토큰을 이어 붙임 (도메인이 바뀌어도 데이터 수정 없음)
+	// 링크 주소 = 설정의 base-url + 토큰
 	@SchemaMapping(typeName = "InviteLink")
 	public String url(InviteLink link) {
 		return inviteProperties.linkUrl(link.getToken());

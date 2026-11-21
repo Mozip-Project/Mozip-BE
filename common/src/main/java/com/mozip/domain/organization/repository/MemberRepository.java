@@ -31,11 +31,11 @@ public interface MemberRepository extends JpaRepository<Member, Long> {
 	@Query("select m from Member m join fetch m.organization join fetch m.user where m.id = :id and m.leftAt is null")
 	Optional<Member> findActiveWithOrganizationAndUserById(@Param("id") Long id);
 
-	// 단체 행을 잠그기 전에 어느 단체인지만 알아냄. 엔티티를 읽지 않아 잠근 뒤 다시 읽는 값이 최신으로 남음
+	// 단체 id만 조회 (단체 행을 잠그기 전에 사용)
 	@Query("select m.organization.id from Member m where m.id = :id")
 	Optional<Long> findOrganizationIdById(@Param("id") Long id);
 
-	// GraphQL Me.memberships, 단체 드롭다운이 organization / role / team을 읽으므로 한 번에 가져옴. user { school }도 LAZY 예외가 나지 않게 같이
+	// GraphQL Me.memberships 조회, 단체, 팀, 회원, 학교를 함께 조회
 	@Query("select m from Member m join fetch m.organization o left join fetch o.school join fetch m.user u "
 		+ "left join fetch u.school left join fetch m.team where m.user.id = :userId and m.leftAt is null order by o.id")
 	List<Member> findAllWithOrganizationAndTeamByUserId(@Param("userId") Long userId);

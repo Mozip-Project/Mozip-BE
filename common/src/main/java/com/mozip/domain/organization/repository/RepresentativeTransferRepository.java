@@ -15,7 +15,7 @@ public interface RepresentativeTransferRepository extends JpaRepository<Represen
 
 	boolean existsByOrganizationIdAndStatus(Long organizationId, TransferStatus status);
 
-	// 응답의 from/to Member(회원, 팀)와 단체(학교)를 그리기 위해 같이 가져옴 (open-in-view가 꺼져 있음)
+	// from/to 운영진의 회원, 팀과 단체, 학교를 함께 조회
 	@Query("""
 		select t from RepresentativeTransfer t
 		join fetch t.organization o left join fetch o.school
@@ -24,7 +24,7 @@ public interface RepresentativeTransferRepository extends JpaRepository<Represen
 		where t.id = :id""")
 	Optional<RepresentativeTransfer> findWithMembersById(@Param("id") Long id);
 
-	// 단체 행을 잠그기 전에 어느 단체인지만 알아냄. 엔티티를 읽지 않아 잠근 뒤 다시 읽는 상태가 최신으로 남음
+	// 단체 id만 조회 (단체 행을 잠그기 전에 사용)
 	@Query("select t.organization.id from RepresentativeTransfer t where t.id = :id")
 	Optional<Long> findOrganizationIdById(@Param("id") Long id);
 

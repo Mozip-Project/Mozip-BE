@@ -31,7 +31,6 @@ import com.mozip.global.exception.BusinessException;
 import com.mozip.global.exception.CommonErrorCode;
 import com.mozip.global.exception.ErrorCode;
 
-// 테스트 메서드마다 트랜잭션을 열고 끝나면 롤백해 다른 테스트에 데이터가 남지 않음
 @Import(TestcontainersConfiguration.class)
 @SpringBootTest
 @Transactional
@@ -76,7 +75,7 @@ class RepresentativeTransferServiceTest {
 		assertThat(transfer.getStatus()).isEqualTo(TransferStatus.PENDING);
 
 		RepresentativeTransfer approved = transferService.respond(operator.getId(), transfer.getId(), true);
-		// 대상 승격 update까지 DB에 보내 unique index 검사를 실제로 거침
+		// 역할 교체를 DB에 반영
 		memberRepository.flush();
 
 		assertThat(approved.getStatus()).isEqualTo(TransferStatus.APPROVED);
@@ -143,7 +142,7 @@ class RepresentativeTransferServiceTest {
 		memberService.removeMember(representative.getId(), operatorMember.getId());
 
 		assertThat(transfer.getStatus()).isEqualTo(TransferStatus.CANCELED);
-		// 부분 unique index는 PENDING 행에만 걸려 취소 상태가 DB에 반영된 뒤 새 요청이 들어갈 수 있음
+		// 취소 상태를 DB에 반영
 		memberRepository.flush();
 		Member another = memberRepository.save(Member.create(organization, saveUser(), null, MemberRole.OPERATOR));
 		assertThat(transferService.request(representative.getId(), another.getId()).getStatus())

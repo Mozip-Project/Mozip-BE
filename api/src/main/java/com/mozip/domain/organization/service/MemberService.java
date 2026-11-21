@@ -20,7 +20,7 @@ import com.mozip.global.exception.CommonErrorCode;
 
 import lombok.RequiredArgsConstructor;
 
-// 운영진 관리 (목록, 내보내기). 초대는 InvitationService, 대표자 인수는 RepresentativeTransferService
+// 운영진 관리 (목록, 내보내기)
 @Service
 @RequiredArgsConstructor
 @Transactional(readOnly = true)
@@ -46,7 +46,7 @@ public class MemberService {
 	public void removeMember(Long userId, Long memberId) {
 		Long organizationId = memberRepository.findOrganizationIdById(memberId)
 			.orElseThrow(() -> memberNotFound(memberId));
-		// 대표자 인수 수락과 겹치면 잠그기 전 역할로 판단해 새 대표자를 내보낼 수 있어 단체 행을 먼저 잠그고 운영진을 읽음
+		// 단체 행을 먼저 잠그고 운영진을 읽음 (대표자 인수 수락과 차례로 처리)
 		organizationService.getOrganizationForUpdate(organizationId);
 		Member member = memberRepository.findActiveWithOrganizationAndUserById(memberId)
 			.orElseThrow(() -> memberNotFound(memberId));
@@ -63,10 +63,10 @@ public class MemberService {
 		// 내보낸 운영진이 공용 링크로 돌아오지 못하게 유효한 링크를 모두 만료
 		inviteLinkRepository.findAllByOrganizationIdAndExpiresAtAfter(organizationId, now)
 			.forEach(link -> link.expire(now));
-		// 나간 운영진이 대상인 대표자 인수 요청은 수락할 사람이 없어지므로 취소
+		// 나간 운영진이 걸린 대기 중 대표자 인수 요청은 취소
 		representativeTransferRepository.findAllByMemberAndStatus(member, TransferStatus.PENDING)
 			.forEach(transfer -> transfer.cancel(now));
-		// exists 쿼리 전에 auto flush로 left_at이 반영되어 방금 나간 소속은 세지 않음
+		// 방금 나간 소속은 빼고 셈
 		boolean stillOperator = memberRepository.existsByUserIdAndLeftAtIsNull(member.getUser().getId());
 		member.getUser().leaveOrganization(member.getOrganization(), stillOperator);
 	}

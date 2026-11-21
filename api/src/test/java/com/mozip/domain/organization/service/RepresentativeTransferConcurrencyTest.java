@@ -33,7 +33,7 @@ import com.mozip.domain.user.repository.UserRepository;
 import com.mozip.global.exception.BusinessException;
 import com.mozip.global.exception.CommonErrorCode;
 
-// 두 트랜잭션이 실제로 겹쳐야 하는 테스트라 @Transactional 롤백을 쓰지 않고 끝나면 직접 지움
+// 롤백 대신 테스트가 끝나면 직접 지움
 @Import(TestcontainersConfiguration.class)
 @SpringBootTest
 class RepresentativeTransferConcurrencyTest {
