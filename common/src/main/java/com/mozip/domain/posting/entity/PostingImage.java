@@ -54,4 +54,8 @@ public class PostingImage extends BaseEntity {
 		this.isRepresentative = true;
 	}
 
+	public void unmarkRepresentative() {
+		this.isRepresentative = false;
+	}
+
 }

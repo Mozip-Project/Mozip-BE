@@ -236,11 +236,23 @@ public class PostingService {
 			throw new BusinessException(CommonErrorCode.INVALID_INPUT)
 				.addContext("imageCount", imageInputs.size());
 		}
+		// 이미지를 통째로 교체해도 대표 지정은 url로 맞춰서 유지함 (안 그러면 새 행은 전부 isRepresentative=false로 시작해 대표가 사라짐)
+		String representativeUrl = postingImageRepository.findAllByPostingOrderBySortOrder(posting).stream()
+			.filter(PostingImage::isRepresentative)
+			.map(PostingImage::getUrl)
+			.findFirst()
+			.orElse(null);
 		postingImageRepository.deleteAllByPosting(posting);
 		List<PostingImage> images = imageInputs.stream()
 			.map(i -> PostingImage.create(posting, i.url(), i.sortOrder()))
 			.toList();
 		postingImageRepository.saveAll(images);
+		if (representativeUrl != null) {
+			images.stream()
+				.filter(image -> image.getUrl().equals(representativeUrl))
+				.findFirst()
+				.ifPresent(PostingImage::markRepresentative);
+		}
 	}
 
 	private void replacePositions(Posting posting, List<PositionInput> positionInputs) {
@@ -278,11 +290,14 @@ public class PostingService {
 		interviewTimeRangeRepository.saveAll(ranges);
 	}
 
+	// 대표는 한 번에 하나만 있어야 하므로 고른 것 외엔 전부 내림
 	private void markRepresentativeImage(Posting posting, Long imageId) {
 		List<PostingImage> images = postingImageRepository.findAllByPostingOrderBySortOrder(posting);
 		for (PostingImage image : images) {
 			if (image.getId().equals(imageId)) {
 				image.markRepresentative();
+			} else {
+				image.unmarkRepresentative();
 			}
 		}
 	}
