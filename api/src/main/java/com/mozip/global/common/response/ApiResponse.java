@@ -6,7 +6,7 @@ import com.fasterxml.jackson.annotation.JsonInclude;
 import com.mozip.global.logging.TraceIdFilter;
 
 // 공통 응답 형식이며, traceId는 실패 응답에만 담고 성공 응답은 X-Trace-Id 응답 헤더로 확인
-// reason은 같은 code 안에서 상황을 나눌 때만 담음 (GraphQL의 extensions.reason과 같은 값)
+// 같은 code 안에서 상황을 나눌 때만 담음 (GraphQL extensions.reason과 같은 값)
 public record ApiResponse<T>(
 	boolean success,
 	String code,

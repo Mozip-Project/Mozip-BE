@@ -30,7 +30,7 @@ public interface MemberRepository extends JpaRepository<Member, Long> {
 		+ "where m.organization in :organizations order by m.id")
 	List<Member> findAllWithUserAndTeamByOrganizationIn(@Param("organizations") Collection<Organization> organizations);
 
-	// 운영진 전용 필드 접근 검사용. 요청에 들어온 단체 중 회원이 소속된 단체 id만 한 번에 조회
+	// 주어진 단체 중 회원이 소속된 단체 id
 	@Query("select m.organization.id from Member m where m.user.id = :userId and m.organization in :organizations")
 	List<Long> findOrganizationIdsByUserIdAndOrganizationIn(@Param("userId") Long userId,
 		@Param("organizations") Collection<Organization> organizations);
