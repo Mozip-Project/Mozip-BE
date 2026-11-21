@@ -2,7 +2,7 @@ package com.mozip.domain.organization.entity;
 
 import java.util.Locale;
 
-// 프로필 폼에 타입 선택 UI가 없어 서버가 URL 호스트로 추정
+// 저장할 때 URL 호스트로 추정
 public enum OrganizationLinkType {
 	INSTAGRAM,
 	WEBSITE,

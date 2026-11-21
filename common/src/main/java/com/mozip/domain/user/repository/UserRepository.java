@@ -12,7 +12,7 @@ public interface UserRepository extends JpaRepository<User, Long> {
 
 	Optional<User> findByPhone(String phone);
 
-	// 초대와 수락 응답이 inviter, invitee, user { school }까지 그릴 수 있어 학교를 같이 가져옴 (open-in-view가 꺼져 있음)
+	// 학교를 함께 조회
 	@Query("select u from User u left join fetch u.school where u.id = :id")
 	Optional<User> findWithSchoolById(@Param("id") Long id);
 
@@ -21,7 +21,7 @@ public interface UserRepository extends JpaRepository<User, Long> {
 
 	boolean existsByPhone(String phone);
 
-	// GraphQL me가 lastOrganization과 그 school까지 읽으므로 같이 가져옴 (open-in-view가 꺼져 있음)
+	// lastOrganization과 그 학교를 함께 조회
 	@Query("select u from User u left join fetch u.lastOrganization o left join fetch o.school where u.id = :id")
 	Optional<User> findWithLastOrganizationById(@Param("id") Long id);
 

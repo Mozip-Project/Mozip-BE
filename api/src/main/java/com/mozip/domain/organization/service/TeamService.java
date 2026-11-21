@@ -27,7 +27,6 @@ import com.mozip.global.exception.CommonErrorCode;
 
 import lombok.RequiredArgsConstructor;
 
-// 팀 설정 화면의 팀 목록 저장
 @Service
 @RequiredArgsConstructor
 @Transactional(readOnly = true)
@@ -41,8 +40,7 @@ public class TeamService {
 	private final PositionRepository positionRepository;
 	private final OrganizationService organizationService;
 
-	// 보낸 목록으로 전체 교체. id 있으면 수정, 없으면 생성, 목록에서 빠진 팀은 삭제. 순서는 배열 순서
-	// 기존 팀은 행을 지우고 다시 만들지 않고 고쳐 써서 운영진 소속과 포지션 참조(team_id)가 유지됨
+	// 보낸 목록으로 전체 교체, id 있으면 수정하고 없으면 생성, 빠진 팀은 삭제 (순서는 배열 순서)
 	@Transactional
 	public List<Team> saveTeams(Long userId, Long organizationId, List<TeamInput> inputs) {
 		Organization organization = organizationService.getOrganizationForUpdate(organizationId);
@@ -89,8 +87,7 @@ public class TeamService {
 		return saved;
 	}
 
-	// 공고 포지션이 쓰는 팀은 삭제 불가. 소속 운영진과 대기 중 초대는 팀 미지정으로 돌린 뒤 삭제
-	// Hibernate는 flush 때 update를 delete보다 먼저 보내 team_id FK가 먼저 풀림
+	// 공고 포지션이 쓰는 팀은 삭제 불가, 소속 운영진과 대기 중 초대는 팀 미지정으로 돌린 뒤 삭제
 	private void deleteTeams(List<Team> removed) {
 		if (removed.isEmpty()) {
 			return;

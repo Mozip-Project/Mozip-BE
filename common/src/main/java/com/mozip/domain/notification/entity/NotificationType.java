@@ -1,6 +1,6 @@
 package com.mozip.domain.notification.entity;
 
-// 알림 종류 (스키마 enum NotificationType과 같은 값). 알림 엔티티와 저장은 A의 알림 이슈에서
+// 알림 종류 (스키마 enum NotificationType과 같은 값)
 public enum NotificationType {
 	POSTING_NOTICE,
 	DOC_RESULT,

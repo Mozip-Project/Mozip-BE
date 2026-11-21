@@ -37,7 +37,6 @@ import com.mozip.global.exception.BusinessException;
 import com.mozip.global.exception.CommonErrorCode;
 import com.mozip.global.exception.ErrorCode;
 
-// 테스트 메서드마다 트랜잭션을 열고 끝나면 롤백해 다른 테스트에 데이터가 남지 않음
 @Import(TestcontainersConfiguration.class)
 @SpringBootTest
 @Transactional
@@ -259,7 +258,7 @@ class InvitationServiceTest {
 	void reinviteRemovedMember() {
 		Member removed = memberRepository.save(Member.create(organization, invitee, null, MemberRole.OPERATOR));
 		memberService.removeMember(representative.getId(), removed.getId());
-		// 실제로는 내보내기 트랜잭션이 먼저 커밋됨. 한 트랜잭션 안에서는 insert가 update보다 먼저 나가 flush로 순서를 맞춤
+		// 내보내기를 먼저 DB에 반영
 		memberRepository.flush();
 
 		Invitation invitation = invitationService.inviteMember(representative.getId(), organization.getId(),

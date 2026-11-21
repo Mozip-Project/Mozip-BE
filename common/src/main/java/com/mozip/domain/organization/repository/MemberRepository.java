@@ -13,7 +13,7 @@ import com.mozip.domain.organization.entity.MemberRole;
 import com.mozip.domain.organization.entity.Organization;
 import com.mozip.domain.organization.entity.Team;
 
-// 내보내진 운영진(leftAt not null)은 소속이 아니므로 모든 조회에 leftAt is null 조건을 붙임
+// 조회는 모두 소속 중(leftAt is null)인 행만
 public interface MemberRepository extends JpaRepository<Member, Long> {
 
 	boolean existsByOrganizationIdAndUserIdAndLeftAtIsNull(Long organizationId, Long userId);
@@ -27,7 +27,7 @@ public interface MemberRepository extends JpaRepository<Member, Long> {
 
 	boolean existsByUserIdAndLeftAtIsNull(Long userId);
 
-	// 내보내기가 organization(권한 검사)과 user(lastOrganization 정리)를 바로 읽으므로 한 번에 가져옴
+	// 단체와 회원을 함께 조회
 	@Query("select m from Member m join fetch m.organization join fetch m.user where m.id = :id and m.leftAt is null")
 	Optional<Member> findActiveWithOrganizationAndUserById(@Param("id") Long id);
 
@@ -40,13 +40,13 @@ public interface MemberRepository extends JpaRepository<Member, Long> {
 		+ "left join fetch u.school left join fetch m.team where m.user.id = :userId and m.leftAt is null order by o.id")
 	List<Member> findAllWithOrganizationAndTeamByUserId(@Param("userId") Long userId);
 
-	// GraphQL Organization.members 배치 조회. open-in-view가 꺼져 있어 하위 필드가 닿는 LAZY 연관(user.school, organization.school, team.organization)을 모두 같이 가져옴
+	// GraphQL Organization.members 배치 조회, 하위 필드가 읽는 회원, 단체, 팀, 학교를 함께 조회
 	@Query("select m from Member m join fetch m.user u left join fetch u.school join fetch m.organization o "
 		+ "left join fetch o.school left join fetch m.team t left join fetch t.organization "
 		+ "where m.organization in :organizations and m.leftAt is null order by m.id")
 	List<Member> findAllWithUserAndTeamByOrganizationIn(@Param("organizations") Collection<Organization> organizations);
 
-	// 운영진 전용 필드 접근 검사용. 요청에 들어온 단체 중 회원이 소속된 단체 id만 한 번에 조회
+	// 주어진 단체 중 회원이 소속된 단체 id
 	@Query("select m.organization.id from Member m where m.user.id = :userId and m.organization in :organizations "
 		+ "and m.leftAt is null")
 	List<Long> findOrganizationIdsByUserIdAndOrganizationIn(@Param("userId") Long userId,
@@ -56,7 +56,7 @@ public interface MemberRepository extends JpaRepository<Member, Long> {
 	@Query("select m from Member m join fetch m.user left join fetch m.team where m.organization.id = :organizationId and m.leftAt is null order by case when m.role = com.mozip.domain.organization.entity.MemberRole.REPRESENTATIVE then 0 else 1 end, m.createdAt, m.id")
 	List<Member> findAllActiveWithUserAndTeamByOrganizationId(@Param("organizationId") Long organizationId);
 
-	// 팀 삭제 시 소속 해제 대상. 내보낸 운영진 행도 팀 FK를 들고 있어 함께 가져옴
+	// 팀 삭제 시 소속 해제 대상 (내보낸 운영진 행 포함)
 	List<Member> findAllByTeamIn(Collection<Team> teams);
 
 }

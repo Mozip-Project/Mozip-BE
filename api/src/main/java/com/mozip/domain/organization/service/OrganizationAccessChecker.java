@@ -9,8 +9,7 @@ import com.mozip.domain.organization.repository.MemberRepository;
 
 import lombok.RequiredArgsConstructor;
 
-// 다른 도메인(공고, 역할 전환 등)이 단체 소속과 존재를 확인할 때 쓰는 연결 함수
-// Security 레이어가 아닌 서비스에서 사용하는 빈으로, 로그인 여부는 GraphqlAuthInstrumentation에서 확인
+// 다른 도메인(공고, 역할 전환 등)이 단체 존재와 소속을 확인할 때 쓰는 함수
 @Service
 @RequiredArgsConstructor
 @Transactional(readOnly = true)
@@ -19,12 +18,12 @@ public class OrganizationAccessChecker {
 	private final MemberRepository memberRepository;
 	private final OrganizationService organizationService;
 
-	// 대표자, 운영진 구분 없이 단체 소속이면 true. 내보내진 운영진(leftAt)은 소속이 아님
+	// 대표자, 운영진 구분 없이 소속 중이면 true (내보내진 운영진 제외)
 	public boolean isOperatorOf(Long userId, Long organizationId) {
 		return memberRepository.existsByOrganizationIdAndUserIdAndLeftAtIsNull(organizationId, userId);
 	}
 
-	// 대표자만 할 수 있는 일(운영진 내보내기, 대표자 인수 승인 등)의 권한 검사
+	// 단체 대표자면 true
 	public boolean isRepresentativeOf(Long userId, Long organizationId) {
 		return memberRepository.existsByOrganizationIdAndUserIdAndRoleAndLeftAtIsNull(organizationId, userId,
 			MemberRole.REPRESENTATIVE);

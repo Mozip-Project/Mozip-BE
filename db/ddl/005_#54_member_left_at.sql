@@ -1,7 +1,6 @@
 -- 005_#54_member_left_at.sql
--- 운영진 내보내기(#54): soft delete 컬럼 left_at. 평가 기록이 members를 참조해 행은 남기고 이 값으로 소속 여부를 가름
--- 소속 unique와 대표자 unique는 소속 중인 행(left_at is null)에만 걸어, 나간 회원을 다시 초대할 수 있게 함
--- dev/prod는 ddl-auto: update라 컬럼이 먼저 생겼을 수 있고, 기존 소속 unique는 Hibernate가 만든 UK 해시 이름일 수 있어 이름 대신 컬럼으로 찾아 지움
+-- 운영진 내보내기(#54): soft delete 컬럼 left_at 추가, 소속/대표자 unique를 소속 중인 행에만 걸도록 바꿈
+-- 기존 소속 unique는 환경마다 이름이 다를 수 있어 컬럼으로 찾아 지움
 
 alter table members add column if not exists left_at timestamp(6);
 

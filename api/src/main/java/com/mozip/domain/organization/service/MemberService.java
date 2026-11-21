@@ -31,7 +31,7 @@ public class MemberService {
 	private final OrganizationService organizationService;
 	private final RepresentativeTransferRepository representativeTransferRepository;
 
-	// 그 단체 운영진만 조회 가능. 없는 단체(ORG_404)를 먼저 거르고 소속이 아니면 COMMON_403
+	// 그 단체 운영진만 조회 가능, 없으면 ORG_404이고 소속이 아니면 COMMON_403
 	public List<Member> getMembers(Long userId, Long organizationId) {
 		organizationService.getOrganization(organizationId);
 		if (!memberRepository.existsByOrganizationIdAndUserIdAndLeftAtIsNull(organizationId, userId)) {
@@ -40,8 +40,8 @@ public class MemberService {
 		return memberRepository.findAllActiveWithUserAndTeamByOrganizationId(organizationId);
 	}
 
-	// 대표자만 내보낼 수 있고 대표자 행은 못 내보냄. 단체당 대표자가 1명이라 대표자 행은 곧 호출자 본인
-	// 행은 남기고 leftAt만 찍어 평가 기록을 보존하고, 드롭다운이 나간 단체를 현재 단체로 잡지 않게 lastOrganization도 정리
+	// 대표자만 내보낼 수 있고 대표자 본인은 내보낼 수 없음
+	// 행은 남기고 leftAt을 찍으며, 그 회원의 lastOrganization이 이 단체면 비움
 	@Transactional
 	public void removeMember(Long userId, Long memberId) {
 		Long organizationId = memberRepository.findOrganizationIdById(memberId)
@@ -60,7 +60,7 @@ public class MemberService {
 		}
 		LocalDateTime now = LocalDateTime.now();
 		member.leave(now);
-		// 공용 링크는 누구나 토큰으로 합류하므로 내보낸 운영진이 그 링크로 바로 돌아오지 못하게 유효한 링크를 모두 만료
+		// 내보낸 운영진이 공용 링크로 돌아오지 못하게 유효한 링크를 모두 만료
 		inviteLinkRepository.findAllByOrganizationIdAndExpiresAtAfter(organizationId, now)
 			.forEach(link -> link.expire(now));
 		// 나간 운영진이 대상인 대표자 인수 요청은 수락할 사람이 없어지므로 취소

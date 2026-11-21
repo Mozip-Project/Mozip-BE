@@ -17,7 +17,7 @@ import lombok.AccessLevel;
 import lombok.Getter;
 import lombok.NoArgsConstructor;
 
-// SNS/웹사이트 링크, type은 저장 시 URL 호스트로 추정
+// SNS/웹사이트 링크, type은 URL 호스트로 추정
 @Getter
 @Entity
 @Table(name = "organization_links")

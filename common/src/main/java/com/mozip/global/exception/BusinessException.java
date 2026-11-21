@@ -10,7 +10,7 @@ import lombok.Getter;
 public class BusinessException extends RuntimeException {
 
 	private final ErrorCode errorCode;
-	// 같은 에러 코드 안에서 상황을 나눌 때 프론트 분기용으로 응답에 담는 enum 이름 (없으면 null)
+	// 같은 에러 코드 안에서 상황을 나누는 enum 이름, 없으면 null
 	private final String reason;
 	private final Map<String, Object> context = new LinkedHashMap<>();
 

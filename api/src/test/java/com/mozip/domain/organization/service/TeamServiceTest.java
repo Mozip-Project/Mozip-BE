@@ -38,7 +38,6 @@ import com.mozip.domain.user.repository.UserRepository;
 import com.mozip.global.exception.BusinessException;
 import com.mozip.global.exception.CommonErrorCode;
 
-// 테스트 메서드마다 트랜잭션을 열고 끝나면 롤백해 다른 테스트에 데이터가 남지 않음
 @Import(TestcontainersConfiguration.class)
 @SpringBootTest
 @Transactional

@@ -17,7 +17,7 @@ import lombok.AccessLevel;
 import lombok.Getter;
 import lombok.NoArgsConstructor;
 
-// 공용 초대 링크 (mozip.kr/invite/{token}). 누구나 토큰으로 합류할 수 있어 7일 뒤 만료
+// 공용 초대 링크 (mozip.kr/invite/{token}), 토큰으로 누구나 합류하고 7일 뒤 만료
 @Getter
 @Entity
 @Table(name = "invite_links")
@@ -54,7 +54,7 @@ public class InviteLink extends BaseEntity {
 		return !now.isBefore(expiresAt);
 	}
 
-	// 운영진을 내보내면 그 사람이 알고 있는 링크로 다시 들어오지 못하게 바로 만료
+	// 바로 만료 (운영진 내보내기 시 호출)
 	public void expire(LocalDateTime now) {
 		if (expiresAt.isAfter(now)) {
 			this.expiresAt = now;

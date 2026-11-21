@@ -35,7 +35,7 @@ import com.mozip.global.exception.CommonErrorCode;
 import lombok.RequiredArgsConstructor;
 
 // 운영진 초대 (개인 초대, 공용 링크)와 수락
-// 미가입자 초대는 가입 시점에 연결하지 않고 수락 시점에 로그인 회원의 연락처로 맞춰 봄 (A 회원가입 코드에 훅이 필요 없음)
+// 미가입자 초대는 수락할 때 로그인 회원의 연락처와 비교
 @Service
 @RequiredArgsConstructor
 @Transactional(readOnly = true)
@@ -61,7 +61,7 @@ public class InvitationService {
 		String normalizedContact = normalizeContact(contact);
 		Team team = findTeam(organization, teamId);
 
-		// TODO(A 회원 연락처 이메일) contactEmail 컬럼이 생기면 이메일로도 가입자를 찾음. 지금은 휴대폰만
+		// TODO(A 회원 연락처 이메일): contactEmail 컬럼이 생기면 이메일로도 가입자를 찾음, 지금은 휴대폰만
 		User invitee = isEmail(normalizedContact) ? null
 			: userRepository.findWithSchoolByPhone(normalizedContact).orElse(null);
 		if (invitee != null && memberRepository.existsByOrganizationIdAndUserIdAndLeftAtIsNull(organizationId,
@@ -87,8 +87,7 @@ public class InvitationService {
 		return invitation;
 	}
 
-	// 운영진만 발급 가능. 유효한 링크가 있으면 그대로 돌려줘 링크가 여러 개 돌지 않게 함
-	// 만료가 하루 안으로 남은 링크는 공유하자마자 끊길 수 있어 새로 발급
+	// 운영진만 발급 가능, 유효한 링크가 있으면 그대로 돌려주고 만료가 하루 안으로 남았으면 새로 발급
 	@Transactional
 	public InviteLink createInviteLink(Long userId, Long organizationId) {
 		Organization organization = organizationService.getOrganizationForUpdate(organizationId);
@@ -141,7 +140,7 @@ public class InvitationService {
 		if (invitation.getInvitee() != null) {
 			return invitation.getInvitee().getId().equals(user.getId());
 		}
-		// TODO(A 회원 연락처 이메일) 이메일 초대는 contactEmail이 생기면 여기서 이메일도 비교. 지금은 휴대폰만 맞춰 봄
+		// TODO(A 회원 연락처 이메일): contactEmail이 생기면 이메일도 비교, 지금은 휴대폰만
 		return invitation.getInviteeContact().equals(user.getPhone());
 	}
 
@@ -149,7 +148,7 @@ public class InvitationService {
 		if (memberRepository.existsByOrganizationIdAndUserIdAndLeftAtIsNull(organization.getId(), user.getId())) {
 			throw conflict(MemberReason.ALREADY_MEMBER).addContext("organizationId", organization.getId());
 		}
-		// 같은 코드로 두 번 눌러 동시에 들어오면 둘 다 검사를 통과하고 소속 unique index에서 막혀 500이 나므로 409로 바꿈
+		// 동시 수락으로 소속 unique에 걸리면 MEMBER_409로 응답
 		try {
 			return memberRepository.saveAndFlush(Member.create(organization, user, team, MemberRole.OPERATOR));
 		} catch (DataIntegrityViolationException e) {
@@ -176,7 +175,7 @@ public class InvitationService {
 		}
 	}
 
-	// 이메일은 소문자로, 휴대폰은 숫자만 남겨 User.phone(숫자만 저장)과 바로 비교할 수 있게 맞춤
+	// 이메일은 소문자로, 휴대폰은 숫자만 남김
 	static String normalizeContact(String contact) {
 		String trimmed = contact == null ? "" : contact.strip();
 		if (trimmed.contains("@")) {
@@ -197,7 +196,7 @@ public class InvitationService {
 		return normalizedContact.contains("@");
 	}
 
-	// 링크와 알림에 실리는 값이라 추측할 수 없게 SecureRandom 32바이트를 URL에 안전한 문자로 (43자)
+	// SecureRandom 32바이트로 만든 43자 URL-safe 토큰
 	private static String newToken() {
 		byte[] bytes = new byte[32];
 		RANDOM.nextBytes(bytes);

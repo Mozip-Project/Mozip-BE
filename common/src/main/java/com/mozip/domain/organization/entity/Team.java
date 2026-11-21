@@ -32,7 +32,7 @@ public class Team extends BaseEntity {
 	@Column(nullable = false, length = 50)
 	private String name;
 
-	// 팀 설정 화면의 표시 순서 (0부터), saveTeams가 보낸 배열 순서를 그대로 저장
+	// 팀 설정 화면 표시 순서 (0부터)
 	@Column(nullable = false)
 	private int sortOrder;
 
@@ -46,7 +46,7 @@ public class Team extends BaseEntity {
 		return new Team(organization, name, sortOrder);
 	}
 
-	// 팀 목록 전체 교체 시 기존 행은 id를 유지한 채 이름과 순서만 바꿈 (운영진 소속과 포지션 참조가 끊기지 않게)
+	// 이름과 순서만 바꿈 (id 유지)
 	public void update(String name, int sortOrder) {
 		this.name = name;
 		this.sortOrder = sortOrder;
