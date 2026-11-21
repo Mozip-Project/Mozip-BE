@@ -3,8 +3,11 @@ package com.mozip.domain.posting.service;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 
+import java.time.LocalDate;
 import java.time.LocalDateTime;
+import java.time.LocalTime;
 import java.util.List;
+import java.util.stream.IntStream;
 
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.DisplayName;
@@ -22,20 +25,36 @@ import com.mozip.domain.organization.entity.OrganizationScope;
 import com.mozip.domain.organization.entity.OrganizationType;
 import com.mozip.domain.organization.repository.MemberRepository;
 import com.mozip.domain.organization.repository.OrganizationRepository;
+import com.mozip.domain.posting.dto.InterviewTimeRangeInput;
 import com.mozip.domain.posting.dto.PositionInput;
 import com.mozip.domain.posting.dto.PostingDraftInput;
 import com.mozip.domain.posting.dto.PostingFilter;
+import com.mozip.domain.posting.dto.PostingImageInput;
 import com.mozip.domain.posting.dto.PostingPage;
 import com.mozip.domain.posting.dto.QuestionInput;
+import com.mozip.domain.posting.dto.QuestionOptionsInput;
+import com.mozip.domain.posting.entity.AssignRule;
+import com.mozip.domain.posting.entity.InterviewMethod;
+import com.mozip.domain.posting.entity.InterviewTimeRange;
 import com.mozip.domain.posting.entity.Posting;
+import com.mozip.domain.posting.entity.PostingImage;
 import com.mozip.domain.posting.entity.PostingSort;
 import com.mozip.domain.posting.entity.PostingStatus;
+import com.mozip.domain.posting.entity.Question;
 import com.mozip.domain.posting.entity.QuestionType;
 import com.mozip.domain.posting.exception.PostingErrorCode;
+import com.mozip.domain.posting.repository.InterviewTimeRangeRepository;
+import com.mozip.domain.posting.repository.PositionRepository;
+import com.mozip.domain.posting.repository.PostingImageRepository;
+import com.mozip.domain.posting.repository.QuestionRepository;
+import com.mozip.domain.school.entity.School;
+import com.mozip.domain.school.repository.SchoolRepository;
 import com.mozip.domain.user.entity.User;
 import com.mozip.domain.user.repository.UserRepository;
 import com.mozip.global.exception.BusinessException;
 import com.mozip.global.exception.CommonErrorCode;
+
+import jakarta.persistence.EntityManager;
 
 @Import(TestcontainersConfiguration.class)
 @SpringBootTest
@@ -53,6 +72,24 @@ class PostingServiceTest {
 
 	@Autowired
 	private MemberRepository memberRepository;
+
+	@Autowired
+	private PositionRepository positionRepository;
+
+	@Autowired
+	private QuestionRepository questionRepository;
+
+	@Autowired
+	private PostingImageRepository postingImageRepository;
+
+	@Autowired
+	private InterviewTimeRangeRepository interviewTimeRangeRepository;
+
+	@Autowired
+	private SchoolRepository schoolRepository;
+
+	@Autowired
+	private EntityManager entityManager;
 
 	private User operator;
 	private User other;
@@ -91,6 +128,86 @@ class PostingServiceTest {
 		assertThat(updated.getTitle()).isEqualTo("제목1");
 		assertThat(updated.isNoPosition()).isFalse();
 		assertThat(updated.getDraftStep()).isEqualTo(2);
+	}
+
+	@Test
+	@DisplayName("문항이 참조하는 포지션을 다시 저장해도 FK 에러 없이 그 문항은 공통 문항으로 떨어진다")
+	void reSavingPositionsNullsOutQuestionReferenceInsteadOfFailing() {
+		// 실제로는 단계마다 별도 요청(별도 트랜잭션/영속성 컨텍스트)이라 flush+clear로 그 경계를 흉내냄
+		Long postingId = postingService.saveDraft(operator.getId(), organization.getId(), null,
+			basicInput("제목")).getId();
+		flushAndClear();
+
+		postingService.saveDraft(operator.getId(), organization.getId(), postingId,
+			withPositions(List.of(new PositionInput(null, "백엔드", 1, 0))));
+		flushAndClear();
+
+		Long positionId = positionRepository.findAllByPostingOrderBySortOrder(
+			entityManager.getReference(Posting.class, postingId)).get(0).getId();
+		flushAndClear();
+
+		postingService.saveDraft(operator.getId(), organization.getId(), postingId,
+			withQuestions(List.of(
+				new QuestionInput(positionId, QuestionType.TEXT, "자기소개", null, true, 500, null, 0))));
+		flushAndClear();
+
+		postingService.saveDraft(operator.getId(), organization.getId(), postingId,
+			withPositions(List.of(new PositionInput(null, "프론트", 1, 0))));
+		flushAndClear();
+
+		List<Question> questions = questionRepository.findAllByPostingOrderBySortOrder(
+			entityManager.getReference(Posting.class, postingId));
+		assertThat(questions).hasSize(1);
+		assertThat(questions.get(0).getPosition()).isNull();
+	}
+
+	private void flushAndClear() {
+		entityManager.flush();
+		entityManager.clear();
+	}
+
+	@Test
+	@DisplayName("대표 이미지를 다시 고르면 이전 대표는 내려가고 새로 고른 것만 대표로 남는다")
+	void reMarkingRepresentativeImageMovesTheFlag() {
+		Posting posting = postingService.saveDraft(operator.getId(), organization.getId(), null,
+			basicInput("제목"));
+		postingService.saveDraft(operator.getId(), organization.getId(), posting.getId(),
+			withImages(List.of(new PostingImageInput("https://img/a.png", 0),
+				new PostingImageInput("https://img/b.png", 1))));
+		List<PostingImage> images = postingImageRepository.findAllByPostingOrderBySortOrder(posting);
+		Long firstId = images.get(0).getId();
+		Long secondId = images.get(1).getId();
+
+		postingService.saveDraft(operator.getId(), organization.getId(), posting.getId(),
+			withRepresentativeImage(firstId));
+		postingService.saveDraft(operator.getId(), organization.getId(), posting.getId(),
+			withRepresentativeImage(secondId));
+
+		List<PostingImage> updated = postingImageRepository.findAllByPostingOrderBySortOrder(posting);
+		assertThat(updated).filteredOn(PostingImage::isRepresentative)
+			.extracting(PostingImage::getId)
+			.containsExactly(secondId);
+	}
+
+	@Test
+	@DisplayName("1단계 이미지를 다시 저장해도 같은 url의 대표 지정은 유지된다")
+	void resavingImagesPreservesRepresentativeByUrl() {
+		Posting posting = postingService.saveDraft(operator.getId(), organization.getId(), null,
+			basicInput("제목"));
+		postingService.saveDraft(operator.getId(), organization.getId(), posting.getId(),
+			withImages(List.of(new PostingImageInput("https://img/a.png", 0))));
+		Long imageId = postingImageRepository.findAllByPostingOrderBySortOrder(posting).get(0).getId();
+		postingService.saveDraft(operator.getId(), organization.getId(), posting.getId(),
+			withRepresentativeImage(imageId));
+
+		postingService.saveDraft(operator.getId(), organization.getId(), posting.getId(),
+			withImages(List.of(new PostingImageInput("https://img/a.png", 0),
+				new PostingImageInput("https://img/c.png", 1))));
+
+		List<PostingImage> images = postingImageRepository.findAllByPostingOrderBySortOrder(posting);
+		assertThat(images).filteredOn(PostingImage::isRepresentative)
+			.extracting(PostingImage::getUrl)
+			.containsExactly("https://img/a.png");
 	}
 
 	@Test
@@ -233,11 +350,185 @@ class PostingServiceTest {
 			.isEqualTo(CommonErrorCode.FORBIDDEN);
 	}
 
-	private Posting publishablePosting(String title) {
-		Posting posting = postingService.saveDraft(operator.getId(), organization.getId(), null, basicInput(title));
+	@Test
+	@DisplayName("postings는 schoolId와 organizationType 필터가 각각 적용된 결과만 반환한다")
+	void listsPostingsFilteredBySchoolAndOrganizationType() {
+		School schoolA = schoolRepository.save(School.create("A대", null));
+		Organization clubAtSchoolA = organizationRepository.save(
+			Organization.create("A단체(동아리)", OrganizationType.CLUB, OrganizationScope.CAMPUS, schoolA, true));
+		Organization councilElsewhere = organizationRepository.save(
+			Organization.create("타교 학생회", OrganizationType.STUDENT_COUNCIL, OrganizationScope.CAMPUS, null, true));
+		memberRepository.save(Member.create(clubAtSchoolA, operator, null, MemberRole.REPRESENTATIVE));
+		memberRepository.save(Member.create(councilElsewhere, operator, null, MemberRole.REPRESENTATIVE));
+		postingService.publish(operator.getId(),
+			publishablePosting(clubAtSchoolA, "A동아리 모집", LocalDateTime.now().plusDays(7)).getId());
+		postingService.publish(operator.getId(),
+			publishablePosting(councilElsewhere, "타교 학생회 모집", LocalDateTime.now().plusDays(7)).getId());
+
+		PostingPage bySchool = postingService.findList(new PostingFilter(null, schoolA.getId(), null, null, null),
+			PostingSort.LATEST, 0, 10);
+		assertThat(bySchool.items()).extracting(Posting::getTitle).containsExactly("A동아리 모집");
+
+		PostingPage byType = postingService.findList(
+			new PostingFilter(null, null, OrganizationType.STUDENT_COUNCIL, null, null), PostingSort.LATEST, 0, 10);
+		assertThat(byType.items()).extracting(Posting::getTitle).containsExactly("타교 학생회 모집");
+	}
+
+	@Test
+	@DisplayName("postings는 hasInterview 필터가 적용된 결과만 반환한다")
+	void listsPostingsFilteredByHasInterview() {
+		Posting interviewPosting = publishablePosting("면접 있는 모집");
+		postingService.saveDraft(operator.getId(), organization.getId(), interviewPosting.getId(),
+			withInterview(true, InterviewMethod.ONLINE, 20, 5, AssignRule.ALL_MEMBERS, null, null, null));
+		postingService.publish(operator.getId(), interviewPosting.getId());
+		postingService.publish(operator.getId(), publishablePosting("면접 없는 모집").getId());
+
+		PostingPage page = postingService.findList(new PostingFilter(null, null, null, true, null),
+			PostingSort.LATEST, 0, 10);
+
+		assertThat(page.items()).extracting(Posting::getTitle).containsExactly("면접 있는 모집");
+	}
+
+	@Test
+	@DisplayName("postings는 closingSoon 필터와 CLOSING_SOON 정렬이 마감 임박 순으로 동작한다")
+	void filtersAndSortsByClosingSoon() {
+		postingService.publish(operator.getId(),
+			publishablePosting("마감 임박", LocalDateTime.now().plusHours(1)).getId());
+		postingService.publish(operator.getId(),
+			publishablePosting("마감 여유", LocalDateTime.now().plusDays(10)).getId());
+
+		PostingPage closingSoonOnly = postingService.findList(new PostingFilter(null, null, null, null, true),
+			PostingSort.LATEST, 0, 10);
+		assertThat(closingSoonOnly.items()).extracting(Posting::getTitle).containsExactly("마감 임박");
+
+		PostingPage sorted = postingService.findList(null, PostingSort.CLOSING_SOON, 0, 10);
+		assertThat(sorted.items()).extracting(Posting::getTitle).containsExactly("마감 임박", "마감 여유");
+	}
+
+	@Test
+	@DisplayName("postings는 POPULAR 정렬에서 조회수가 높은 순으로 반환한다")
+	void sortsByPopularity() {
+		Posting lessPopular = publishablePosting("덜 인기있는 모집");
+		postingService.publish(operator.getId(), lessPopular.getId());
+		Posting morePopular = publishablePosting("더 인기있는 모집");
+		postingService.publish(operator.getId(), morePopular.getId());
+
+		entityManager.createQuery("UPDATE Posting p SET p.viewCount = :v WHERE p.id = :id")
+			.setParameter("v", 100)
+			.setParameter("id", morePopular.getId())
+			.executeUpdate();
+		flushAndClear();
+
+		PostingPage page = postingService.findList(null, PostingSort.POPULAR, 0, 10);
+
+		assertThat(page.items()).extracting(Posting::getTitle)
+			.containsExactly("더 인기있는 모집", "덜 인기있는 모집");
+	}
+
+	@Test
+	@DisplayName("postings는 size보다 결과가 많으면 hasNext가 true다")
+	void paginatesWithHasNextTrue() {
+		postingService.publish(operator.getId(), publishablePosting("모집1").getId());
+		postingService.publish(operator.getId(), publishablePosting("모집2").getId());
+		postingService.publish(operator.getId(), publishablePosting("모집3").getId());
+
+		PostingPage page = postingService.findList(null, PostingSort.LATEST, 0, 2);
+
+		assertThat(page.items()).hasSize(2);
+		assertThat(page.totalCount()).isEqualTo(3);
+		assertThat(page.hasNext()).isTrue();
+	}
+
+	@Test
+	@DisplayName("organizationPostings는 status를 넘기면 그 상태의 공고만 반환한다")
+	void organizationPostingsFiltersByStatus() {
+		Posting draft = postingService.saveDraft(operator.getId(), organization.getId(), null, basicInput("드래프트"));
+		Posting published = publishablePosting("게시됨");
+		postingService.publish(operator.getId(), published.getId());
+
+		List<Posting> draftsOnly = postingService.findOrganizationPostings(operator.getId(), organization.getId(),
+			List.of(PostingStatus.DRAFT));
+
+		assertThat(draftsOnly).extracting(Posting::getId).containsExactly(draft.getId());
+	}
+
+	@Test
+	@DisplayName("면접이 있는데 면접 방식이 없으면 게시 시 POSTING_400을 던진다")
+	void rejectsPublishingInterviewPostingWithoutMethod() {
+		Posting posting = publishablePosting("면접 모집");
+		postingService.saveDraft(operator.getId(), organization.getId(), posting.getId(),
+			withInterview(true, null, null, null, null, null, null, null));
+
+		assertThatThrownBy(() -> postingService.publish(operator.getId(), posting.getId()))
+			.isInstanceOf(BusinessException.class)
+			.extracting(e -> ((BusinessException)e).getErrorCode())
+			.isEqualTo(PostingErrorCode.INVALID_INPUT);
+	}
+
+	@Test
+	@DisplayName("면접 단계를 저장하면 면접 가능 시간대가 포지션과 함께 저장된다")
+	void savesInterviewTimeRanges() {
+		Posting posting = postingService.saveDraft(operator.getId(), organization.getId(), null,
+			basicInput("면접 시간 테스트"));
 		postingService.saveDraft(operator.getId(), organization.getId(), posting.getId(),
 			withPositions(List.of(new PositionInput(null, "백엔드", 1, 0))));
-		return postingService.saveDraft(operator.getId(), organization.getId(), posting.getId(),
+		Long positionId = positionRepository.findAllByPostingOrderBySortOrder(posting).get(0).getId();
+
+		LocalDate date = LocalDate.now().plusDays(3);
+		postingService.saveDraft(operator.getId(), organization.getId(), posting.getId(),
+			withInterview(true, InterviewMethod.ONLINE, 20, 5, AssignRule.SAME_TEAM, 1, 2,
+				List.of(new InterviewTimeRangeInput(positionId, date, LocalTime.of(10, 0), LocalTime.of(12, 0),
+					null))));
+
+		List<InterviewTimeRange> ranges = interviewTimeRangeRepository
+			.findAllByPostingOrderByDateAscStartTimeAsc(posting);
+		assertThat(ranges).hasSize(1);
+		assertThat(ranges.get(0).getStartTime()).isEqualTo(LocalTime.of(10, 0));
+	}
+
+	@Test
+	@DisplayName("SINGLE_CHOICE 문항을 저장하면 보기(choices)가 함께 저장된다")
+	void savesQuestionChoices() {
+		Posting posting = postingService.saveDraft(operator.getId(), organization.getId(), null,
+			basicInput("문항 테스트"));
+		postingService.saveDraft(operator.getId(), organization.getId(), posting.getId(),
+			withQuestions(List.of(new QuestionInput(null, QuestionType.SINGLE_CHOICE, "선호 분야", null, true, null,
+				new QuestionOptionsInput(List.of("백엔드", "프론트"), null, null, null), 0))));
+
+		List<Question> questions = questionRepository.findAllByPostingOrderBySortOrder(posting);
+		assertThat(questions.get(0).getOptions().choices()).containsExactly("백엔드", "프론트");
+	}
+
+	@Test
+	@DisplayName("이미지를 6장 넘게 저장하면 COMMON_400을 던진다")
+	void rejectsMoreThanFiveImages() {
+		Posting posting = postingService.saveDraft(operator.getId(), organization.getId(), null,
+			basicInput("이미지 테스트"));
+		List<PostingImageInput> images = IntStream.range(0, 6)
+			.mapToObj(i -> new PostingImageInput("https://img/" + i + ".png", i))
+			.toList();
+
+		assertThatThrownBy(() -> postingService.saveDraft(operator.getId(), organization.getId(), posting.getId(),
+			withImages(images)))
+			.isInstanceOf(BusinessException.class)
+			.extracting(e -> ((BusinessException)e).getErrorCode())
+			.isEqualTo(CommonErrorCode.INVALID_INPUT);
+	}
+
+	private Posting publishablePosting(String title) {
+		return publishablePosting(organization, title, LocalDateTime.now().plusDays(7));
+	}
+
+	private Posting publishablePosting(String title, LocalDateTime recruitEndAt) {
+		return publishablePosting(organization, title, recruitEndAt);
+	}
+
+	private Posting publishablePosting(Organization org, String title, LocalDateTime recruitEndAt) {
+		Posting posting = postingService.saveDraft(operator.getId(), org.getId(), null,
+			basicInput(title, recruitEndAt));
+		postingService.saveDraft(operator.getId(), org.getId(), posting.getId(),
+			withPositions(List.of(new PositionInput(null, "백엔드", 1, 0))));
+		return postingService.saveDraft(operator.getId(), org.getId(), posting.getId(),
 			withQuestions(List.of(new QuestionInput(null, QuestionType.TEXT, "자기소개", null, true, 500, null, 0))));
 	}
 
@@ -247,8 +538,12 @@ class PostingServiceTest {
 	// 20 assignRule, 21 maxApplicantsPerInterview, 22 maxParallelInterviews, 23 interviewTimeRanges,
 	// 24 docScorePerQuestion, 25 questions, 26 publishAt, 27 representativeImageId
 	private PostingDraftInput basicInput(String title) {
+		return basicInput(title, LocalDateTime.now().plusDays(7));
+	}
+
+	private PostingDraftInput basicInput(String title, LocalDateTime recruitEndAt) {
 		return new PostingDraftInput(title, "본문", "2026-2", "서울", "무료", true, false, null,
-			null, null, LocalDateTime.now(), LocalDateTime.now().plusDays(7), null,
+			null, null, LocalDateTime.now(), recruitEndAt, null,
 			null, null,
 			null, null, null, null, null, null, null, null,
 			null, null,
@@ -280,6 +575,36 @@ class PostingServiceTest {
 			null, null, null, null, null, null, null, null,
 			null, null,
 			publishAt, null);
+	}
+
+	private PostingDraftInput withImages(List<PostingImageInput> images) {
+		return new PostingDraftInput(null, null, null, null, null, null, null, null,
+			null, null, null, null, images,
+			null, null,
+			null, null, null, null, null, null, null, null,
+			null, null,
+			null, null);
+	}
+
+	private PostingDraftInput withRepresentativeImage(Long imageId) {
+		return new PostingDraftInput(null, null, null, null, null, null, null, null,
+			null, null, null, null, null,
+			null, null,
+			null, null, null, null, null, null, null, null,
+			null, null,
+			null, imageId);
+	}
+
+	private PostingDraftInput withInterview(Boolean hasInterview, InterviewMethod interviewMethod,
+		Integer interviewMinutes, Integer breakMinutes, AssignRule assignRule, Integer maxApplicantsPerInterview,
+		Integer maxParallelInterviews, List<InterviewTimeRangeInput> interviewTimeRanges) {
+		return new PostingDraftInput(null, null, null, null, null, null, null, null,
+			null, null, null, null, null,
+			null, null,
+			hasInterview, interviewMethod, interviewMinutes, breakMinutes, assignRule, maxApplicantsPerInterview,
+			maxParallelInterviews, interviewTimeRanges,
+			null, null,
+			null, null);
 	}
 
 }
