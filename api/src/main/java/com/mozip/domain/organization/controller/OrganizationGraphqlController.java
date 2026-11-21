@@ -17,10 +17,18 @@ import org.springframework.security.core.annotation.AuthenticationPrincipal;
 import org.springframework.stereotype.Controller;
 
 import com.mozip.domain.organization.dto.CreateOrganizationInput;
+import com.mozip.domain.organization.dto.UpdateOrganizationInput;
 import com.mozip.domain.organization.entity.Member;
 import com.mozip.domain.organization.entity.Organization;
+import com.mozip.domain.organization.entity.OrganizationField;
+import com.mozip.domain.organization.entity.OrganizationFieldTag;
+import com.mozip.domain.organization.entity.OrganizationKeyword;
+import com.mozip.domain.organization.entity.OrganizationLink;
 import com.mozip.domain.organization.entity.Team;
 import com.mozip.domain.organization.repository.MemberRepository;
+import com.mozip.domain.organization.repository.OrganizationFieldTagRepository;
+import com.mozip.domain.organization.repository.OrganizationKeywordRepository;
+import com.mozip.domain.organization.repository.OrganizationLinkRepository;
 import com.mozip.domain.organization.repository.TeamRepository;
 import com.mozip.domain.organization.service.OrganizationService;
 import com.mozip.global.exception.BusinessException;
@@ -37,11 +45,20 @@ public class OrganizationGraphqlController {
 	private final OrganizationService organizationService;
 	private final TeamRepository teamRepository;
 	private final MemberRepository memberRepository;
+	private final OrganizationKeywordRepository keywordRepository;
+	private final OrganizationFieldTagRepository fieldTagRepository;
+	private final OrganizationLinkRepository linkRepository;
 
 	@MutationMapping
 	public Organization createOrganization(@Argument @Valid CreateOrganizationInput input,
 		@AuthenticationPrincipal AuthUser authUser) {
 		return organizationService.createOrganization(authUser.userId(), input);
+	}
+
+	@MutationMapping
+	public Organization updateOrganization(@Argument Long id, @Argument @Valid UpdateOrganizationInput input,
+		@AuthenticationPrincipal AuthUser authUser) {
+		return organizationService.updateOrganization(authUser.userId(), id, input);
 	}
 
 	@QueryMapping
@@ -54,10 +71,15 @@ public class OrganizationGraphqlController {
 		return organizationService.getVisibleOrganization(id, authUser == null ? null : authUser.userId());
 	}
 
+	@QueryMapping
+	public List<String> keywordSuggestions(@Argument String prefix) {
+		return organizationService.getKeywordSuggestions(prefix);
+	}
+
 	@BatchMapping(typeName = "Organization")
 	public Map<Organization, List<Team>> teams(List<Organization> organizations) {
 		return groupByOrganization(organizations, teamRepository.findAllByOrganizationInOrderById(organizations),
-			Team::getOrganization);
+			Team::getOrganization, Function.identity());
 	}
 
 	// 소속 운영진에게만 응답, 그 외에는 COMMON_403
@@ -68,7 +90,26 @@ public class OrganizationGraphqlController {
 			throw new BusinessException(CommonErrorCode.FORBIDDEN);
 		}
 		return groupByOrganization(organizations,
-			memberRepository.findAllWithUserAndTeamByOrganizationIn(organizations), Member::getOrganization);
+			memberRepository.findAllWithUserAndTeamByOrganizationIn(organizations), Member::getOrganization,
+			Function.identity());
+	}
+
+	@BatchMapping(typeName = "Organization")
+	public Map<Organization, List<String>> keywords(List<Organization> organizations) {
+		return groupByOrganization(organizations, keywordRepository.findAllByOrganizationInOrderById(organizations),
+			OrganizationKeyword::getOrganization, OrganizationKeyword::getKeyword);
+	}
+
+	@BatchMapping(typeName = "Organization")
+	public Map<Organization, List<OrganizationField>> fields(List<Organization> organizations) {
+		return groupByOrganization(organizations, fieldTagRepository.findAllByOrganizationInOrderById(organizations),
+			OrganizationFieldTag::getOrganization, OrganizationFieldTag::getField);
+	}
+
+	@BatchMapping(typeName = "Organization")
+	public Map<Organization, List<OrganizationLink>> links(List<Organization> organizations) {
+		return groupByOrganization(organizations, linkRepository.findAllByOrganizationInOrderById(organizations),
+			OrganizationLink::getOrganization, Function.identity());
 	}
 
 	// 심사 증빙은 소속 운영진에게만 보이고 그 외에는 null
@@ -105,12 +146,13 @@ public class OrganizationGraphqlController {
 		return null;
 	}
 
-	// 자식 목록을 단체 id로 묶고, GraphQL이 넘긴 부모 객체를 키로 반환
-	private static <T> Map<Organization, List<T>> groupByOrganization(List<Organization> organizations,
-		List<T> items, Function<T, Organization> owner) {
-		Map<Long, List<T>> byOrganizationId = items.stream()
-			.collect(Collectors.groupingBy(item -> owner.apply(item).getId()));
-		Map<Organization, List<T>> result = new LinkedHashMap<>();
+	// 자식 항목을 단체 id로 묶어 value로 고른 값을 담고, GraphQL이 넘긴 부모 객체를 키로 반환
+	private static <T, R> Map<Organization, List<R>> groupByOrganization(List<Organization> organizations,
+		List<T> items, Function<T, Organization> owner, Function<T, R> value) {
+		Map<Long, List<R>> byOrganizationId = items.stream()
+			.collect(Collectors.groupingBy(item -> owner.apply(item).getId(),
+				Collectors.mapping(value, Collectors.toList())));
+		Map<Organization, List<R>> result = new LinkedHashMap<>();
 		for (Organization organization : organizations) {
 			result.put(organization, byOrganizationId.getOrDefault(organization.getId(), List.of()));
 		}
