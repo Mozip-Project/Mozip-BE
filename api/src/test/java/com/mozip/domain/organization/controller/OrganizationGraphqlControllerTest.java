@@ -331,7 +331,6 @@ class OrganizationGraphqlControllerTest {
 		return userRepository.save(User.create(phone, "encoded", "테스트", false, LocalDateTime.now()));
 	}
 
-	// MockMvc는 Cookie 헤더 문자열을 파싱하지 않으므로 WebTestClient의 쿠키로 전달
 	private HttpGraphQlTester asUser(User user) {
 		String accessToken = jwtProvider.createAccessToken(user.getId(), Authority.USER);
 		return graphQlTester.mutate()
