@@ -80,6 +80,12 @@ public class PostingGraphqlController {
 		return postingService.publish(authUser.userId(), id);
 	}
 
+	@MutationMapping
+	public Posting advancePostingStatus(@Argument Long id, @Argument PostingStatus to,
+		@AuthenticationPrincipal AuthUser authUser) {
+		return postingService.advanceStatus(authUser.userId(), id, to);
+	}
+
 	@BatchMapping(typeName = "Posting", field = "organization")
 	public Map<Posting, Organization> organization(List<Posting> postings) {
 		List<Long> organizationIds = postings.stream()

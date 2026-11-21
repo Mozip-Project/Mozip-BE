@@ -330,4 +330,12 @@ extend type Mutation {
     단체 이용권이 없으면 ORG_402
     """
     publishPosting(id: ID!): Posting!
+    """
+    공고 진행 단계를 정해진 순서로만 한 단계 전환.
+    RECRUITING -> DOC_REVIEW -> DOC_RESULT_NOTICE -> (비면접은 건너뜀) INTERVIEW -> FINAL_RESULT -> ENDED.
+    순서가 아니거나 DRAFT/ENDED에서 호출하면 POSTING_409(reason: INVALID_STATUS_TRANSITION),
+    서류 결과 미확정이면 POSTING_409(reason: DOC_RESULT_NOT_CONFIRMED),
+    최종 결과 미확정이면 POSTING_409(reason: FINAL_RESULT_NOT_CONFIRMED)
+    """
+    advancePostingStatus(id: ID!, to: PostingStatus!): Posting!
 }

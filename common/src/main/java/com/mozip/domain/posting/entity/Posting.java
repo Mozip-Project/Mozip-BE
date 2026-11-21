@@ -219,6 +219,17 @@ public class Posting extends BaseEntity {
 		return status == PostingStatus.DRAFT;
 	}
 
+	// advancePostingStatus에서 씀. 순서·조건 검사는 호출하는 쪽(PostingService)에서 끝내고 넘어옴.
+	// 스케줄러의 자동 전환은 조건부 UPDATE(PostingRepository)로 따로 처리해 이 메서드를 안 탐
+	public void advanceStatus(PostingStatus to) {
+		this.status = to;
+		if (to == PostingStatus.DOC_RESULT_NOTICE) {
+			this.docResultAt = LocalDateTime.now();
+		} else if (to == PostingStatus.FINAL_RESULT) {
+			this.finalResultAt = LocalDateTime.now();
+		}
+	}
+
 	private void advanceDraftStep(int step) {
 		if (draftStep == null || draftStep < step) {
 			this.draftStep = step;
