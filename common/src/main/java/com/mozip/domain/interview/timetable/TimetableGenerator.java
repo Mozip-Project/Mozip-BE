@@ -11,7 +11,7 @@ import java.util.Set;
 
 import com.mozip.domain.posting.entity.AssignRule;
 
-// 서류 합격자를 블록에 배정. 같은 입력이면 같은 결과가 나오도록 정렬된 목록만 돌고 결과 순서를 순서 없는 자료구조에 맡기지 않음
+// 서류 합격자를 블록에 배정, 같은 입력이면 항상 같은 결과
 public final class TimetableGenerator {
 
 	private static final Comparator<Candidate> PRIORITY = Comparator
@@ -21,9 +21,8 @@ public final class TimetableGenerator {
 	private TimetableGenerator() {
 	}
 
-	// 먼저 제출한 지원자부터 한 명씩 자리를 잡음. 빈자리가 없으면 이미 앉은 지원자를 다른 블록으로 옮겨 자리를 만듦 (증가 경로)
-	// 한 번 배정된 지원자는 옮겨질 수는 있어도 빠지지 않아서, 늦게 낸 지원자 때문에 먼저 낸 지원자가 미배정되는 일은 없음
-	// teamByPosition은 포지션 id → 팀 id (SAME_TEAM 면접관 선정용)
+	// 먼저 제출한 지원자부터 자리를 잡고, 빈자리가 없으면 이미 앉은 지원자를 다른 블록으로 옮겨 자리를 만듦
+	// 먼저 낸 지원자는 늦게 낸 지원자 때문에 미배정되지 않음
 	public static TimetableResult generate(List<Slot> slots, InterviewSetting setting, List<Candidate> candidates,
 		List<Panelist> panelists, Map<Long, Long> teamByPosition) {
 		validate(candidates);
@@ -53,7 +52,7 @@ public final class TimetableGenerator {
 		}
 	}
 
-	// 블록마다 앉은 지원자 목록. 블록 하나에는 포지션별로 정원씩 묶은 칸이 동시 진행 수까지 들어감
+	// 블록마다 앉은 지원자 목록
 	private static final class Assignment {
 
 		private final List<Slot> slots;
@@ -71,8 +70,7 @@ public final class TimetableGenerator {
 			this.assignRule = setting.assignRule();
 		}
 
-		// 빈자리가 있는 가장 이른 블록에 먼저 앉히고, 없으면 블록마다 늦게 낸 지원자부터 비켜 보며 옮길 곳을 재귀로 찾음
-		// visited는 이번 탐색에서 이미 비켜 본 블록이라 같은 블록을 두 번 뒤지지 않음 (블록 수만큼만 깊어짐)
+		// 빈자리가 있는 가장 이른 블록에 앉히고, 없으면 앉은 지원자를 옮길 곳을 재귀로 찾음
 		private boolean place(Candidate candidate, Set<Integer> visited) {
 			List<Integer> available = new ArrayList<>();
 			for (int i = 0; i < slots.size(); i++) {
@@ -111,7 +109,7 @@ public final class TimetableGenerator {
 			list.sort(PRIORITY);
 		}
 
-		// 포지션마다 필요한 칸 수(정원으로 나눠 올림)의 합이 동시 진행 수 이하여야 함. 포지션 없는 모집은 null 키 하나로 묶임
+		// 포지션마다 필요한 칸 수(정원으로 나눠 올림)의 합이 동시 진행 수 이하인지 확인
 		private boolean fits(List<Candidate> current, Candidate leaving, Candidate joining) {
 			Map<Long, Integer> countByPosition = new LinkedHashMap<>();
 			for (Candidate seatedCandidate : current) {
@@ -124,7 +122,7 @@ public final class TimetableGenerator {
 			return tracks <= maxParallel;
 		}
 
-		// 블록마다 포지션별로 먼저 낸 순서대로 정원씩 묶어 track 1부터 매김. 포지션 순서는 그 포지션에서 가장 먼저 낸 지원자 기준
+		// 블록마다 포지션별로 먼저 낸 순서대로 정원씩 묶어 track 1부터 매김
 		private List<AssignedInterview> toInterviews(List<Panelist> panelists, Map<Long, Long> teamByPosition) {
 			List<AssignedInterview> interviews = new ArrayList<>();
 			for (int i = 0; i < slots.size(); i++) {
@@ -155,7 +153,7 @@ public final class TimetableGenerator {
 			return groups;
 		}
 
-		// 같은 시각의 칸들이 같은 면접관 후보를 쓰면 후보를 앞에서부터 나눠 맡김. 한 사람이 동시에 두 면접에 들어가지 않게 함
+		// 같은 시각 칸들이 면접관 후보를 겹치지 않게 나눠 맡음
 		private List<List<Long>> interviewers(List<List<Candidate>> groups, List<Panelist> panelists,
 			Map<Long, Long> teamByPosition) {
 			List<List<Long>> pools = groups.stream()
@@ -188,7 +186,7 @@ public final class TimetableGenerator {
 			return pool.subList(from, from + size);
 		}
 
-		// 포지션 없는 모집(positionId null)은 자동 배정하지 않음 (스키마 AssignRule 설명과 같음)
+		// 포지션 없는 모집(positionId null)은 자동 배정하지 않음
 		private List<Long> pool(List<Panelist> panelists, Long positionId, Map<Long, Long> teamByPosition) {
 			if (positionId == null) {
 				return List.of();
