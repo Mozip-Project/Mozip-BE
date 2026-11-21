@@ -3,6 +3,7 @@
 extend type Query {
     testNotFound: String @public
     testServerError: String @public
+    testOtherClientError: String @public
     testUnexpected: String @public
     testValidation(name: String): String @public
 }

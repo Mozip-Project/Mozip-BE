@@ -196,3 +196,32 @@ type Report {
     detail: String
     createdAt: DateTime!
 }
+
+type PostingPage {
+    items: [Posting!]!
+    totalCount: Int!
+    hasNext: Boolean!
+}
+
+"toggleScrap 결과"
+type ScrapResult {
+    "토글 후 상태. true = 스크랩됨"
+    scrapped: Boolean!
+    "토글 후 그 공고의 전체 스크랩 수"
+    scrapCount: Int!
+}
+
+extend type Query {
+    "내가 스크랩한 공고 카드 목록. 마감된 공고도 포함"
+    myScraps(page: Int = 0, size: Int = 20): PostingPage!
+}
+
+extend type Mutation {
+    "공고 스크랩. 이미 스크랩했으면 해제, 안 했으면 추가"
+    toggleScrap(postingId: ID!): ScrapResult!
+    """
+    공고 신고 접수. 신고 처리(검토, 조치)는 관리자 화면 몫이라 여기서는 접수만 함.
+    같은 회원이 같은 공고를 두 번 신고하면 REPORT_409
+    """
+    reportPosting(postingId: ID!, reason: ReportReason!, detail: String): Boolean!
+}

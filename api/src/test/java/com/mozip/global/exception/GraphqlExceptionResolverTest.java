@@ -85,6 +85,19 @@ class GraphqlExceptionResolverTest {
 	}
 
 	@Test
+	@DisplayName("400/401/403/404가 아닌 4xx(413 등)도 errorType은 BAD_REQUEST로 바꾸고, code로 구분한다")
+	void resolveOtherClientError() {
+		withTraceId().document("{ testOtherClientError }")
+			.execute()
+			.errors()
+			.satisfy(errors -> {
+				assertThat(errors).hasSize(1);
+				assertThat(errors.getFirst().getErrorType()).isEqualTo(ErrorType.BAD_REQUEST);
+				assertThat(errors.getFirst().getExtensions()).containsEntry("code", "COMMON_413");
+			});
+	}
+
+	@Test
 	@DisplayName("인자 검증에 실패하면 BAD_REQUEST로 바꾸고, extensions에 필드별 에러 목록을 담는다")
 	void resolveConstraintViolation() {
 		withTraceId().document("{ testValidation(name: \"\") }")
@@ -123,6 +136,11 @@ class GraphqlExceptionResolverTest {
 		@QueryMapping
 		public String testServerError() {
 			throw new BusinessException(CommonErrorCode.INTERNAL_SERVER_ERROR);
+		}
+
+		@QueryMapping
+		public String testOtherClientError() {
+			throw new BusinessException(CommonErrorCode.CONTENT_TOO_LARGE);
 		}
 
 		@QueryMapping
