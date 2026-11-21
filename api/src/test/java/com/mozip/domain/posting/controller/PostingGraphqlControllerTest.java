@@ -104,7 +104,7 @@ class PostingGraphqlControllerTest {
 			null, null,
 			null, null, null, null, null, null, null, null,
 			null, null,
-			null, null);
+			null);
 	}
 
 	private PostingDraftInput withPositions(List<PositionInput> positions) {
@@ -113,7 +113,7 @@ class PostingGraphqlControllerTest {
 			false, positions,
 			null, null, null, null, null, null, null, null,
 			null, null,
-			null, null);
+			null);
 	}
 
 	private PostingDraftInput withQuestions(List<QuestionInput> questions) {
@@ -122,7 +122,7 @@ class PostingGraphqlControllerTest {
 			null, null,
 			null, null, null, null, null, null, null, null,
 			true, questions,
-			null, null);
+			null);
 	}
 
 }

@@ -91,9 +91,6 @@ public class Posting extends BaseEntity {
 
 	private LocalDate activityEndedOn;
 
-	// 게시 예정 시각, 이 시각이 되면 DRAFT에서 RECRUITING으로 전환. null = 게시하기 누를 때 바로 게시
-	private LocalDateTime publishAt;
-
 	private LocalDateTime publishedAt;
 
 	// 지원 접수 시작, 게시 후 이 시각 전까지는 공고만 보이고 지원 불가
@@ -204,8 +201,7 @@ public class Posting extends BaseEntity {
 	}
 
 	// 5단계: 노출 (대표 이미지는 PostingImage 쪽에서 처리)
-	public void updateExposureStep(LocalDateTime publishAt) {
-		this.publishAt = publishAt;
+	public void updateExposureStep() {
 		advanceDraftStep(5);
 	}
 

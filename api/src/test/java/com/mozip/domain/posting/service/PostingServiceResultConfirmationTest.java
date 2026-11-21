@@ -123,7 +123,7 @@ class PostingServiceResultConfirmationTest {
 			null, null,
 			null, null, null, null, null, null, null, null,
 			null, null,
-			null, null);
+			null);
 	}
 
 	private PostingDraftInput withPositions(List<PositionInput> positions) {
@@ -132,7 +132,7 @@ class PostingServiceResultConfirmationTest {
 			false, positions,
 			null, null, null, null, null, null, null, null,
 			null, null,
-			null, null);
+			null);
 	}
 
 	private PostingDraftInput withQuestions(List<QuestionInput> questions) {
@@ -141,7 +141,7 @@ class PostingServiceResultConfirmationTest {
 			null, null,
 			null, null, null, null, null, null, null, null,
 			true, questions,
-			null, null);
+			null);
 	}
 
 }

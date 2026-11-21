@@ -43,7 +43,6 @@ public record PostingDraftInput(
 	List<QuestionInput> questions,
 
 	// 5단계 exposure
-	LocalDateTime publishAt,
 	Long representativeImageId
 ) {
 }

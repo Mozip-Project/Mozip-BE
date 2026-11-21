@@ -275,7 +275,7 @@ class PostingServiceTest {
 	}
 
 	@Test
-	@DisplayName("publishAt 없이 게시하면 즉시 RECRUITING이 되고 publishedAt/bumpedAt이 찍힌다")
+	@DisplayName("게시하면 즉시 RECRUITING이 되고 publishedAt/bumpedAt이 찍힌다")
 	void publishesImmediately() {
 		Posting posting = publishablePosting("게시용 공고");
 
@@ -296,24 +296,6 @@ class PostingServiceTest {
 			.isInstanceOf(BusinessException.class)
 			.extracting(e -> ((BusinessException)e).getErrorCode())
 			.isEqualTo(PostingErrorCode.INVALID_INPUT);
-	}
-
-	@Test
-	@DisplayName("publishAt이 있으면 DRAFT로 두고 스케줄러에 맡긴다")
-	void scheduledPublishStaysDraft() {
-		Posting posting = postingService.saveDraft(operator.getId(), organization.getId(), null,
-			basicInput("예약 게시용"));
-		postingService.saveDraft(operator.getId(), organization.getId(), posting.getId(),
-			withPositions(List.of(new PositionInput(null, "백엔드", 1, 0))));
-		postingService.saveDraft(operator.getId(), organization.getId(), posting.getId(),
-			withQuestions(List.of(new QuestionInput(null, QuestionType.TEXT, "자기소개", null, true, 500, null, 0))));
-		postingService.saveDraft(operator.getId(), organization.getId(), posting.getId(),
-			withPublishAt(LocalDateTime.now().plusDays(1)));
-
-		Posting result = postingService.publish(operator.getId(), posting.getId());
-
-		assertThat(result.getStatus()).isEqualTo(PostingStatus.DRAFT);
-		assertThat(result.getPublishedAt()).isNull();
 	}
 
 	@Test
@@ -577,7 +559,7 @@ class PostingServiceTest {
 	// 9 activityStartedOn, 10 activityEndedOn, 11 recruitStartAt, 12 recruitEndAt, 13 images,
 	// 14 noPosition, 15 positions, 16 hasInterview, 17 interviewMethod, 18 interviewMinutes, 19 breakMinutes,
 	// 20 assignRule, 21 maxApplicantsPerInterview, 22 maxParallelInterviews, 23 interviewTimeRanges,
-	// 24 docScorePerQuestion, 25 questions, 26 publishAt, 27 representativeImageId
+	// 24 docScorePerQuestion, 25 questions, 26 representativeImageId
 	private PostingDraftInput basicInput(String title) {
 		return basicInput(title, LocalDateTime.now().plusDays(7));
 	}
@@ -588,7 +570,7 @@ class PostingServiceTest {
 			null, null,
 			null, null, null, null, null, null, null, null,
 			null, null,
-			null, null);
+			null);
 	}
 
 	private PostingDraftInput withPositions(List<PositionInput> positions) {
@@ -597,7 +579,7 @@ class PostingServiceTest {
 			false, positions,
 			null, null, null, null, null, null, null, null,
 			null, null,
-			null, null);
+			null);
 	}
 
 	private PostingDraftInput withNoPosition(boolean noPosition) {
@@ -606,7 +588,7 @@ class PostingServiceTest {
 			noPosition, null,
 			null, null, null, null, null, null, null, null,
 			null, null,
-			null, null);
+			null);
 	}
 
 	private PostingDraftInput withQuestions(List<QuestionInput> questions) {
@@ -615,16 +597,7 @@ class PostingServiceTest {
 			null, null,
 			null, null, null, null, null, null, null, null,
 			true, questions,
-			null, null);
-	}
-
-	private PostingDraftInput withPublishAt(LocalDateTime publishAt) {
-		return new PostingDraftInput(null, null, null, null, null, null, null, null,
-			null, null, null, null, null,
-			null, null,
-			null, null, null, null, null, null, null, null,
-			null, null,
-			publishAt, null);
+			null);
 	}
 
 	private PostingDraftInput withImages(List<PostingImageInput> images) {
@@ -633,7 +606,7 @@ class PostingServiceTest {
 			null, null,
 			null, null, null, null, null, null, null, null,
 			null, null,
-			null, null);
+			null);
 	}
 
 	private PostingDraftInput withRepresentativeImage(Long imageId) {
@@ -642,7 +615,7 @@ class PostingServiceTest {
 			null, null,
 			null, null, null, null, null, null, null, null,
 			null, null,
-			null, imageId);
+			imageId);
 	}
 
 	private PostingDraftInput withInterview(Boolean hasInterview, InterviewMethod interviewMethod,
@@ -654,7 +627,7 @@ class PostingServiceTest {
 			hasInterview, interviewMethod, interviewMinutes, breakMinutes, assignRule, maxApplicantsPerInterview,
 			maxParallelInterviews, interviewTimeRanges,
 			null, null,
-			null, null);
+			null);
 	}
 
 	@Test

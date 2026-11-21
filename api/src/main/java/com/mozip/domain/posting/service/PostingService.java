@@ -102,10 +102,7 @@ public class PostingService {
 		}
 		validateRequiredSteps(posting);
 
-		if (posting.getPublishAt() == null) {
-			posting.publishNow();
-		}
-		// publishAt이 있으면 DRAFT로 두고 스케줄러(#66)가 그 시각에 RECRUITING으로 전환함
+		posting.publishNow();
 		return posting;
 	}
 
@@ -292,7 +289,7 @@ public class PostingService {
 		if (!touchesExposureStep(input)) {
 			return;
 		}
-		posting.updateExposureStep(orElse(input.publishAt(), posting.getPublishAt()));
+		posting.updateExposureStep();
 		if (input.representativeImageId() != null) {
 			markRepresentativeImage(posting, input.representativeImageId());
 		}
@@ -419,7 +416,7 @@ public class PostingService {
 	}
 
 	private static boolean touchesExposureStep(PostingDraftInput input) {
-		return input.publishAt() != null || input.representativeImageId() != null;
+		return input.representativeImageId() != null;
 	}
 
 	private static Specification<Posting> addIfPresent(Specification<Posting> spec, Specification<Posting> toAdd) {
