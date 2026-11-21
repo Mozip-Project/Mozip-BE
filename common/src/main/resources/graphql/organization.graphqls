@@ -200,8 +200,6 @@ extend type Query {
 extend type Mutation {
     "단체를 만들고 호출자를 대표자로 등록, 심사 상태는 PENDING"
     createOrganization(input: CreateOrganizationInput!): Organization!
-    "운영진 홈 드롭다운에서 단체 선택. lastOrganization을 바꾸고 lastRole을 OPERATOR로. 없으면 ORG_404, 소속이 아니면 COMMON_403"
-    selectOrganization(organizationId: ID!): Me!
     "단체 프로필 수정, 그 단체의 운영진만 가능 (아니면 COMMON_403). 없으면 ORG_404"
     updateOrganization(id: ID!, input: UpdateOrganizationInput!): Organization!
 }

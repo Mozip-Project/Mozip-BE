@@ -74,17 +74,7 @@ class OrganizationGraphqlControllerTest {
 		{
 			me {
 				id name lastRole
-				lastOrganization { id name }
 				memberships { role organization { id name school { name } } team { id } }
-			}
-		}
-		""";
-
-	private static final String SELECT = """
-		mutation($organizationId: ID!) {
-			selectOrganization(organizationId: $organizationId) {
-				lastRole
-				lastOrganization { id name }
 			}
 		}
 		""";
@@ -118,7 +108,6 @@ class OrganizationGraphqlControllerTest {
 			.execute()
 			.path("me.id").entity(String.class).isEqualTo(user.getId().toString())
 			.path("me.lastRole").entity(String.class).isEqualTo("APPLICANT")
-			.path("me.lastOrganization").valueIsNull()
 			.path("me.memberships[*].organization.id").entityList(String.class).containsExactly(organizationId)
 			.path("me.memberships[0].role").entity(String.class).isEqualTo("REPRESENTATIVE")
 			.path("me.memberships[0].organization.school.name").entity(String.class).isEqualTo("테스트대학교")
@@ -284,53 +273,6 @@ class OrganizationGraphqlControllerTest {
 				assertThat(errors.getFirst().getErrorType()).isEqualTo(ErrorType.NOT_FOUND);
 				assertThat(errors.getFirst().getExtensions()).containsEntry("code", "ORG_404");
 			});
-	}
-
-	@Test
-	@DisplayName("드롭다운에서 단체를 고르면 me의 lastOrganization이 바뀌고 lastRole이 OPERATOR가 된다")
-	void selectOrganization() {
-		User user = saveUser();
-		HttpGraphQlTester asUser = asUser(user);
-		String organizationId = asUser.document(CREATE)
-			.variable("input", Map.of("name", "모집 동아리", "type", "CLUB", "scope", "UNION"))
-			.execute()
-			.path("createOrganization.id").entity(String.class).get();
-
-		asUser.document(SELECT)
-			.variable("organizationId", organizationId)
-			.execute()
-			.path("selectOrganization.lastRole").entity(String.class).isEqualTo("OPERATOR")
-			.path("selectOrganization.lastOrganization.id").entity(String.class).isEqualTo(organizationId);
-
-		asUser.document(ME)
-			.execute()
-			.path("me.lastRole").entity(String.class).isEqualTo("OPERATOR")
-			.path("me.lastOrganization.name").entity(String.class).isEqualTo("모집 동아리");
-	}
-
-	@Test
-	@DisplayName("소속이 아닌 단체를 고르면 COMMON_403, 없는 단체면 ORG_404다")
-	void selectOrganizationForbiddenOrNotFound() {
-		HttpGraphQlTester asUser = asUser(saveUser());
-		String organizationId = asUser(saveUser()).document(CREATE)
-			.variable("input", Map.of("name", "남의 동아리", "type", "CLUB", "scope", "UNION"))
-			.execute()
-			.path("createOrganization.id").entity(String.class).get();
-
-		asUser.document(SELECT)
-			.variable("organizationId", organizationId)
-			.execute()
-			.errors()
-			.satisfy(errors -> {
-				assertThat(errors.getFirst().getErrorType()).isEqualTo(ErrorType.FORBIDDEN);
-				assertThat(errors.getFirst().getExtensions()).containsEntry("code", "COMMON_403");
-			});
-
-		asUser.document(SELECT)
-			.variable("organizationId", String.valueOf(Long.MAX_VALUE))
-			.execute()
-			.errors()
-			.satisfy(errors -> assertThat(errors.getFirst().getExtensions()).containsEntry("code", "ORG_404"));
 	}
 
 	@Test

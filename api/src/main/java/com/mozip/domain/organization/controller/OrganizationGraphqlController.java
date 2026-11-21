@@ -31,7 +31,6 @@ import com.mozip.domain.organization.repository.OrganizationKeywordRepository;
 import com.mozip.domain.organization.repository.OrganizationLinkRepository;
 import com.mozip.domain.organization.repository.TeamRepository;
 import com.mozip.domain.organization.service.OrganizationService;
-import com.mozip.domain.user.entity.User;
 import com.mozip.global.exception.BusinessException;
 import com.mozip.global.exception.CommonErrorCode;
 import com.mozip.global.security.AuthUser;
@@ -60,11 +59,6 @@ public class OrganizationGraphqlController {
 	public Organization updateOrganization(@Argument Long id, @Argument @Valid UpdateOrganizationInput input,
 		@AuthenticationPrincipal AuthUser authUser) {
 		return organizationService.updateOrganization(authUser.userId(), id, input);
-	}
-
-	@MutationMapping
-	public User selectOrganization(@Argument Long organizationId, @AuthenticationPrincipal AuthUser authUser) {
-		return organizationService.selectOrganization(authUser.userId(), organizationId);
 	}
 
 	@QueryMapping
