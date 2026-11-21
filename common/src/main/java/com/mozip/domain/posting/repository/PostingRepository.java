@@ -1,9 +1,11 @@
 package com.mozip.domain.posting.repository;
 
+import java.time.LocalDateTime;
 import java.util.List;
 import java.util.Optional;
 
 import org.springframework.data.jpa.repository.JpaRepository;
+import org.springframework.data.jpa.repository.Modifying;
 import org.springframework.data.jpa.repository.Query;
 import org.springframework.data.jpa.repository.JpaSpecificationExecutor;
 import org.springframework.data.repository.query.Param;
@@ -25,5 +27,14 @@ public interface PostingRepository extends JpaRepository<Posting, Long>, JpaSpec
 
 	List<Posting> findAllByOrganizationAndStatusInOrderByCreatedAtDesc(Organization organization,
 		List<PostingStatus> statuses);
+
+	// 모집 마감 스케줄러. 조건부 UPDATE라 worker 파드가 여러 개여도 행 하나는 딱 한 번만 바뀜
+	@Modifying(flushAutomatically = true, clearAutomatically = true)
+	@Query("""
+		UPDATE Posting p SET p.status = com.mozip.domain.posting.entity.PostingStatus.DOC_REVIEW
+		WHERE p.status = com.mozip.domain.posting.entity.PostingStatus.RECRUITING
+			AND p.recruitEndAt <= :now
+		""")
+	int closeRecruitingScheduled(@Param("now") LocalDateTime now);
 
 }
