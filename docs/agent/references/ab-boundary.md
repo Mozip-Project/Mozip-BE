@@ -37,12 +37,14 @@
 | `PostingResultChecker.isDocResultConfirmed(postingId)` | B | A (`advancePostingStatus`의 DOC_REVIEW -> DOC_RESULT_NOTICE 조건, #66) | 임시 구현 `TemporaryPostingResultChecker` (#66). 항상 true. B가 서류 평가 결과 취합을 구현하면 실제 구현으로 교체 |
 | `PostingResultChecker.isFinalResultConfirmed(postingId)` | B | A (`advancePostingStatus`의 FINAL_RESULT 전환 조건, #66) | 임시 구현 `TemporaryPostingResultChecker` (#66). 항상 true. B가 최종 결과 확정을 구현하면 실제 구현으로 교체 |
 | `PostingService.getPostingStatus(postingId)` | A | B (평가·면접 화면을 열어도 되는 단계인지 확인) | 구현됨 (#66). B가 아직 안 씀 |
+| `InterviewAvailabilityService.save(applicationId, availableTimes)` | B | A (`saveApplicationDraft`에서 면접 가능 시간 저장, #69) | 임시 구현 `TemporaryInterviewAvailabilityService` (#69). 로그만 남김. B가 면접 타임테이블 배정을 구현하면 실제 구현으로 교체 |
+| `ApplicationService.getSubmittedApplications(postingId)` | A | B (서류 평가 대상 조회, #69) | 구현됨 (#69). B가 아직 안 씀 |
 
 ## 공유하는 엔티티
 
 | 엔티티 | 소유 | B가 쓰는 부분 | 상태 |
 |---|---|---|---|
-| `Application` | A | `doc_result`, `final_result` 컬럼과 변경 메서드 `decideDocResult`, `decideFinalResult` | 제안. 메서드 두 개만 B가 만들고 소유 |
+| `Application` | A | `doc_result`, `final_result` 컬럼과 변경 메서드 `decideDocResult`, `decideFinalResult` | 컬럼 존재 (#69). 변경 메서드는 아직 B가 안 만듦 (지금은 PENDING에서 안 바뀜) |
 | `Posting` | A | `doc_result_confirmed_at`, `final_result_confirmed_at`, `timetable_confirmed_at`, 면접 설정 컬럼 6개(`interviewMethod`, `interviewMinutes`, `breakMinutes`, `assignRule`, `maxApplicantsPerInterview`, `maxParallelInterviews`) | 컬럼 추가됨 (#65). 변경 메서드(`decideDocResult` 등)는 아직 B가 안 만듦 |
 | `Posting.doc_score_per_question`, `Question.short_title` | A | B가 평가 화면에서 읽음 | 컬럼 추가됨 (#65). `short_title`은 아직 입력 경로 없어 항상 null |
 
@@ -59,3 +61,14 @@
 - 게시된 공고를 중간 단계에서 바로 ENDED로 종료(조기 취소)할 수 있는지는 #66에서 결정 안 함.
   `advancePostingStatus`는 "정해진 순서로만 전환"만 구현했고, FINAL_RESULT 다음에만 ENDED로 갈 수 있음. 조기 취소가 필요하면 별도 이슈
 - 단계 전환 시 알림(SCRAP_OPEN, POSTING_NOTICE 등) 발송은 #66 범위에 안 넣음. 알림 발송은 #48/#67(알림 기능)에서
+- #69(지원서) 이슈 원안과 다르게 구현한 부분
+  - `profileSnapshot`과 서류/최종 결과는 운영진에게만 보여야 한다고 적혀 있었는데, 지금은 지원자 본인도 그대로 봄.
+    별도 viewer 인지 리졸버가 필요해서 이번엔 생략함
+  - `docResult`/`finalResult`는 "결과 안내 발송 전에는 지원자에게 안 보여줌"만 구현했고(Posting 상태가 DOC_RESULT_NOTICE/FINAL_RESULT
+    이상이어야 실제 값, 그 전엔 PENDING), 운영진이라고 먼저 보여주는 구분은 안 함
+  - `getResultOf(applicationId)`를 B 임시 구현(항상 null)으로 두는 대신, 위 Posting 상태 기준 게이팅을 A가 직접 구현함.
+    `doc_result`/`final_result`가 이미 A 소유 `Application`의 컬럼이라 B 연결 없이도 구현 가능해서 그렇게 함
+  - `profileSnapshot`에 이름/연락처/학교만 담음. 학과·학년·활동 경험은 `User`에 아직 그 필드가 없어서 뺌 (회원 프로필 기능 필요)
+  - 지원 자격 검사는 학교 인증 여부만 함. 대학생·휴학생 허용 여부는 `User`에 재학 상태를 나타내는 필드가 없어서 검사 안 함
+  - DRAFT 지원서를 지원자가 지우는 기능은 안 만듦 (할 일/API 목록에 없었음)
+  - `Attachment.url`은 그냥 문자열로 저장만 함. #34(presigned URL)가 아직 안 머지돼서 실제 S3 발급/검증과는 연동 안 함
