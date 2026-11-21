@@ -7,6 +7,7 @@ import java.util.Map;
 import org.slf4j.MDC;
 import org.springframework.core.Ordered;
 import org.springframework.core.annotation.Order;
+import org.springframework.http.HttpStatus;
 import org.springframework.graphql.execution.DataFetcherExceptionResolverAdapter;
 import org.springframework.graphql.execution.ErrorType;
 import org.springframework.security.access.AccessDeniedException;
@@ -79,13 +80,15 @@ public class GraphqlExceptionResolver extends DataFetcherExceptionResolverAdapte
 			.build();
 	}
 
+	// 400/401/403/404는 그대로, 그 외 4xx(409 등)는 BAD_REQUEST, 5xx는 INTERNAL_ERROR (error.md)
 	private ErrorType toErrorType(ErrorCode errorCode) {
-		return switch (errorCode.getStatus()) {
+		HttpStatus status = errorCode.getStatus();
+		return switch (status) {
 			case BAD_REQUEST -> ErrorType.BAD_REQUEST;
 			case UNAUTHORIZED -> ErrorType.UNAUTHORIZED;
 			case FORBIDDEN -> ErrorType.FORBIDDEN;
 			case NOT_FOUND -> ErrorType.NOT_FOUND;
-			default -> ErrorType.INTERNAL_ERROR;
+			default -> status.is4xxClientError() ? ErrorType.BAD_REQUEST : ErrorType.INTERNAL_ERROR;
 		};
 	}
 
