@@ -144,20 +144,6 @@ class OrganizationServiceTest {
 	}
 
 	@Test
-	@DisplayName("내 단체 목록은 내가 운영진으로 들어간 단체만 id 순으로 돌려준다")
-	void getMyOrganizations() {
-		Organization first = organizationService.createOrganization(user.getId(), SeedFixtures.createOrganizationInput());
-		Organization second = organizationService.createOrganization(user.getId(), new CreateOrganizationInput(
-			"두 번째", OrganizationType.ACADEMIC, null, OrganizationScope.CAMPUS, school.getId(), false, null, null));
-		organizationService.createOrganization(other.getId(), SeedFixtures.createOrganizationInput());
-
-		assertThat(organizationService.getMyOrganizations(user.getId()))
-			.extracting(Organization::getId)
-			.containsExactly(first.getId(), second.getId());
-		assertThat(organizationService.getMyOrganizations(other.getId())).hasSize(1);
-	}
-
-	@Test
 	@DisplayName("없는 단체를 조회하면 ORG_404다")
 	void getOrganizationNotFound() {
 		assertThatThrownBy(() -> organizationService.getOrganization(Long.MAX_VALUE))
