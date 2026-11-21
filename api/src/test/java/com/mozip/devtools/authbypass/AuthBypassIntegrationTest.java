@@ -70,7 +70,6 @@ class AuthBypassIntegrationTest {
 		}
 	}
 
-	// 단체 이름은 지연 로딩이라 트랜잭션 안에서 읽음
 	@Test
 	@Transactional
 	@DisplayName("앱 시작 시 개발용 운영진은 개발용 단체의 대표자로 등록된다")

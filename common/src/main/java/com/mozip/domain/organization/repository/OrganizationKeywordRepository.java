@@ -18,12 +18,12 @@ public interface OrganizationKeywordRepository extends JpaRepository<Organizatio
 	// GraphQL Organization.keywords 배치 조회
 	List<OrganizationKeyword> findAllByOrganizationInOrderById(Collection<Organization> organizations);
 
-	// 전체 교체 시 JPQL delete로 실행하여 같은 키워드를 다시 넣는 경우 unique index에 걸리지 않도록
+	// 전체 교체용 일괄 삭제
 	@Modifying
 	@Query("delete from OrganizationKeyword k where k.organization = :organization")
 	void deleteAllByOrganization(@Param("organization") Organization organization);
 
-	// 자동완성, 전 단체 키워드 중 접두 일치를 많이 쓰인 순으로. pattern은 서비스에서 !로 이스케이프한 뒤 %를 붙여 전달
+	// 자동완성, 접두 일치 키워드를 많이 쓰인 순으로 (pattern은 !로 이스케이프하고 %를 붙여 전달)
 	@Query("select k.keyword from OrganizationKeyword k where k.keyword like :pattern escape '!' "
 		+ "and k.organization.reviewStatus = :status group by k.keyword order by count(k) desc, k.keyword asc")
 	List<String> findKeywordsByPrefix(@Param("pattern") String pattern, @Param("status") ReviewStatus status,

@@ -98,7 +98,7 @@ public class User extends BaseEntity {
 		return status == UserStatus.ACTIVE;
 	}
 
-	// 드롭다운에서 단체를 고르면 그 단체의 운영진 홈으로 가므로 lastRole도 OPERATOR로 함께 바꿈 (소속 검사는 서비스에서)
+	// lastOrganization을 바꾸고 lastRole을 OPERATOR로 (소속 검사는 서비스에서)
 	public void selectOrganization(Organization organization) {
 		this.lastOrganization = organization;
 		this.lastRole = Role.OPERATOR;

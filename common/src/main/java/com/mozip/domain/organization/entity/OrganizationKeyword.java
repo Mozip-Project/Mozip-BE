@@ -15,7 +15,7 @@ import lombok.AccessLevel;
 import lombok.Getter;
 import lombok.NoArgsConstructor;
 
-// 검색 키워드, 단체당 최대 10개 (같은 단체 안의 중복은 DDL unique index로 방지)
+// 검색 키워드, 단체당 최대 10개이고 같은 단체 안에서 중복 불가
 @Getter
 @Entity
 @Table(name = "organization_keywords")

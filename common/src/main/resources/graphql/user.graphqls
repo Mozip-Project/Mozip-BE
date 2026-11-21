@@ -39,7 +39,7 @@ enum NotificationType {
     EVALUATION_DEADLINE
 }
 
-"로그인한 회원. 단체 드롭다운에 필요한 최소 필드만 있고 프로필, 학교 인증, 알림 설정은 #34에서 채움"
+"로그인한 회원. 프로필, 학교 인증, 알림 설정 필드는 아직 없음"
 type Me {
     id: ID!
     name: String!

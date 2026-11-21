@@ -17,7 +17,7 @@ import lombok.AccessLevel;
 import lombok.Getter;
 import lombok.NoArgsConstructor;
 
-// 단체가 선택한 활동 분야 (enum 이름 OrganizationField와 겹치지 않게 Tag를 붙임)
+// 단체가 선택한 활동 분야
 @Getter
 @Entity
 @Table(name = "organization_fields")

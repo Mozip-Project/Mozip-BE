@@ -16,7 +16,7 @@ public interface OrganizationLinkRepository extends JpaRepository<OrganizationLi
 	// GraphQL Organization.links 배치 조회
 	List<OrganizationLink> findAllByOrganizationInOrderById(Collection<Organization> organizations);
 
-	// 전체 교체 시 바로 실행 (OrganizationKeywordRepository 주석 참고)
+	// 전체 교체용 일괄 삭제
 	@Modifying
 	@Query("delete from OrganizationLink l where l.organization = :organization")
 	void deleteAllByOrganization(@Param("organization") Organization organization);

@@ -16,7 +16,7 @@ public interface OrganizationFieldTagRepository extends JpaRepository<Organizati
 	// GraphQL Organization.fields 배치 조회
 	List<OrganizationFieldTag> findAllByOrganizationInOrderById(Collection<Organization> organizations);
 
-	// 전체 교체 시 바로 실행 (OrganizationKeywordRepository 주석 참고)
+	// 전체 교체용 일괄 삭제
 	@Modifying
 	@Query("delete from OrganizationFieldTag f where f.organization = :organization")
 	void deleteAllByOrganization(@Param("organization") Organization organization);
