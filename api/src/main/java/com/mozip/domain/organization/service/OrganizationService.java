@@ -138,6 +138,13 @@ public class OrganizationService {
 				.addContext("organizationId", organizationId));
 	}
 
+	// 단체(학교 포함)를 읽고 행을 잠금, 같은 단체의 쓰기(초대, 링크 발급, 팀 저장)를 차례로 처리
+	public Organization getOrganizationForUpdate(Long organizationId) {
+		Organization organization = getOrganization(organizationId);
+		organizationRepository.lockById(organizationId);
+		return organization;
+	}
+
 	// 심사 전이거나 반려된 단체는 소속 운영진에게만 보이고, 그 외에는 ORG_404
 	public Organization getVisibleOrganization(Long organizationId, Long userId) {
 		Organization organization = getOrganization(organizationId);

@@ -84,6 +84,11 @@ public class Member extends BaseEntity {
 		this.leftAt = now;
 	}
 
+	// 팀 미지정으로 되돌림 (팀 삭제 시 호출)
+	public void leaveTeam() {
+		this.team = null;
+	}
+
 	// 프록시와 실제 객체가 섞일 수 있어 저장된 경우 id로 비교
 	private static boolean isSameOrganization(Organization a, Organization b) {
 		if (a == b) {

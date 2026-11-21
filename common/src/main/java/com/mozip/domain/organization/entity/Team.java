@@ -32,13 +32,24 @@ public class Team extends BaseEntity {
 	@Column(nullable = false, length = 50)
 	private String name;
 
-	private Team(Organization organization, String name) {
+	// 팀 설정 화면 표시 순서 (0부터)
+	@Column(nullable = false)
+	private int sortOrder;
+
+	private Team(Organization organization, String name, int sortOrder) {
 		this.organization = organization;
 		this.name = name;
+		this.sortOrder = sortOrder;
 	}
 
-	public static Team create(Organization organization, String name) {
-		return new Team(organization, name);
+	public static Team create(Organization organization, String name, int sortOrder) {
+		return new Team(organization, name, sortOrder);
+	}
+
+	// 이름과 순서만 바꿈 (id 유지)
+	public void update(String name, int sortOrder) {
+		this.name = name;
+		this.sortOrder = sortOrder;
 	}
 
 }
