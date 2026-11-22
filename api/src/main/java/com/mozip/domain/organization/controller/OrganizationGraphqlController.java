@@ -62,11 +62,6 @@ public class OrganizationGraphqlController {
 	}
 
 	@QueryMapping
-	public List<Organization> myOrganizations(@AuthenticationPrincipal AuthUser authUser) {
-		return organizationService.getMyOrganizations(authUser.userId());
-	}
-
-	@QueryMapping
 	public Organization organization(@Argument Long id, @AuthenticationPrincipal AuthUser authUser) {
 		return organizationService.getVisibleOrganization(id, authUser == null ? null : authUser.userId());
 	}

@@ -70,8 +70,17 @@ class OrganizationGraphqlControllerTest {
 	@Autowired
 	private JdbcTemplate jdbcTemplate;
 
+	private static final String ME = """
+		{
+			me {
+				id name lastRole
+				memberships { role organization { id name school { name } } team { id } }
+			}
+		}
+		""";
+
 	@Test
-	@DisplayName("단체를 만들면 내 단체 목록에 나오고, 심사 전 상세는 소속 운영진만 볼 수 있다")
+	@DisplayName("단체를 만들면 me의 memberships에 나오고, 심사 전 상세는 소속 운영진만 볼 수 있다")
 	void createThenListThenDetail() {
 		User user = saveUser();
 		School school = schoolRepository.save(School.create("테스트대학교", null));
@@ -95,9 +104,14 @@ class OrganizationGraphqlControllerTest {
 			.path("createOrganization.teams").entityList(Object.class).hasSize(0)
 			.path("createOrganization.id").entity(String.class).get();
 
-		asUser.document("{ myOrganizations { id name } }")
+		asUser.document(ME)
 			.execute()
-			.path("myOrganizations[*].id").entityList(String.class).containsExactly(organizationId);
+			.path("me.id").entity(String.class).isEqualTo(user.getId().toString())
+			.path("me.lastRole").entity(String.class).isEqualTo("APPLICANT")
+			.path("me.memberships[*].organization.id").entityList(String.class).containsExactly(organizationId)
+			.path("me.memberships[0].role").entity(String.class).isEqualTo("REPRESENTATIVE")
+			.path("me.memberships[0].organization.school.name").entity(String.class).isEqualTo("테스트대학교")
+			.path("me.memberships[0].team").valueIsNull();
 
 		asUser.document("query($id: ID!) { organization(id: $id) { name councilLevel school { name } proofLink } }")
 			.variable("id", organizationId)
@@ -262,9 +276,9 @@ class OrganizationGraphqlControllerTest {
 	}
 
 	@Test
-	@DisplayName("내 단체 목록은 로그인이 필요하다")
-	void myOrganizationsRequiresLogin() {
-		graphQlTester.document("{ myOrganizations { id } }")
+	@DisplayName("me는 로그인이 필요하다")
+	void meRequiresLogin() {
+		graphQlTester.document("{ me { id } }")
 			.execute()
 			.errors()
 			.satisfy(errors -> assertThat(errors.getFirst().getExtensions()).containsEntry("code", "COMMON_401"));

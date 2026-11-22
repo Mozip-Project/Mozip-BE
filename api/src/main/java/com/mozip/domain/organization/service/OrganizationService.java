@@ -117,11 +117,6 @@ public class OrganizationService {
 			PageRequest.of(0, KEYWORD_SUGGESTION_LIMIT));
 	}
 
-	// 내가 운영진으로 속한 단체 목록
-	public List<Organization> getMyOrganizations(Long userId) {
-		return organizationRepository.findAllByMemberUserId(userId);
-	}
-
 	public Organization getOrganization(Long organizationId) {
 		return organizationRepository.findWithSchoolById(organizationId)
 			.orElseThrow(() -> new BusinessException(OrganizationErrorCode.ORGANIZATION_NOT_FOUND)

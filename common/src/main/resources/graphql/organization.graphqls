@@ -191,8 +191,6 @@ input UpdateOrganizationInput {
 }
 
 extend type Query {
-    "내가 운영진으로 속한 단체 (운영진 홈의 단체 전환 메뉴)"
-    myOrganizations: [Organization!]!
     "단체 상세, 로그인 없이 조회 가능. 없거나 심사 승인 전인데 소속 운영진이 아니면 ORG_404"
     organization(id: ID!): Organization! @public
     "키워드 자동완성, 심사 승인된 단체 키워드 중 접두 일치 상위 10개 (많이 쓰인 순). 빈 접두어거나 20자를 넘으면 빈 목록"
