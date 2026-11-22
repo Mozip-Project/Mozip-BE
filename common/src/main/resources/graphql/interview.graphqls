@@ -12,6 +12,6 @@ type Interview {
     location: String
     "운영진이 직접 추가한 면접관, 자동 배정은 없어 처음에는 비어 있음"
     interviewers: [Member!]!
-    "배정된 지원자, 2명 이상이면 그룹 면접"
+    "배정된 지원자, 2명 이상이면 그룹 면접. 자동 생성은 같은 포지션끼리만 묶고 직접 배정은 포지션 제한 없음"
     applicants: [Application!]!
 }

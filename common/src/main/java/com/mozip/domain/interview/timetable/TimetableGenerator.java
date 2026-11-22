@@ -10,6 +10,8 @@ import java.util.Objects;
 import java.util.Set;
 
 // 서류 합격자를 블록에 배정, 같은 입력이면 항상 같은 결과. 면접관은 배정하지 않음
+// 자동 생성 규칙: 지원자가 고른 시각에만 배정, 자리가 겹치면 먼저 낸 순, 한 칸에는 같은 포지션끼리만
+// 운영진이 미배정 지원자를 직접 놓을 때는 포지션 제한이 없어 이 규칙은 자동 생성에만 적용
 public final class TimetableGenerator {
 
 	private static final Comparator<Candidate> PRIORITY = Comparator

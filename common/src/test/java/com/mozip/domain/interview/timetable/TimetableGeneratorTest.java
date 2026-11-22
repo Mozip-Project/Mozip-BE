@@ -9,7 +9,10 @@ import java.time.LocalDateTime;
 import java.time.LocalTime;
 import java.util.ArrayList;
 import java.util.Collections;
+import java.util.HashMap;
+import java.util.HashSet;
 import java.util.List;
+import java.util.Map;
 import java.util.Random;
 import java.util.Set;
 
@@ -109,6 +112,98 @@ class TimetableGeneratorTest {
 		assertThat(result.interviews()).extracting(AssignedInterview::applicationIds)
 			.containsExactly(List.of(1L));
 		assertThat(result.unassignedApplicationIds()).containsExactly(2L);
+	}
+
+	@Test
+	@DisplayName("빈 블록이 남아 있어도 지원자가 고르지 않은 시각에는 배정하지 않는다")
+	void neverAssignsOutsideAvailableTimes() {
+		List<Candidate> candidates = List.of(candidate(1L, DEV, 1, T10), candidate(2L, DEV, 2, T10));
+
+		TimetableResult result = TimetableGenerator.generate(SLOTS, setting(1, 1),
+			candidates);
+
+		assertThat(result.interviews()).extracting(AssignedInterview::startAt).containsExactly(T10);
+		assertThat(result.unassignedApplicationIds()).containsExactly(2L);
+	}
+
+	@Test
+	@DisplayName("그룹 면접 정원이 남아도 다른 포지션 지원자와는 묶지 않는다")
+	void neverMixesPositionsInGroup() {
+		List<Candidate> candidates = List.of(candidate(1L, DEV, 1, T10), candidate(2L, DESIGN, 2, T10));
+
+		TimetableResult result = TimetableGenerator.generate(SLOTS, setting(2, 1),
+			candidates);
+
+		assertThat(result.interviews()).extracting(AssignedInterview::positionId, AssignedInterview::applicationIds)
+			.containsExactly(tuple(DEV, List.of(1L)));
+		assertThat(result.unassignedApplicationIds()).containsExactly(2L);
+	}
+
+	@Test
+	@DisplayName("그룹 면접에서도 같은 시각에 몰리면 먼저 낸 지원자부터 정원을 채운다")
+	void groupSeatsGoToEarlierSubmissions() {
+		List<Candidate> candidates = List.of(
+			candidate(3L, DEV, 3, T10),
+			candidate(1L, DEV, 1, T10),
+			candidate(2L, DEV, 2, T10));
+
+		TimetableResult result = TimetableGenerator.generate(SLOTS, setting(2, 1),
+			candidates);
+
+		assertThat(result.interviews()).extracting(AssignedInterview::applicationIds)
+			.containsExactly(List.of(1L, 2L));
+		assertThat(result.unassignedApplicationIds()).containsExactly(3L);
+	}
+
+	@Test
+	@DisplayName("무작위 입력에서도 가능 시각, 정원, 같은 포지션, 동시 진행 수, 제출 순서 규칙을 지킨다")
+	void keepsRulesOnRandomInputs() {
+		List<LocalDateTime> times = List.of(T10, T10_30, T11);
+		Random random = new Random(7);
+		for (int round = 0; round < 300; round++) {
+			InterviewSetting setting = setting(1 + random.nextInt(3), 1 + random.nextInt(3));
+			List<Candidate> candidates = new ArrayList<>();
+			int size = 1 + random.nextInt(12);
+			for (int i = 1; i <= size; i++) {
+				Set<LocalDateTime> available = new HashSet<>();
+				for (LocalDateTime time : times) {
+					if (random.nextInt(3) > 0) {
+						available.add(time);
+					}
+				}
+				candidates.add(new Candidate((long)i, (long)(1 + random.nextInt(3)),
+					DAY.minusDays(10).atTime(9, 0).plusMinutes(i), available));
+			}
+
+			TimetableResult result = TimetableGenerator.generate(SLOTS, setting, candidates);
+
+			Map<Long, Candidate> byId = new HashMap<>();
+			candidates.forEach(candidate -> byId.put(candidate.applicationId(), candidate));
+			List<Long> assigned = new ArrayList<>();
+			Map<LocalDateTime, Integer> interviewsPerSlot = new HashMap<>();
+			for (AssignedInterview interview : result.interviews()) {
+				interviewsPerSlot.merge(interview.startAt(), 1, Integer::sum);
+				assertThat(interview.track()).isEqualTo(interviewsPerSlot.get(interview.startAt()));
+				assertThat(interview.applicationIds()).isNotEmpty().hasSizeLessThanOrEqualTo(
+					setting.maxApplicantsPerInterview());
+				for (Long applicationId : interview.applicationIds()) {
+					Candidate candidate = byId.get(applicationId);
+					assertThat(candidate.availableTimes()).contains(interview.startAt());
+					assertThat(candidate.positionId()).isEqualTo(interview.positionId());
+					assigned.add(applicationId);
+				}
+			}
+			assertThat(interviewsPerSlot.values()).allMatch(count -> count <= setting.maxParallelInterviews());
+			List<Long> everyone = new ArrayList<>(assigned);
+			everyone.addAll(result.unassignedApplicationIds());
+			assertThat(everyone).containsExactlyInAnyOrderElementsOf(byId.keySet());
+
+			// 마지막에 낸 지원자를 빼도 그보다 먼저 낸 지원자의 미배정 목록은 그대로
+			TimetableResult withoutLast = TimetableGenerator.generate(SLOTS, setting,
+				candidates.subList(0, size - 1));
+			assertThat(withoutLast.unassignedApplicationIds()).containsExactlyElementsOf(
+				result.unassignedApplicationIds().stream().filter(id -> id != size).toList());
+		}
 	}
 
 	@Test
