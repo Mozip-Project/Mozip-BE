@@ -39,6 +39,21 @@ enum NotificationType {
     EVALUATION_DEADLINE
 }
 
+"로그인한 회원. 프로필, 학교 인증, 알림 설정 필드는 아직 없음"
+type Me {
+    id: ID!
+    name: String!
+    "APPLICANT / OPERATOR, 다음 로그인 때 어느 홈으로 갈지"
+    lastRole: Role!
+    "소속 단체 목록 (드롭다운 항목), organization / role / team"
+    memberships: [Member!]!
+}
+
+extend type Query {
+    "로그인한 회원 정보, 앱 진입 시 첫 호출"
+    me: Me!
+}
+
 type School {
     id: ID!
     name: String!
@@ -54,8 +69,6 @@ type User {
     authority: Authority!
     status: UserStatus!
     lastRole: Role!
-    "운영진 홈에서 마지막으로 고른 단체 (GNB 단체 전환)"
-    lastOrganization: Organization
     "학교 인증 승인 시 채움, null = 미인증 (공고 열람만 가능)"
     school: School
     profileImageUrl: String
