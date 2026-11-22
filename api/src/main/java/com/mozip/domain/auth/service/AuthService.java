@@ -79,7 +79,12 @@ public class AuthService {
 		if (!user.isActive()) {
 			throw new BusinessException(AuthErrorCode.INACTIVE_USER).addContext("userId", user.getId());
 		}
-		return new LoginResult(issueTokens(user), LoginResponse.from(user));
+		return new LoginResult(issueTokens(user), LoginResponse.from(user, accessTokenExpiresIn()));
+	}
+
+	// access token 만료 시간, 쿠키 Max-Age와 같은 값
+	public long accessTokenExpiresIn() {
+		return jwtProperties.accessTokenExpiration().toSeconds();
 	}
 
 	// 사용한 리프레시 토큰은 폐기 후 새로 발급 (RTR)
