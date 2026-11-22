@@ -87,7 +87,7 @@ class PostingServiceResultConfirmationTest {
 			.isInstanceOf(BusinessException.class)
 			.satisfies(e -> {
 				assertThat(((BusinessException)e).getErrorCode()).isEqualTo(PostingErrorCode.CONFLICT);
-				assertThat(((BusinessException)e).getReason()).isEqualTo(PostingConflictReason.DOC_RESULT_NOT_CONFIRMED);
+				assertThat(((BusinessException)e).getReason()).isEqualTo(PostingConflictReason.DOC_RESULT_NOT_CONFIRMED.name());
 			});
 	}
 
@@ -105,7 +105,7 @@ class PostingServiceResultConfirmationTest {
 			.isInstanceOf(BusinessException.class)
 			.satisfies(e -> {
 				assertThat(((BusinessException)e).getErrorCode()).isEqualTo(PostingErrorCode.CONFLICT);
-				assertThat(((BusinessException)e).getReason()).isEqualTo(PostingConflictReason.FINAL_RESULT_NOT_CONFIRMED);
+				assertThat(((BusinessException)e).getReason()).isEqualTo(PostingConflictReason.FINAL_RESULT_NOT_CONFIRMED.name());
 			});
 	}
 

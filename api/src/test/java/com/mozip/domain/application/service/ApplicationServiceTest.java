@@ -171,7 +171,7 @@ class ApplicationServiceTest {
 			.isInstanceOf(BusinessException.class)
 			.satisfies(e -> {
 				assertThat(((BusinessException)e).getErrorCode()).isEqualTo(ApplicationErrorCode.CONFLICT);
-				assertThat(((BusinessException)e).getReason()).isEqualTo(ApplicationConflictReason.ALREADY_SUBMITTED);
+				assertThat(((BusinessException)e).getReason()).isEqualTo(ApplicationConflictReason.ALREADY_SUBMITTED.name());
 			});
 	}
 
@@ -186,7 +186,7 @@ class ApplicationServiceTest {
 			.isInstanceOf(BusinessException.class)
 			.satisfies(e -> {
 				assertThat(((BusinessException)e).getErrorCode()).isEqualTo(PostingErrorCode.CONFLICT);
-				assertThat(((BusinessException)e).getReason()).isEqualTo(PostingConflictReason.NOT_RECRUITING);
+				assertThat(((BusinessException)e).getReason()).isEqualTo(PostingConflictReason.NOT_RECRUITING.name());
 			});
 	}
 
@@ -206,7 +206,7 @@ class ApplicationServiceTest {
 			.isInstanceOf(BusinessException.class)
 			.satisfies(e -> {
 				assertThat(((BusinessException)e).getErrorCode()).isEqualTo(PostingErrorCode.CONFLICT);
-				assertThat(((BusinessException)e).getReason()).isEqualTo(PostingConflictReason.NOT_RECRUITING);
+				assertThat(((BusinessException)e).getReason()).isEqualTo(PostingConflictReason.NOT_RECRUITING.name());
 			});
 	}
 
@@ -276,7 +276,7 @@ class ApplicationServiceTest {
 			.isInstanceOf(BusinessException.class)
 			.satisfies(e -> {
 				assertThat(((BusinessException)e).getErrorCode()).isEqualTo(ApplicationErrorCode.CONFLICT);
-				assertThat(((BusinessException)e).getReason()).isEqualTo(ApplicationConflictReason.ALREADY_SUBMITTED);
+				assertThat(((BusinessException)e).getReason()).isEqualTo(ApplicationConflictReason.ALREADY_SUBMITTED.name());
 			});
 	}
 
