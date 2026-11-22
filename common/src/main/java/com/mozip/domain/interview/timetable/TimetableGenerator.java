@@ -9,9 +9,7 @@ import java.util.Map;
 import java.util.Objects;
 import java.util.Set;
 
-import com.mozip.domain.posting.entity.AssignRule;
-
-// 서류 합격자를 블록에 배정, 같은 입력이면 항상 같은 결과
+// 서류 합격자를 블록에 배정, 같은 입력이면 항상 같은 결과. 면접관은 배정하지 않음
 public final class TimetableGenerator {
 
 	private static final Comparator<Candidate> PRIORITY = Comparator
@@ -23,8 +21,7 @@ public final class TimetableGenerator {
 
 	// 먼저 제출한 지원자부터 자리를 잡고, 빈자리가 없으면 이미 앉은 지원자를 다른 블록으로 옮겨 자리를 만듦
 	// 먼저 낸 지원자는 늦게 낸 지원자 때문에 미배정되지 않음
-	public static TimetableResult generate(List<Slot> slots, InterviewSetting setting, List<Candidate> candidates,
-		List<Panelist> panelists, Map<Long, Long> teamByPosition) {
+	public static TimetableResult generate(List<Slot> slots, InterviewSetting setting, List<Candidate> candidates) {
 		validate(candidates);
 		List<Candidate> ordered = candidates.stream().sorted(PRIORITY).toList();
 		List<Slot> openSlots = slots.stream()
@@ -39,7 +36,7 @@ public final class TimetableGenerator {
 				unassigned.add(candidate.applicationId());
 			}
 		}
-		return new TimetableResult(assignment.toInterviews(panelists, teamByPosition), unassigned);
+		return new TimetableResult(assignment.toInterviews(), unassigned);
 	}
 
 	private static void validate(List<Candidate> candidates) {
@@ -59,7 +56,6 @@ public final class TimetableGenerator {
 		private final List<List<Candidate>> seated;
 		private final int capacity;
 		private final int maxParallel;
-		private final AssignRule assignRule;
 
 		private Assignment(List<Slot> slots, InterviewSetting setting) {
 			this.slots = slots;
@@ -67,7 +63,6 @@ public final class TimetableGenerator {
 			slots.forEach(slot -> seated.add(new ArrayList<>()));
 			this.capacity = setting.maxApplicantsPerInterview();
 			this.maxParallel = setting.maxParallelInterviews();
-			this.assignRule = setting.assignRule();
 		}
 
 		// 빈자리가 있는 가장 이른 블록에 앉히고, 없으면 앉은 지원자를 옮길 곳을 재귀로 찾음
@@ -123,17 +118,15 @@ public final class TimetableGenerator {
 		}
 
 		// 블록마다 포지션별로 먼저 낸 순서대로 정원씩 묶어 track 1부터 매김
-		private List<AssignedInterview> toInterviews(List<Panelist> panelists, Map<Long, Long> teamByPosition) {
+		private List<AssignedInterview> toInterviews() {
 			List<AssignedInterview> interviews = new ArrayList<>();
 			for (int i = 0; i < slots.size(); i++) {
 				Slot slot = slots.get(i);
 				List<List<Candidate>> groups = groups(seated.get(i));
-				List<List<Long>> interviewers = interviewers(groups, panelists, teamByPosition);
 				for (int track = 0; track < groups.size(); track++) {
 					List<Candidate> group = groups.get(track);
 					interviews.add(new AssignedInterview(slot.startAt(), slot.endAt(), track + 1,
-						group.getFirst().positionId(), group.stream().map(Candidate::applicationId).toList(),
-						interviewers.get(track)));
+						group.getFirst().positionId(), group.stream().map(Candidate::applicationId).toList()));
 				}
 			}
 			return interviews;
@@ -151,57 +144,6 @@ public final class TimetableGenerator {
 				}
 			}
 			return groups;
-		}
-
-		// 같은 시각 칸들이 면접관 후보를 겹치지 않게 나눠 맡음
-		private List<List<Long>> interviewers(List<List<Candidate>> groups, List<Panelist> panelists,
-			Map<Long, Long> teamByPosition) {
-			List<List<Long>> pools = groups.stream()
-				.map(group -> pool(panelists, group.getFirst().positionId(), teamByPosition))
-				.toList();
-			List<List<Long>> result = new ArrayList<>();
-			for (int track = 0; track < groups.size(); track++) {
-				List<Long> pool = pools.get(track);
-				int sharing = 0;
-				int order = 0;
-				for (int other = 0; other < groups.size(); other++) {
-					if (pools.get(other).equals(pool)) {
-						if (other < track) {
-							order++;
-						}
-						sharing++;
-					}
-				}
-				result.add(share(pool, sharing, order));
-			}
-			return result;
-		}
-
-		// 앞 칸이 한 명씩 더 가져가도록 거의 같은 크기로 나눔
-		private static List<Long> share(List<Long> pool, int parts, int index) {
-			int base = pool.size() / parts;
-			int extra = pool.size() % parts;
-			int from = index * base + Math.min(index, extra);
-			int size = base + (index < extra ? 1 : 0);
-			return pool.subList(from, from + size);
-		}
-
-		// 포지션 없는 모집(positionId null)은 자동 배정하지 않음
-		private List<Long> pool(List<Panelist> panelists, Long positionId, Map<Long, Long> teamByPosition) {
-			if (positionId == null) {
-				return List.of();
-			}
-			if (assignRule == AssignRule.ALL_MEMBERS) {
-				return panelists.stream().map(Panelist::memberId).toList();
-			}
-			Long teamId = teamByPosition.get(positionId);
-			if (teamId == null) {
-				return List.of();
-			}
-			return panelists.stream()
-				.filter(panelist -> teamId.equals(panelist.teamId()))
-				.map(Panelist::memberId)
-				.toList();
 		}
 
 	}

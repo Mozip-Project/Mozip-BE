@@ -39,7 +39,7 @@
 | 엔티티 | 소유 | B가 쓰는 부분 | 상태 |
 |---|---|---|---|
 | `Application` | A | `doc_result`, `final_result` 컬럼과 변경 메서드 `decideDocResult`, `decideFinalResult` | 제안. 메서드 두 개만 B가 만들고 소유 |
-| `Posting` | A | `doc_result_confirmed_at`, `final_result_confirmed_at`, `timetable_confirmed_at`, 면접 설정 컬럼 6개 | 제안. B가 쓰는 순서에서 추가하고 A가 리뷰 |
+| `Posting` | A | `doc_result_confirmed_at`, `final_result_confirmed_at`, `timetable_confirmed_at`, 면접 설정 컬럼 5개 | 제안. B가 쓰는 순서에서 추가하고 A가 리뷰 |
 | `Posting.doc_score_per_question`, `Question.short_title` | A | B가 평가 화면에서 읽음 | A에게 추가 요청 |
 
 ## 아직 결정 안 된 것
