@@ -18,6 +18,7 @@ import org.springframework.context.annotation.Import;
 import org.springframework.transaction.annotation.Transactional;
 
 import com.mozip.TestcontainersConfiguration;
+import com.mozip.domain.organization.entity.CouncilLevel;
 import com.mozip.domain.organization.entity.Member;
 import com.mozip.domain.organization.entity.MemberRole;
 import com.mozip.domain.organization.entity.Organization;
@@ -106,7 +107,8 @@ class PostingServiceTest {
 		operator = userRepository.save(User.create("01033330001", "encoded", "운영진", false, LocalDateTime.now()));
 		other = userRepository.save(User.create("01033330002", "encoded", "다른회원", false, LocalDateTime.now()));
 		organization = organizationRepository.save(
-			Organization.create("테스트 단체", OrganizationType.CLUB, OrganizationScope.CAMPUS, null, true));
+			Organization.create("테스트 단체", OrganizationType.CLUB, null, OrganizationScope.CAMPUS, null, true, null,
+				null));
 		memberRepository.save(Member.create(organization, operator, null, MemberRole.REPRESENTATIVE));
 	}
 
@@ -378,9 +380,11 @@ class PostingServiceTest {
 	void listsPostingsFilteredBySchoolAndOrganizationType() {
 		School schoolA = schoolRepository.save(School.create("A대", null));
 		Organization clubAtSchoolA = organizationRepository.save(
-			Organization.create("A단체(동아리)", OrganizationType.CLUB, OrganizationScope.CAMPUS, schoolA, true));
+			Organization.create("A단체(동아리)", OrganizationType.CLUB, null, OrganizationScope.CAMPUS, schoolA, true,
+				null, null));
 		Organization councilElsewhere = organizationRepository.save(
-			Organization.create("타교 학생회", OrganizationType.STUDENT_COUNCIL, OrganizationScope.CAMPUS, null, true));
+			Organization.create("타교 학생회", OrganizationType.STUDENT_COUNCIL, CouncilLevel.UNIVERSITY,
+				OrganizationScope.CAMPUS, null, true, null, null));
 		memberRepository.save(Member.create(clubAtSchoolA, operator, null, MemberRole.REPRESENTATIVE));
 		memberRepository.save(Member.create(councilElsewhere, operator, null, MemberRole.REPRESENTATIVE));
 		postingService.publish(operator.getId(),
