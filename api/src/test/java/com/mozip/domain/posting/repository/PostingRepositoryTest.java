@@ -36,7 +36,8 @@ class PostingRepositoryTest {
 	@BeforeEach
 	void setUp() {
 		organization = organizationRepository.save(
-			Organization.create("테스트 단체", OrganizationType.CLUB, OrganizationScope.CAMPUS, null, true));
+			Organization.create("테스트 단체", OrganizationType.CLUB, null, OrganizationScope.CAMPUS, null, true, null,
+				null));
 	}
 
 	@Test

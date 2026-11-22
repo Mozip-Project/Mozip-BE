@@ -94,7 +94,8 @@ class ApplicationServiceTest {
 	@BeforeEach
 	void setUp() {
 		organization = organizationRepository.save(
-			Organization.create("테스트 단체", OrganizationType.CLUB, OrganizationScope.CAMPUS, null, true));
+			Organization.create("테스트 단체", OrganizationType.CLUB, null, OrganizationScope.CAMPUS, null, true, null,
+				null));
 		operator = userRepository.save(User.create("01044440001", "encoded", "운영진", false, LocalDateTime.now()));
 		memberRepository.save(Member.create(organization, operator, null, MemberRole.REPRESENTATIVE));
 		applicant = userRepository.save(User.create("01044440002", "encoded", "지원자", false, LocalDateTime.now()));
