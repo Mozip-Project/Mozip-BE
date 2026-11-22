@@ -1,4 +1,4 @@
--- #65_posting.sql
+-- 065_posting.sql
 -- 공고 작성/게시/조회를 위한 postings 보강, positions/questions 보강, posting_images와
 -- interview_time_ranges 테이블 추가. baseline(#36)이 develop에 먼저 들어가면서 postings/positions/
 -- questions가 이미 있어, 그 안에 없는 컬럼만 alter로 추가 (처음엔 baseline과 번호가 겹치는 파일로
