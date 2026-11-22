@@ -7,7 +7,7 @@ import lombok.Getter;
 import lombok.RequiredArgsConstructor;
 
 // X-Mock-Role 헤더로 고르는 개발용 회원 (비밀번호는 무작위라 /auth/login 불가)
-// OPERATOR는 단체 소속(members) 없음, 단체 기능 구현 시 추가 필요
+// OPERATOR는 SeedRunner가 개발용 단체의 대표자로 등록
 @Getter
 @RequiredArgsConstructor
 public enum MockRole {
