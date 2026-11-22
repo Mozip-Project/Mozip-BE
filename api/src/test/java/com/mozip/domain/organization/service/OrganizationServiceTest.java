@@ -175,7 +175,7 @@ class OrganizationServiceTest {
 	}
 
 	@Test
-	@DisplayName("그 단체의 운영진이 아니면 ORG_403을 던진다")
+	@DisplayName("그 단체의 운영진이 아니면 COMMON_403을 던진다")
 	void notMember() {
 		Organization organization = organizationService.createOrganization(user.getId(),
 			SeedFixtures.createOrganizationInput());
@@ -183,7 +183,7 @@ class OrganizationServiceTest {
 		assertThatThrownBy(
 			() -> organizationService.updateLogo(organization.getId(), "org-logo/2026/01/a.png", other.getId()))
 			.isInstanceOfSatisfying(BusinessException.class,
-				e -> assertThat(e.getErrorCode()).isEqualTo(OrganizationErrorCode.FORBIDDEN));
+				e -> assertThat(e.getErrorCode()).isEqualTo(CommonErrorCode.FORBIDDEN));
 	}
 
 	@Test

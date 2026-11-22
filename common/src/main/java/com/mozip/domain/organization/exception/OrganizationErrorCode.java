@@ -13,8 +13,7 @@ public enum OrganizationErrorCode implements ErrorCode {
 
 	// 이용권 없는 단체의 유료 기능 (공고 게시 등) 호출
 	SUBSCRIPTION_REQUIRED(HttpStatus.PAYMENT_REQUIRED, "ORG_402", "단체 이용권이 없습니다."),
-	ORGANIZATION_NOT_FOUND(HttpStatus.NOT_FOUND, "ORG_404", "단체를 찾을 수 없습니다."),
-	FORBIDDEN(HttpStatus.FORBIDDEN, "ORG_403", "해당 단체의 운영진만 수정할 수 있습니다.");
+	ORGANIZATION_NOT_FOUND(HttpStatus.NOT_FOUND, "ORG_404", "단체를 찾을 수 없습니다.");
 
 	private final HttpStatus status;
 	private final String code;

@@ -48,10 +48,9 @@ public class OrganizationService {
 		if (!fileKey.startsWith(FilePurpose.ORG_LOGO.keyPrefix() + "/")) {
 			throw new BusinessException(CommonErrorCode.INVALID_INPUT).addContext("fileKey", fileKey);
 		}
-		Organization organization = organizationRepository.findByIdWithSchool(organizationId)
-			.orElseThrow(() -> new BusinessException(OrganizationErrorCode.ORGANIZATION_NOT_FOUND));
+		Organization organization = getOrganization(organizationId);
 		if (!memberRepository.existsByOrganizationIdAndUserId(organizationId, requesterId)) {
-			throw new BusinessException(OrganizationErrorCode.FORBIDDEN).addContext("userId", requesterId);
+			throw new BusinessException(CommonErrorCode.FORBIDDEN).addContext("userId", requesterId);
 		}
 		organization.updateLogo(s3Properties.cdnDomain() + "/" + fileKey);
 		return organization;
