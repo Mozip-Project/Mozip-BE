@@ -20,11 +20,29 @@ class OrganizationEntityTest {
 	@Test
 	@DisplayName("연합 단체에는 학교를 지정할 수 없다")
 	void unionWithSchool() {
-		assertThatThrownBy(() -> Organization.create("연합", OrganizationType.CLUB, OrganizationScope.UNION, school,
-			false))
+		assertThatThrownBy(() -> Organization.create("연합", OrganizationType.CLUB, null, OrganizationScope.UNION,
+			school, false, null, null))
 			.isInstanceOf(IllegalArgumentException.class);
-		assertThat(Organization.create("연합", OrganizationType.CLUB, OrganizationScope.UNION, null, false))
+		assertThat(Organization.create("연합", OrganizationType.CLUB, null, OrganizationScope.UNION, null, false, null,
+			null))
 			.isNotNull();
+	}
+
+	@Test
+	@DisplayName("학생회는 세부 구분이 필수고, 그 외 단체에는 세부 구분을 지정할 수 없다")
+	void councilLevel() {
+		assertThatThrownBy(() -> Organization.create("총학", OrganizationType.STUDENT_COUNCIL, null,
+			OrganizationScope.CAMPUS, school, false, null, null))
+			.isInstanceOf(IllegalArgumentException.class);
+		assertThatThrownBy(() -> Organization.create("동아리", OrganizationType.CLUB, CouncilLevel.COLLEGE,
+			OrganizationScope.CAMPUS, school, false, null, null))
+			.isInstanceOf(IllegalArgumentException.class);
+
+		Organization council = Organization.create("총학", OrganizationType.STUDENT_COUNCIL, CouncilLevel.UNIVERSITY,
+			OrganizationScope.CAMPUS, school, false, null, null);
+
+		assertThat(council.getCouncilLevel()).isEqualTo(CouncilLevel.UNIVERSITY);
+		assertThat(council.getReviewStatus()).isEqualTo(ReviewStatus.PENDING);
 	}
 
 	@Test
@@ -58,7 +76,8 @@ class OrganizationEntityTest {
 	}
 
 	private Organization campus(boolean noTeam) {
-		return Organization.create("교내 동아리", OrganizationType.CLUB, OrganizationScope.CAMPUS, school, noTeam);
+		return Organization.create("교내 동아리", OrganizationType.CLUB, null, OrganizationScope.CAMPUS, school, noTeam,
+			null, null);
 	}
 
 }

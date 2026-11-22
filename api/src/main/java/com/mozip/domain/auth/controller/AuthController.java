@@ -10,6 +10,7 @@ import org.springframework.web.bind.annotation.RestController;
 
 import com.mozip.domain.auth.dto.LoginRequest;
 import com.mozip.domain.auth.dto.LoginResponse;
+import com.mozip.domain.auth.dto.ReissueResponse;
 import com.mozip.domain.auth.dto.SignupRequest;
 import com.mozip.domain.auth.dto.SignupResponse;
 import com.mozip.domain.auth.exception.RefreshTokenConsumedException;
@@ -52,7 +53,7 @@ public class AuthController implements AuthControllerApi {
 
 	@Override
 	@PostMapping("/reissue")
-	public ApiResponse<Void> reissue(
+	public ApiResponse<ReissueResponse> reissue(
 		@CookieValue(name = AuthCookieManager.REFRESH_TOKEN_COOKIE, required = false) String refreshToken,
 		HttpServletResponse response) {
 		try {
@@ -63,7 +64,7 @@ public class AuthController implements AuthControllerApi {
 			}
 			throw e;
 		}
-		return ApiResponse.ok();
+		return ApiResponse.ok(new ReissueResponse(authService.accessTokenExpiresIn()));
 	}
 
 	// 재발급 실패 시 기본은 쿠키 삭제이고, 같은 쿠키가 아직 쓸모 있는 두 경우만 유지

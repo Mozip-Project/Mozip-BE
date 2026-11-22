@@ -1,4 +1,4 @@
--- 001_#48_notification.sql
+-- 048_notification.sql
 -- 알림 저장/조회를 위한 notifications 테이블 추가, users에 알림 설정 컬럼 3개 추가
 
 alter table users

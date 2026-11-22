@@ -3,6 +3,9 @@ kind: Application
 metadata:
   name: mozip-dev
   namespace: argocd
+  annotations:
+    # root를 지우거나 이 파일을 지워도 root가 이 Application을 지우지 않게 함. 지우면 finalizer 때문에 배포 리소스까지 같이 지워짐
+    argocd.argoproj.io/sync-options: Delete=false
   finalizers:
     - resources-finalizer.argocd.argoproj.io
 spec:

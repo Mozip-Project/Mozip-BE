@@ -8,6 +8,8 @@ import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.jsonPath;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
 
+import java.util.List;
+
 import org.hamcrest.Matchers;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
@@ -18,9 +20,14 @@ import org.springframework.context.annotation.Import;
 import org.springframework.http.HttpHeaders;
 import org.springframework.http.MediaType;
 import org.springframework.test.web.servlet.MockMvc;
+import org.springframework.transaction.annotation.Transactional;
 
 import com.mozip.TestcontainersConfiguration;
 import com.mozip.domain.user.entity.Authority;
+import com.mozip.devtools.seed.SeedFixtures;
+import com.mozip.domain.organization.entity.Member;
+import com.mozip.domain.organization.entity.MemberRole;
+import com.mozip.domain.organization.repository.MemberRepository;
 import com.mozip.domain.user.entity.User;
 import com.mozip.domain.user.repository.UserRepository;
 import com.mozip.global.security.AdminOnlyTestController;
@@ -43,6 +50,9 @@ class AuthBypassIntegrationTest {
 	@Autowired
 	private JwtProvider jwtProvider;
 
+	@Autowired
+	private MemberRepository memberRepository;
+
 	@Test
 	@DisplayName("인증 우회가 켜져 있으면 토큰 없이 @PreAuthorize가 달린 API도 호출할 수 있다")
 	void bypassUrlAndMethodSecurity() throws Exception {
@@ -58,6 +68,17 @@ class AuthBypassIntegrationTest {
 			assertThat(user.getAuthority()).isEqualTo(role.getAuthority());
 			assertThat(user.getLastRole()).isEqualTo(role.getLastRole());
 		}
+	}
+
+	@Test
+	@Transactional
+	@DisplayName("앱 시작 시 개발용 운영진은 개발용 단체의 대표자로 등록된다")
+	void devOperatorIsRepresentativeOfSeedOrganization() {
+		List<Member> memberships = memberRepository.findAllByUserId(userId(MockRole.OPERATOR));
+
+		assertThat(memberships).hasSize(1);
+		assertThat(memberships.getFirst().getRole()).isEqualTo(MemberRole.REPRESENTATIVE);
+		assertThat(memberships.getFirst().getOrganization().getName()).isEqualTo(SeedFixtures.ORGANIZATION_NAME);
 	}
 
 	@Test

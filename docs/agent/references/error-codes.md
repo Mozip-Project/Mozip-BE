@@ -41,7 +41,7 @@
 | 코드 | HTTP | 상수 | 언제 |
 |---|---|---|---|
 | `ORG_402` | 402 | `SUBSCRIPTION_REQUIRED` | 이용권 없는 단체의 유료 기능 호출 (A 이용권에서 사용) |
-| `ORG_404` | 404 | `ORGANIZATION_NOT_FOUND` | 단체 없음 |
+| `ORG_404` | 404 | `ORGANIZATION_NOT_FOUND` | 단체 없음. 심사 전이거나 반려된 단체를 소속이 아닌 사람이 상세 조회할 때도 같음 |
 
 ## 알림 (`NotificationErrorCode`, #48)
 
@@ -55,4 +55,4 @@
 
 | enum | 코드 | 값 |
 |---|---|---|
-| `OrganizationInputReason` | `COMMON_400` | `COUNCIL_LEVEL_REQUIRED`, `COUNCIL_LEVEL_NOT_ALLOWED`, `SCHOOL_REQUIRED`, `SCHOOL_NOT_ALLOWED`, `SCHOOL_NOT_FOUND` (#37), `FIELDS_REQUIRED`, `FIELDS_NOT_ALLOWED`, `LINK_URL_INVALID` (#38 예정) |
+| `OrganizationInputReason` | `COMMON_400` | `COUNCIL_LEVEL_REQUIRED`, `COUNCIL_LEVEL_NOT_ALLOWED`, `SCHOOL_REQUIRED`, `SCHOOL_NOT_ALLOWED`, `SCHOOL_NOT_FOUND` (#37), `FIELDS_REQUIRED`, `FIELDS_NOT_ALLOWED`, `LINK_URL_INVALID` (#38) |

@@ -53,10 +53,20 @@ class GlobalExceptionHandlerTest {
 			.andExpect(jsonPath("$.message").value("요청한 리소스를 찾을 수 없습니다."))
 			.andExpect(jsonPath("$.data").value(nullValue()))
 			.andExpect(jsonPath("$.traceId").value(TRACE_ID))
+			.andExpect(jsonPath("$.reason").doesNotExist())
 			.andExpect(jsonPath("$.context").doesNotExist());
 
 		assertThat(output).contains("WARN", "code=COMMON_404, context={applicationId=9}");
 		assertThat(output).doesNotContain("ERROR");
+	}
+
+	@Test
+	@DisplayName("reason이 있는 BusinessException은 응답에 reason을 enum 이름으로 담는다")
+	void handleBusinessExceptionWithReason() throws Exception {
+		mockMvc.perform(get("/test/reason"))
+			.andExpect(status().isForbidden())
+			.andExpect(jsonPath("$.code").value("COMMON_403"))
+			.andExpect(jsonPath("$.reason").value("NOT_OPERATOR"));
 	}
 
 	@Test
@@ -215,6 +225,15 @@ class GlobalExceptionHandlerTest {
 			throw new IllegalStateException("내부 구현 정보");
 		}
 
+		@GetMapping("/test/reason")
+		void reason() {
+			throw new BusinessException(CommonErrorCode.FORBIDDEN, TestReason.NOT_OPERATOR);
+		}
+
+	}
+
+	enum TestReason {
+		NOT_OPERATOR
 	}
 
 	record TestRequest(@NotBlank(message = "이름은 필수입니다.") String name) {
