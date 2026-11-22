@@ -1,4 +1,4 @@
--- 007_#57_representative_transfer.sql
+-- 057_representative_transfer.sql
 -- 대표자 인수(#57): 대표자가 운영진에게 요청하고 대상이 수락하면 역할을 바꿈
 -- 동시에 두 요청이 들어와도 단체당 대기 요청이 1개만 남도록 PENDING 행에만 부분 unique index를 걺
 

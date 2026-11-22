@@ -1,4 +1,4 @@
--- 005_#54_member_left_at.sql
+-- 054_member_left_at.sql
 -- 운영진 내보내기(#54): soft delete 컬럼 left_at 추가, 소속/대표자 unique를 소속 중인 행에만 걸도록 바꿈
 -- 기존 소속 unique는 환경마다 이름이 다를 수 있어 컬럼으로 찾아 지움
 

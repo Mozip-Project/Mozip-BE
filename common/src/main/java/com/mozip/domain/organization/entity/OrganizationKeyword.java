@@ -30,7 +30,7 @@ public class OrganizationKeyword extends BaseEntity {
 	@JoinColumn(name = "organization_id", nullable = false)
 	private Organization organization;
 
-	@Column(nullable = false, length = 30)
+	@Column(nullable = false, length = 20)
 	private String keyword;
 
 	private OrganizationKeyword(Organization organization, String keyword) {
