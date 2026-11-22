@@ -114,7 +114,7 @@ class UserServiceTest {
 		assertThatThrownBy(() -> userService.switchRole(1L, Role.OPERATOR, 10L))
 			.isInstanceOf(BusinessException.class)
 			.extracting(e -> ((BusinessException)e).getErrorCode())
-			.isEqualTo(OrganizationErrorCode.NOT_FOUND);
+			.isEqualTo(OrganizationErrorCode.ORGANIZATION_NOT_FOUND);
 	}
 
 	@Test
@@ -156,7 +156,8 @@ class UserServiceTest {
 	}
 
 	private Organization organization() {
-		return Organization.create("테스트 단체", OrganizationType.CLUB, OrganizationScope.CAMPUS, null, true);
+		return Organization.create("테스트 단체", OrganizationType.CLUB, null, OrganizationScope.CAMPUS, null, true,
+			null, null);
 	}
 
 }

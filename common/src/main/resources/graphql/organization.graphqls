@@ -84,7 +84,9 @@ type Organization {
     "단체 메일"
     email: String
     noTeam: Boolean!
+    "심사 증빙. 소속 운영진에게만 보이고 그 외에는 null"
     proofLink: String
+    "심사 증빙. 소속 운영진에게만 보이고 그 외에는 null"
     proofFileUrl: String
     reviewStatus: ReviewStatus!
     rejectReason: String
@@ -97,6 +99,7 @@ type Organization {
     fields: [OrganizationField!]!
     links: [OrganizationLink!]!
     teams: [Team!]!
+    "소속 운영진만 조회 가능. 그 외에는 COMMON_403"
     members: [Member!]!
     createdAt: DateTime!
 }
@@ -157,14 +160,34 @@ type RepresentativeTransfer {
     createdAt: DateTime!
 }
 
-# 프로젝트 전체에서 Mutation 최상위 타입이 처음 쓰이는 곳이라 extend 대신 직접 선언
-# 다른 도메인 파일에서 뮤테이션을 추가할 때는 schema.graphqls의 Query처럼 extend type Mutation 사용
-type Mutation {
-    "단체 로고를 변경합니다. fileKey는 파일 업로드 URL 발급(POST /api/files/presigned-url, purpose=ORG_LOGO)으로 받아 S3에 업로드를 마친 값입니다."
-    updateOrganizationLogo(input: UpdateOrganizationLogoInput!): Organization!
-}
-
 input UpdateOrganizationLogoInput {
     organizationId: ID!
     fileKey: String!
+}
+
+input CreateOrganizationInput {
+    name: String!
+    type: OrganizationType!
+    "학생회면 필수, 그 외 단체는 넣으면 COMMON_400 (reason COUNCIL_LEVEL_NOT_ALLOWED)"
+    councilLevel: CouncilLevel
+    scope: OrganizationScope!
+    "교내면 필수, 연합이면 넣으면 COMMON_400 (reason SCHOOL_NOT_ALLOWED)"
+    schoolId: ID
+    noTeam: Boolean! = false
+    proofLink: String
+    proofFileUrl: String
+}
+
+extend type Query {
+    "내가 운영진으로 속한 단체 (운영진 홈의 단체 전환 메뉴)"
+    myOrganizations: [Organization!]!
+    "단체 상세, 로그인 없이 조회 가능. 없거나 심사 승인 전인데 소속 운영진이 아니면 ORG_404"
+    organization(id: ID!): Organization! @public
+}
+
+extend type Mutation {
+    "단체 로고를 변경합니다. fileKey는 파일 업로드 URL 발급(POST /api/files/presigned-url, purpose=ORG_LOGO)으로 받아 S3에 업로드를 마친 값입니다."
+    updateOrganizationLogo(input: UpdateOrganizationLogoInput!): Organization!
+    "단체를 만들고 호출자를 대표자로 등록, 심사 상태는 PENDING"
+    createOrganization(input: CreateOrganizationInput!): Organization!
 }

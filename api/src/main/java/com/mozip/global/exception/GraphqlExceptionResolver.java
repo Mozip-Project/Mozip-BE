@@ -38,12 +38,12 @@ public class GraphqlExceptionResolver extends DataFetcherExceptionResolverAdapte
 			} else {
 				log.warn("Business exception: code={}, context={}", errorCode.getCode(), e.getContext());
 			}
-			return toGraphqlError(errorCode, e.getMessage(), env, null);
+			return toGraphqlError(errorCode, e.getReason(), e.getMessage(), env, null);
 		}
 		// @PreAuthorize 거부 (인증 자체는 GraphqlAuthInstrumentation이 먼저 검사하므로 여기 오면 권한 부족)
 		if (ex instanceof AccessDeniedException) {
 			log.warn("Access denied: {}", ex.getMessage());
-			return toGraphqlError(CommonErrorCode.FORBIDDEN, CommonErrorCode.FORBIDDEN.getMessage(), env, null);
+			return toGraphqlError(CommonErrorCode.FORBIDDEN, null, CommonErrorCode.FORBIDDEN.getMessage(), env, null);
 		}
 		if (ex instanceof ConstraintViolationException e) {
 			List<FieldErrorResponse> fieldErrors = e.getConstraintViolations().stream()
@@ -53,17 +53,21 @@ public class GraphqlExceptionResolver extends DataFetcherExceptionResolverAdapte
 				.findFirst()
 				.map(FieldErrorResponse::toMessage)
 				.orElse(CommonErrorCode.INVALID_INPUT.getMessage());
-			return toGraphqlError(CommonErrorCode.INVALID_INPUT, message, env, fieldErrors);
+			return toGraphqlError(CommonErrorCode.INVALID_INPUT, null, message, env, fieldErrors);
 		}
 		log.error("Unhandled exception", ex);
-		return toGraphqlError(CommonErrorCode.INTERNAL_SERVER_ERROR, CommonErrorCode.INTERNAL_SERVER_ERROR.getMessage(),
-			env, null);
+		return toGraphqlError(CommonErrorCode.INTERNAL_SERVER_ERROR, null,
+			CommonErrorCode.INTERNAL_SERVER_ERROR.getMessage(), env, null);
 	}
 
-	private GraphQLError toGraphqlError(ErrorCode errorCode, String message, DataFetchingEnvironment env,
-		List<FieldErrorResponse> fieldErrors) {
+	private GraphQLError toGraphqlError(ErrorCode errorCode, String reason, String message,
+		DataFetchingEnvironment env, List<FieldErrorResponse> fieldErrors) {
 		Map<String, Object> extensions = new LinkedHashMap<>();
 		extensions.put("code", errorCode.getCode());
+		// reason이 없으면 키를 생략
+		if (reason != null) {
+			extensions.put("reason", reason);
+		}
 		String traceId = MDC.get(TraceIdFilter.TRACE_ID_KEY);
 		if (traceId != null) {
 			extensions.put("traceId", traceId);
@@ -79,13 +83,14 @@ public class GraphqlExceptionResolver extends DataFetcherExceptionResolverAdapte
 			.build();
 	}
 
+	// 그 외 4xx(409, 422 등)는 BAD_REQUEST로 응답, 구분은 extensions.code로
 	private ErrorType toErrorType(ErrorCode errorCode) {
 		return switch (errorCode.getStatus()) {
 			case BAD_REQUEST -> ErrorType.BAD_REQUEST;
 			case UNAUTHORIZED -> ErrorType.UNAUTHORIZED;
 			case FORBIDDEN -> ErrorType.FORBIDDEN;
 			case NOT_FOUND -> ErrorType.NOT_FOUND;
-			default -> ErrorType.INTERNAL_ERROR;
+			default -> errorCode.getStatus().is4xxClientError() ? ErrorType.BAD_REQUEST : ErrorType.INTERNAL_ERROR;
 		};
 	}
 

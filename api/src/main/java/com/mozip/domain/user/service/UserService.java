@@ -54,7 +54,7 @@ public class UserService {
 				.addContext("reason", "organizationId is required for OPERATOR");
 		}
 		Organization organization = organizationRepository.findByIdWithSchool(organizationId)
-			.orElseThrow(() -> new BusinessException(OrganizationErrorCode.NOT_FOUND));
+			.orElseThrow(() -> new BusinessException(OrganizationErrorCode.ORGANIZATION_NOT_FOUND));
 		if (!memberRepository.existsByOrganizationIdAndUserId(organizationId, userId)) {
 			throw new BusinessException(CommonErrorCode.FORBIDDEN).addContext("userId", userId);
 		}
