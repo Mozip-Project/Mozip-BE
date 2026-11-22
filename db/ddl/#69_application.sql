@@ -1,7 +1,8 @@
--- 007_#69_application.sql
+-- #69_application.sql
 -- 지원서 임시 저장/제출/조회를 위한 applications 보강, attachments 테이블 추가.
--- baseline(001_#36)이 develop에 먼저 들어가면서 applications/answers가 이미 있어, applications에
--- 없는 컬럼만 alter로 추가하고 answers는 그대로 씀 (원래 004번이었다가 baseline에 밀려 007로 재배치).
+-- baseline(#36)이 develop에 먼저 들어가면서 applications/answers가 이미 있어, applications에
+-- 없는 컬럼만 alter로 추가하고 answers는 그대로 씀 (처음엔 baseline과 번호가 겹치는 파일로
+-- 썼다가 충돌 때문에 alter 기반으로 다시 씀).
 -- dev는 ddl-auto: update라 컬럼이 먼저 생길 수 있어 add column/index는 if not exists로 씀
 
 alter table applications add column if not exists profile_snapshot text;

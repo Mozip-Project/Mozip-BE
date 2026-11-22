@@ -1,4 +1,4 @@
--- 003_#38_organization_profile.sql
+-- #38_organization_profile.sql
 -- 단체 프로필(#38): 로고, 한 줄 소개, 소개, 메일 컬럼과 키워드/활동 분야/링크 테이블 추가
 -- 키워드와 분야는 단체 안에서 중복 금지, 키워드 접두 검색용 varchar_pattern_ops index
 

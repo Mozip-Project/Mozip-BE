@@ -1,7 +1,8 @@
--- 004_#65_posting.sql
+-- #65_posting.sql
 -- 공고 작성/게시/조회를 위한 postings 보강, positions/questions 보강, posting_images와
--- interview_time_ranges 테이블 추가. baseline(001_#36)이 develop에 먼저 들어가면서 postings/positions/
--- questions가 이미 있어, 그 안에 없는 컬럼만 alter로 추가 (원래 001번이었다가 baseline에 밀려 004로 재배치).
+-- interview_time_ranges 테이블 추가. baseline(#36)이 develop에 먼저 들어가면서 postings/positions/
+-- questions가 이미 있어, 그 안에 없는 컬럼만 alter로 추가 (처음엔 baseline과 번호가 겹치는 파일로
+-- 썼다가 충돌 때문에 alter 기반으로 다시 씀).
 -- dev는 ddl-auto: update라 컬럼이 먼저 생길 수 있어 add column/index는 if not exists로 씀
 
 alter table postings add column if not exists source_posting_id bigint;
@@ -41,7 +42,7 @@ create index if not exists idx_postings_status_bumped_at on postings (status, bu
 
 alter table positions add column if not exists sort_order integer not null default 0;
 
--- baseline(001_#36)은 title을 varchar(255)로 만들었지만 현재 엔티티는 200 (validate는 길이를 비교하지 않지만 실제 제약은 맞춤)
+-- baseline(#36)은 title을 varchar(255)로 만들었지만 현재 엔티티는 200 (validate는 길이를 비교하지 않지만 실제 제약은 맞춤)
 alter table questions alter column title type varchar(200);
 alter table questions add column if not exists description varchar(500);
 -- TODO(B 서류 평가): 평가 화면 표에 쓸 짧은 제목, 아직 입력 경로 없음
