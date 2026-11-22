@@ -14,13 +14,10 @@ public interface UserRepository extends JpaRepository<User, Long> {
 
 	boolean existsByPhone(String phone);
 
-	// school, lastOrganization(과 그 school)까지 한 번에 로딩 (Query.me, Mutation.switchRole 응답 조립용,
-	// open-in-view=false라 서비스 메서드 끝나기 전에 미리 로딩해야 함)
+	// school까지 한 번에 로딩 (Query.me 응답 조립용, open-in-view=false라 서비스 메서드 끝나기 전에 미리 로딩해야 함)
 	@Query("""
 		SELECT u FROM User u
 		LEFT JOIN FETCH u.school
-		LEFT JOIN FETCH u.lastOrganization lo
-		LEFT JOIN FETCH lo.school
 		WHERE u.id = :id
 		""")
 	Optional<User> findByIdWithAssociations(@Param("id") Long id);

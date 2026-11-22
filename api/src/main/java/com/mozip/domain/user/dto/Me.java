@@ -9,7 +9,7 @@ import com.mozip.domain.user.entity.Authority;
 import com.mozip.domain.user.entity.Role;
 import com.mozip.domain.user.entity.UserStatus;
 
-// GraphQL Query.me, Mutation.switchRole이 반환하는 내 정보. User 타입과 별개로 두는 이유는
+// GraphQL Query.me가 반환하는 내 정보. User 타입과 별개로 두는 이유는
 // 소속 단체 목록, 알림 요약처럼 로그인한 본인에게만 필요한 필드를 섞지 않기 위함
 public record Me(
 	Long id,
@@ -18,7 +18,6 @@ public record Me(
 	Authority authority,
 	UserStatus status,
 	Role lastRole,
-	Organization lastOrganization,
 	School school,
 	boolean marketingAgreed,
 	LocalDateTime termsAgreedAt,

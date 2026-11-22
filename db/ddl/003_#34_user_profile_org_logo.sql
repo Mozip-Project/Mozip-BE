@@ -4,7 +4,6 @@
 
 alter table organizations add column if not exists logo_url varchar(500);
 
-alter table users add column if not exists last_organization_id bigint;
 alter table users add column if not exists profile_image_url varchar(500);
 alter table users add column if not exists department varchar(100);
 alter table users add column if not exists grade integer;
@@ -26,5 +25,4 @@ create table if not exists experiences (
     primary key (id)
 );
 
-alter table users add constraint fk_users_last_organization_id foreign key (last_organization_id) references organizations;
 alter table experiences add constraint fk_experiences_user_id foreign key (user_id) references users;

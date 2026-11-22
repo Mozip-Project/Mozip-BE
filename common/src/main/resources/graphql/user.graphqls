@@ -54,8 +54,6 @@ type User {
     authority: Authority!
     status: UserStatus!
     lastRole: Role!
-    "운영진 홈에서 마지막으로 고른 단체 (GNB 단체 전환)"
-    lastOrganization: Organization
     "학교 인증 승인 시 채움, null = 미인증 (공고 열람만 가능)"
     school: School
     profileImageUrl: String
@@ -123,8 +121,6 @@ type Me {
     authority: Authority!
     status: UserStatus!
     lastRole: Role!
-    "운영진 홈에서 마지막으로 고른 단체 (GNB 단체 전환)"
-    lastOrganization: Organization
     "학교 인증 승인 시 채움, null = 미인증 (공고 열람만 가능)"
     school: School
     marketingAgreed: Boolean!
@@ -150,9 +146,4 @@ type NotificationSettings {
 extend type Query {
     "로그인한 회원 정보 (지원자/운영진 화면 분기에 사용)"
     me: Me!
-}
-
-extend type Mutation {
-    "지원자 홈 / 운영진 홈 전환. OPERATOR로 전환할 때는 organizationId가 필요하고, 그 단체의 운영진인지 확인합니다."
-    switchRole(role: Role!, organizationId: ID): Me!
 }
