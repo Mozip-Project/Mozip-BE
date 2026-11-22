@@ -20,8 +20,8 @@ type Query {
     health: Health! @public
 }
 
-# 도메인 파일에서 extend type Mutation으로 필드를 추가하므로 베이스 타입만 선언 (결정 002)
-type Mutation {}
+# 필드는 도메인 파일에서 extend type Mutation으로 추가
+type Mutation
 
 type Health {
     status: String!

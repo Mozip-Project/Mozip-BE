@@ -36,14 +36,12 @@
 | `USER_001` | 409 | `DUPLICATE_PHONE` | 이미 가입된 휴대폰 번호 |
 | `USER_403` | 403 | `INELIGIBLE` | 지원서 제출 자격 미충족 (`submitApplication`에서 학교 인증 여부 확인, #69) |
 
-## 단체 (`OrganizationErrorCode`)
-
-B의 PR #40 전까지 #65(공고)가 필요한 코드 두 개만 임시로 먼저 둠. B가 단체 도메인을 구현하면 이 enum 전체를 이어받음
+## 단체 (`OrganizationErrorCode`, PR #40)
 
 | 코드 | HTTP | 상수 | 언제 |
 |---|---|---|---|
-| `ORG_402` | 402 | `SUBSCRIPTION_REQUIRED` | 이용권 없는 단체의 유료 기능 호출 (`publishPosting`에서 사용, #65) |
-| `ORG_404` | 404 | `ORGANIZATION_NOT_FOUND` | 단체 없음 (`OrganizationAccessChecker` 임시 구현, #65) |
+| `ORG_402` | 402 | `SUBSCRIPTION_REQUIRED` | 이용권 없는 단체의 유료 기능 호출 (A 이용권에서 사용, `publishPosting`에서도 사용, #65) |
+| `ORG_404` | 404 | `ORGANIZATION_NOT_FOUND` | 단체 없음. 심사 전이거나 반려된 단체를 소속이 아닌 사람이 상세 조회할 때도 같음 |
 
 ## 공고 (`PostingErrorCode`, #65)
 
