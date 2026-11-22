@@ -35,7 +35,7 @@ public class MemberService {
 	}
 
 	// 대표자만 내보낼 수 있고 대표자 본인은 내보낼 수 없음
-	// 행은 남기고 leftAt을 찍으며, 그 회원의 lastOrganization이 이 단체면 비움
+	// 행은 남기고 leftAt을 찍으며, 남은 소속이 없으면 그 회원의 lastRole을 APPLICANT로
 	@Transactional
 	public void removeMember(Long userId, Long memberId) {
 		Member member = memberRepository.findActiveWithOrganizationAndUserById(memberId)
@@ -52,7 +52,7 @@ public class MemberService {
 		member.leave(LocalDateTime.now());
 		// 방금 나간 소속은 빼고 셈
 		boolean stillOperator = memberRepository.existsByUserIdAndLeftAtIsNull(member.getUser().getId());
-		member.getUser().leaveOrganization(member.getOrganization(), stillOperator);
+		member.getUser().leaveOrganization(stillOperator);
 	}
 
 	private static BusinessException forbidden(Long organizationId, Long userId) {

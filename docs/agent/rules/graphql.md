@@ -21,7 +21,7 @@ extend type Query {
 - 로그인 없이 열 필드에만 `@public`을 붙인다. 하위 필드에는 붙이지 않는다
 - 컨트롤러에서 호출자는 `@AuthenticationPrincipal AuthUser authUser`로 받고 `authUser.userId()`를 쓴다
 - 단체 소속 같은 도메인 권한은 Security가 아니라 서비스에서 검사한다 (`OrganizationAccessChecker`). 거부는 `BusinessException(CommonErrorCode.FORBIDDEN)`
-- 운영진용 필드는 대상 단체를 `organizationId` 인자로 받고 요청마다 소속을 검사한다. 마지막으로 고른 단체는 `selectOrganization`으로 저장하고 `me.lastOrganization`으로 읽는다 (결정 008)
+- 운영진용 필드는 현재 단체를 `organizationId` 인자로 받고 요청마다 소속을 검사한다. 현재 단체 쿠키는 프론트가 관리하며 백엔드는 읽지 않는다 (결정 008)
 
 ## 컨트롤러
 

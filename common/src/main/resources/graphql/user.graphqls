@@ -45,8 +45,6 @@ type Me {
     name: String!
     "APPLICANT / OPERATOR, 다음 로그인 때 어느 홈으로 갈지"
     lastRole: Role!
-    "운영진 홈에서 마지막으로 고른 단체 (드롭다운의 현재 단체), 고른 적 없으면 null"
-    lastOrganization: Organization
     "소속 단체 목록 (드롭다운 항목), organization / role / team"
     memberships: [Member!]!
 }
