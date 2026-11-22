@@ -37,7 +37,8 @@ public class GlobalExceptionHandler extends ResponseEntityExceptionHandler {
 		} else {
 			log.warn("Business exception: code={}, context={}", errorCode.getCode(), e.getContext());
 		}
-		return toResponse(errorCode, e.getMessage());
+		return ResponseEntity.status(errorCode.getStatus())
+			.body(ApiResponse.failWithReason(errorCode.getCode(), e.getReason(), e.getMessage()));
 	}
 
 	// 서비스 계층의 @Validated 검증 실패
