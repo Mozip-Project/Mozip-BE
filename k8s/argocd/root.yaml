@@ -1,0 +1,24 @@
+# app of apps: k8s/argocd/*.yaml(Application 정의)도 ArgoCD가 Git에서 읽어 반영하게 함
+# 이 파일만 한 번 kubectl apply 하면 이후 Application 경로나 네임스페이스 변경은 머지만으로 적용됨 (#49)
+apiVersion: argoproj.io/v1alpha1
+kind: Application
+metadata:
+  name: root
+  namespace: argocd
+spec:
+  project: default
+
+  source:
+    repoURL: https://github.com/Mozip-Project/Mozip-BE.git
+    targetRevision: develop
+    path: k8s/argocd
+
+  destination:
+    server: https://kubernetes.default.svc
+    namespace: argocd
+
+  syncPolicy:
+    automated:
+      # Application 파일을 지워도 운영 중인 앱은 자동 삭제하지 않음 (prune은 사람이 판단)
+      prune: false
+      selfHeal: true
