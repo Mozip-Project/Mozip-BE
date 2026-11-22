@@ -173,14 +173,33 @@ input CreateOrganizationInput {
     proofFileUrl: String
 }
 
+"단체 프로필 수정 입력. 단체명은 바꿀 수 없음 (관리자 문의). 키워드/분야/링크는 보낸 목록으로 전체 교체"
+input UpdateOrganizationInput {
+    "업로드 URL 발급으로 받은 fileUrl, null이나 빈 문자열이면 기본 이미지로 초기화. http/https 주소만 받음"
+    logoUrl: String
+    "한 줄 소개, 최대 40자"
+    tagline: String!
+    description: String
+    "단체 메일, 빈 문자열은 null로 저장"
+    email: String
+    "학생회가 아니면 1개 이상 (reason FIELDS_REQUIRED), 학생회는 빈 목록 (reason FIELDS_NOT_ALLOWED)"
+    fields: [OrganizationField!]!
+    "검색 키워드 1~10개, 중복은 하나로 합침"
+    keywords: [String!]!
+    "SNS/웹사이트 주소 1~10개. 스킴이 없으면 https://를 붙이고 type은 호스트로 추정. 호스트가 없거나 http/https가 아니거나 https://를 붙여 500자를 넘으면 reason LINK_URL_INVALID"
+    links: [String!]!
+}
+
 extend type Query {
-    "내가 운영진으로 속한 단체 (운영진 홈의 단체 전환 메뉴)"
-    myOrganizations: [Organization!]!
     "단체 상세, 로그인 없이 조회 가능. 없거나 심사 승인 전인데 소속 운영진이 아니면 ORG_404"
     organization(id: ID!): Organization! @public
+    "키워드 자동완성, 심사 승인된 단체 키워드 중 접두 일치 상위 10개 (많이 쓰인 순). 빈 접두어거나 20자를 넘으면 빈 목록"
+    keywordSuggestions(prefix: String!): [String!]!
 }
 
 extend type Mutation {
     "단체를 만들고 호출자를 대표자로 등록, 심사 상태는 PENDING"
     createOrganization(input: CreateOrganizationInput!): Organization!
+    "단체 프로필 수정, 그 단체의 운영진만 가능 (아니면 COMMON_403). 없으면 ORG_404"
+    updateOrganization(id: ID!, input: UpdateOrganizationInput!): Organization!
 }
