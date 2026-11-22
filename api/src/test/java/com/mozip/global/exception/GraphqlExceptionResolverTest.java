@@ -19,6 +19,7 @@ import org.springframework.graphql.test.tester.HttpGraphQlTester;
 import org.springframework.stereotype.Controller;
 
 import com.mozip.TestcontainersConfiguration;
+import com.mozip.domain.user.exception.UserErrorCode;
 import com.mozip.global.logging.TraceIdFilter;
 
 import jakarta.validation.constraints.NotBlank;
@@ -49,10 +50,37 @@ class GraphqlExceptionResolverTest {
 				assertThat(errors.getFirst().getExtensions())
 					.containsEntry("code", "COMMON_404")
 					.containsEntry("traceId", TRACE_ID)
+					.doesNotContainKey("reason")
 					.doesNotContainKey("context");
 			});
 
 		assertThat(output).contains("WARN", "[" + TRACE_ID + "]", "code=COMMON_404, context={applicationId=9}");
+	}
+
+	@Test
+	@DisplayName("reason이 있는 BusinessException은 extensions에 reason을 enum 이름으로 담는다")
+	void resolveBusinessExceptionWithReason() {
+		withTraceId().document("{ testReason }")
+			.execute()
+			.errors()
+			.satisfy(errors -> {
+				assertThat(errors.getFirst().getErrorType()).isEqualTo(ErrorType.FORBIDDEN);
+				assertThat(errors.getFirst().getExtensions())
+					.containsEntry("code", "COMMON_403")
+					.containsEntry("reason", "NOT_OPERATOR");
+			});
+	}
+
+	@Test
+	@DisplayName("ErrorType에 없는 4xx(409 등)는 INTERNAL_ERROR가 아니라 BAD_REQUEST로 바꾸고 code는 그대로 둔다")
+	void resolveOtherClientError() {
+		withTraceId().document("{ testConflict }")
+			.execute()
+			.errors()
+			.satisfy(errors -> {
+				assertThat(errors.getFirst().getErrorType()).isEqualTo(ErrorType.BAD_REQUEST);
+				assertThat(errors.getFirst().getExtensions()).containsEntry("code", "USER_001");
+			});
 	}
 
 	@Test
@@ -86,7 +114,7 @@ class GraphqlExceptionResolverTest {
 
 	@Test
 	@DisplayName("400/401/403/404가 아닌 4xx(413 등)도 errorType은 BAD_REQUEST로 바꾸고, code로 구분한다")
-	void resolveOtherClientError() {
+	void resolveOtherClientErrorByCode() {
 		withTraceId().document("{ testOtherClientError }")
 			.execute()
 			.errors()
@@ -153,6 +181,21 @@ class GraphqlExceptionResolverTest {
 			throw new IllegalStateException("내부 구현 정보");
 		}
 
+		@QueryMapping
+		public String testReason() {
+			throw new BusinessException(CommonErrorCode.FORBIDDEN, TestReason.NOT_OPERATOR);
+		}
+
+		// ErrorType에 없는 4xx (409)
+		@QueryMapping
+		public String testConflict() {
+			throw new BusinessException(UserErrorCode.DUPLICATE_PHONE);
+		}
+
+	}
+
+	enum TestReason {
+		NOT_OPERATOR
 	}
 
 }

@@ -35,6 +35,11 @@ public class Organization extends BaseEntity {
 	@Column(nullable = false, length = 30)
 	private OrganizationType type;
 
+	// 학생회가 아니면 null
+	@Enumerated(EnumType.STRING)
+	@Column(length = 30)
+	private CouncilLevel councilLevel;
+
 	@Enumerated(EnumType.STRING)
 	@Column(nullable = false, length = 30)
 	private OrganizationScope scope;
@@ -47,27 +52,65 @@ public class Organization extends BaseEntity {
 	@Column(nullable = false)
 	private boolean noTeam;
 
+	// 등록 심사용 증빙 (링크 또는 업로드 파일)
+	@Column(length = 500)
+	private String proofLink;
+
+	@Column(length = 500)
+	private String proofFileUrl;
+
 	@Enumerated(EnumType.STRING)
 	@Column(nullable = false, length = 30)
 	private ReviewStatus reviewStatus;
 
-	private Organization(String name, OrganizationType type, OrganizationScope scope, School school,
-		boolean noTeam) {
+	// 프로필, 등록 직후에는 전부 null
+	@Column(length = 500)
+	private String logoUrl;
+
+	@Column(length = 40)
+	private String tagline;
+
+	@Column(columnDefinition = "TEXT")
+	private String description;
+
+	@Column(length = 255)
+	private String email;
+
+	private Organization(String name, OrganizationType type, CouncilLevel councilLevel, OrganizationScope scope,
+		School school, boolean noTeam, String proofLink, String proofFileUrl) {
 		this.name = name;
 		this.type = type;
+		this.councilLevel = councilLevel;
 		this.scope = scope;
 		this.school = school;
 		this.noTeam = noTeam;
+		this.proofLink = proofLink;
+		this.proofFileUrl = proofFileUrl;
 		this.reviewStatus = ReviewStatus.PENDING;
 	}
 
-	// 연합 단체에 학교 지정은 거부
-	public static Organization create(String name, OrganizationType type, OrganizationScope scope, School school,
-		boolean noTeam) {
+	// 학생회는 세부 구분 필수
+	public static Organization create(String name, OrganizationType type, CouncilLevel councilLevel,
+		OrganizationScope scope, School school, boolean noTeam, String proofLink, String proofFileUrl) {
+		if ((type == OrganizationType.STUDENT_COUNCIL) != (councilLevel != null)) {
+			throw new IllegalArgumentException("학생회 세부 구분은 학생회에만, 반드시 지정해야 합니다.");
+		}
 		if (scope == OrganizationScope.UNION && school != null) {
 			throw new IllegalArgumentException("연합 단체에는 학교를 지정할 수 없습니다.");
 		}
-		return new Organization(name, type, scope, school, noTeam);
+		return new Organization(name, type, councilLevel, scope, school, noTeam, proofLink, proofFileUrl);
+	}
+
+	// logoUrl이 null이면 기본 이미지 (키워드, 분야, 링크는 OrganizationService에서 교체)
+	public void updateProfile(String logoUrl, String tagline, String description, String email) {
+		this.logoUrl = logoUrl;
+		this.tagline = tagline;
+		this.description = description;
+		this.email = email;
+	}
+
+	public boolean isStudentCouncil() {
+		return type == OrganizationType.STUDENT_COUNCIL;
 	}
 
 }

@@ -58,7 +58,7 @@ class ReportServiceTest {
 	@BeforeEach
 	void setUp() {
 		organization = organizationRepository.save(
-			Organization.create("테스트 단체", OrganizationType.CLUB, OrganizationScope.CAMPUS, null, false));
+			Organization.create("테스트 단체", OrganizationType.CLUB, null, OrganizationScope.CAMPUS, null, false, null, null));
 		user = userRepository.save(User.create("01066660001", "encoded", "지원자", false, LocalDateTime.now()));
 		// 이 브랜치에는 아직 공고 상태 전환 API가 없어(다른 이슈 몫) 테스트에서 직접 RECRUITING으로 바꿔서
 		// "신고 가능한, 게시된 공고" 전제를 맞춤. DRAFT 거부 자체는 rejectsReportingDraftPosting에서 따로 확인

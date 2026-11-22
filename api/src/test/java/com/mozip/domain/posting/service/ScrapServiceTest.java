@@ -52,7 +52,7 @@ class ScrapServiceTest {
 	@BeforeEach
 	void setUp() {
 		organization = organizationRepository.save(
-			Organization.create("테스트 단체", OrganizationType.CLUB, OrganizationScope.CAMPUS, null, false));
+			Organization.create("테스트 단체", OrganizationType.CLUB, null, OrganizationScope.CAMPUS, null, false, null, null));
 		user = userRepository.save(User.create("01055550001", "encoded", "지원자", false, LocalDateTime.now()));
 	}
 
