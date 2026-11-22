@@ -10,7 +10,7 @@ description: Mozip-BE PR 작성 절차. develop 대상, 템플릿 체크리스�
 ## 올리기 전 확인
 
 - `./gradlew build`가 통과했는지. 안 돌렸으면 돌린다
-- 엔티티를 바꿨으면 같은 브랜치에 `db/ddl/NNN_#이슈번호_설명.sql`이 있는지. 없으면 PR 전에 추가한다
+- 엔티티를 바꿨으면 같은 브랜치에 `db/ddl/이슈번호_설명.sql`이 있는지. 없으면 PR 전에 추가한다
 - 에러 코드를 추가했으면 `docs/agent/references/error-codes.md`가 갱신됐는지
 - 규칙을 바꿨으면 `docs/agent/rules/`가 갱신됐는지
 - 브랜치가 이슈 자동 생성 브랜치(`타입/#번호-이름`)인지. 앞 PR 위에 쌓았으면 그 PR이 머지된 뒤 올린다

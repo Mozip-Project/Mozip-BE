@@ -7,9 +7,12 @@ import java.util.stream.Collectors;
 
 import org.springframework.graphql.data.method.annotation.BatchMapping;
 import org.springframework.graphql.data.method.annotation.QueryMapping;
+import org.springframework.graphql.data.method.annotation.SchemaMapping;
 import org.springframework.security.core.annotation.AuthenticationPrincipal;
 import org.springframework.stereotype.Controller;
 
+import com.mozip.domain.organization.entity.Member;
+import com.mozip.domain.organization.repository.MemberRepository;
 import com.mozip.domain.user.dto.Me;
 import com.mozip.domain.user.entity.Experience;
 import com.mozip.domain.user.entity.User;
@@ -25,10 +28,17 @@ public class UserGraphqlController {
 
 	private final UserService userService;
 	private final ExperienceRepository experienceRepository;
+	private final MemberRepository memberRepository;
 
 	@QueryMapping
 	public Me me(@AuthenticationPrincipal AuthUser authUser) {
 		return userService.me(authUser.userId());
+	}
+
+	// 소속 단체 드롭다운 항목, 단체와 팀을 함께 조회
+	@SchemaMapping(typeName = "Me")
+	public List<Member> memberships(Me me) {
+		return memberRepository.findAllWithOrganizationAndTeamByUserId(me.id());
 	}
 
 	// User를 여러 명 조회할 때(예: organizations.members.user.experiences) N+1을 막기 위한 배치 조회

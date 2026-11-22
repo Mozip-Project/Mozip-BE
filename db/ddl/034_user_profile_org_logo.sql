@@ -1,4 +1,4 @@
--- 003_#34_user_profile_org_logo.sql
+-- 034_user_profile_org_logo.sql
 -- 단체 로고(presigned URL), 회원 프로필/알림 컬럼과 활동경험(experiences) 테이블 추가
 -- 컬럼은 dev/prod에 이미 있을 수 있어 if not exists로 추가
 

@@ -127,6 +127,8 @@ type Me {
     termsAgreedAt: DateTime!
     "운영진으로 소속된 단체 목록 (단체 전환 선택 UI에 사용)"
     organizations: [Organization!]!
+    "소속 단체 목록 (드롭다운 항목), organization / role / team"
+    memberships: [Member!]!
     "알림 기능 구현 전까지 기본값 반환"
     notificationSettings: NotificationSettings!
     "알림 기능 구현 전까지 0 반환"

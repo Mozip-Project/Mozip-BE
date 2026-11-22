@@ -46,7 +46,7 @@ class AuthIntegrationTest {
 	private StringRedisTemplate redisTemplate;
 
 	@Test
-	@DisplayName("회원가입 후 로그인하면 토큰을 body가 아닌 HttpOnly 쿠키로 발급한다")
+	@DisplayName("회원가입 후 로그인하면 토큰을 body가 아닌 HttpOnly 쿠키로 발급하고, body에는 만료까지 남은 초를 준다")
 	void signupAndLogin() throws Exception {
 		String phone = randomPhone();
 
@@ -63,6 +63,7 @@ class AuthIntegrationTest {
 			.andExpect(status().isOk())
 			.andExpect(jsonPath("$.data.name").value("김모집"))
 			.andExpect(jsonPath("$.data.lastRole").value("APPLICANT"))
+			.andExpect(jsonPath("$.data.accessTokenExpiresIn").value(1800))
 			.andExpect(jsonPath("$.data.accessToken").doesNotExist())
 			.andExpect(cookie().httpOnly(AuthCookieManager.ACCESS_TOKEN_COOKIE, true))
 			.andExpect(cookie().path(AuthCookieManager.ACCESS_TOKEN_COOKIE, "/"))
@@ -133,6 +134,7 @@ class AuthIntegrationTest {
 
 		MockHttpServletResponse reissued = mockMvc.perform(post("/auth/reissue").cookie(oldRefresh))
 			.andExpect(status().isOk())
+			.andExpect(jsonPath("$.data.accessTokenExpiresIn").value(1800))
 			.andExpect(cookie().httpOnly(AuthCookieManager.ACCESS_TOKEN_COOKIE, true))
 			.andReturn().getResponse();
 		assertThat(reissued.getCookie(AuthCookieManager.REFRESH_TOKEN_COOKIE).getValue())
