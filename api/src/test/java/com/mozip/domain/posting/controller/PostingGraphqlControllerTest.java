@@ -69,7 +69,7 @@ class PostingGraphqlControllerTest {
 		User operator = userRepository.save(User.create(phone, "encoded", "운영진", false, LocalDateTime.now()));
 		Organization organization = organizationRepository.save(
 			Organization.create("N+1 테스트 단체 " + ThreadLocalRandom.current().nextInt(1_000_000), OrganizationType.CLUB,
-				OrganizationScope.CAMPUS, null, true));
+				null, OrganizationScope.CAMPUS, null, true, null, null));
 		memberRepository.save(Member.create(organization, operator, null, MemberRole.REPRESENTATIVE));
 		Team team = teamRepository.save(Team.create(organization, "백엔드팀"));
 

@@ -62,7 +62,8 @@ class PostingServicePlanRequiredTest {
 	void setUp() {
 		operator = userRepository.save(User.create("01033340001", "encoded", "운영진", false, LocalDateTime.now()));
 		organization = organizationRepository.save(
-			Organization.create("테스트 단체", OrganizationType.CLUB, OrganizationScope.CAMPUS, null, true));
+			Organization.create("테스트 단체", OrganizationType.CLUB, null, OrganizationScope.CAMPUS, null, true, null,
+				null));
 		memberRepository.save(Member.create(organization, operator, null, MemberRole.REPRESENTATIVE));
 	}
 
