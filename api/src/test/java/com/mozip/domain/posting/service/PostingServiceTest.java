@@ -682,7 +682,7 @@ class PostingServiceTest {
 			.isInstanceOf(BusinessException.class)
 			.satisfies(e -> {
 				assertThat(((BusinessException)e).getErrorCode()).isEqualTo(PostingErrorCode.CONFLICT);
-				assertThat(((BusinessException)e).getReason()).isEqualTo(PostingConflictReason.INVALID_STATUS_TRANSITION);
+				assertThat(((BusinessException)e).getReason()).isEqualTo(PostingConflictReason.INVALID_STATUS_TRANSITION.name());
 			});
 	}
 
@@ -697,7 +697,7 @@ class PostingServiceTest {
 			.isInstanceOf(BusinessException.class)
 			.satisfies(e -> {
 				assertThat(((BusinessException)e).getErrorCode()).isEqualTo(PostingErrorCode.CONFLICT);
-				assertThat(((BusinessException)e).getReason()).isEqualTo(PostingConflictReason.INVALID_STATUS_TRANSITION);
+				assertThat(((BusinessException)e).getReason()).isEqualTo(PostingConflictReason.INVALID_STATUS_TRANSITION.name());
 			});
 	}
 
@@ -737,7 +737,7 @@ class PostingServiceTest {
 			.isInstanceOf(BusinessException.class)
 			.satisfies(e -> {
 				assertThat(((BusinessException)e).getErrorCode()).isEqualTo(PostingErrorCode.CONFLICT);
-				assertThat(((BusinessException)e).getReason()).isEqualTo(PostingConflictReason.NOT_DRAFT);
+				assertThat(((BusinessException)e).getReason()).isEqualTo(PostingConflictReason.NOT_DRAFT.name());
 			});
 	}
 
