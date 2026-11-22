@@ -42,7 +42,6 @@ import com.mozip.domain.organization.repository.OrganizationKeywordRepository;
 import com.mozip.domain.organization.repository.OrganizationLinkRepository;
 import com.mozip.domain.school.entity.School;
 import com.mozip.domain.school.repository.SchoolRepository;
-import com.mozip.domain.user.entity.Role;
 import com.mozip.domain.user.entity.User;
 import com.mozip.domain.user.repository.UserRepository;
 import com.mozip.global.exception.BusinessException;
@@ -142,26 +141,6 @@ class OrganizationServiceTest {
 				assertThat(e.getReason()).isEqualTo(OrganizationInputReason.SCHOOL_NOT_FOUND.name());
 				assertThat(e.getContext()).containsEntry("schoolId", Long.MAX_VALUE);
 			});
-	}
-
-	@Test
-	@DisplayName("소속 단체를 고르면 lastOrganization과 lastRole(OPERATOR)이 바뀌고, 소속이 아니면 COMMON_403이다")
-	void selectOrganization() {
-		Organization organization = organizationService.createOrganization(user.getId(),
-			SeedFixtures.createOrganizationInput());
-
-		User selected = organizationService.selectOrganization(user.getId(), organization.getId());
-
-		assertThat(selected.getLastOrganization().getId()).isEqualTo(organization.getId());
-		assertThat(selected.getLastRole()).isEqualTo(Role.OPERATOR);
-		assertThatThrownBy(() -> organizationService.selectOrganization(other.getId(), organization.getId()))
-			.isInstanceOfSatisfying(BusinessException.class, e -> {
-				assertThat(e.getErrorCode()).isEqualTo(CommonErrorCode.FORBIDDEN);
-				assertThat(e.getContext()).containsEntry("organizationId", organization.getId());
-			});
-		assertThatThrownBy(() -> organizationService.selectOrganization(user.getId(), Long.MAX_VALUE))
-			.isInstanceOfSatisfying(BusinessException.class,
-				e -> assertThat(e.getErrorCode()).isEqualTo(OrganizationErrorCode.ORGANIZATION_NOT_FOUND));
 	}
 
 	@Test

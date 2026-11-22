@@ -21,8 +21,4 @@ public interface UserRepository extends JpaRepository<User, Long> {
 
 	boolean existsByPhone(String phone);
 
-	// lastOrganization과 그 학교를 함께 조회
-	@Query("select u from User u left join fetch u.lastOrganization o left join fetch o.school where u.id = :id")
-	Optional<User> findWithLastOrganizationById(@Param("id") Long id);
-
 }

@@ -24,6 +24,7 @@ import com.mozip.domain.organization.exception.MemberErrorCode;
 import com.mozip.domain.organization.exception.MemberReason;
 import com.mozip.domain.organization.exception.OrganizationErrorCode;
 import com.mozip.domain.organization.repository.MemberRepository;
+import com.mozip.domain.user.entity.Authority;
 import com.mozip.domain.user.entity.Role;
 import com.mozip.domain.user.entity.User;
 import com.mozip.domain.user.repository.UserRepository;
@@ -105,30 +106,27 @@ class MemberServiceTest {
 	}
 
 	@Test
-	@DisplayName("대표자가 운영진을 내보내면 leftAt이 찍히고 소속 검사에서 빠지며 lastOrganization이 비워진다")
+	@DisplayName("대표자가 운영진을 내보내면 leftAt이 찍히고 소속 검사에서 빠지며 lastRole이 APPLICANT가 된다")
 	void removeMember() {
-		organizationService.selectOrganization(operator.getId(), organization.getId());
-
 		memberService.removeMember(representative.getId(), operatorMember.getId());
 
 		assertThat(operatorMember.getLeftAt()).isNotNull();
 		assertThat(accessChecker.isOperatorOf(operator.getId(), organization.getId())).isFalse();
 		assertThat(memberRepository.findAllWithOrganizationAndTeamByUserId(operator.getId())).isEmpty();
-		assertThat(operator.getLastOrganization()).isNull();
 		assertThat(operator.getLastRole()).isEqualTo(Role.APPLICANT);
 	}
 
 	@Test
-	@DisplayName("내보낸 회원의 lastOrganization이 다른 단체면 그대로 둔다")
-	void removeMemberKeepsOtherLastOrganization() {
-		Organization other = organizationService.createOrganization(operator.getId(),
-			SeedFixtures.createOrganizationInput());
-		organizationService.selectOrganization(operator.getId(), other.getId());
+	@DisplayName("내보낸 회원에게 다른 단체 소속이 남아 있으면 lastRole을 그대로 둔다")
+	void removeMemberKeepsLastRoleWhenStillOperator() {
+		User dual = userRepository.save(User.of("01099990025", "encoded", "두 단체 운영진", Authority.USER, Role.OPERATOR,
+			false, LocalDateTime.now()));
+		Member dualMember = memberRepository.save(Member.create(organization, dual, null, MemberRole.OPERATOR));
+		organizationService.createOrganization(dual.getId(), SeedFixtures.createOrganizationInput());
 
-		memberService.removeMember(representative.getId(), operatorMember.getId());
+		memberService.removeMember(representative.getId(), dualMember.getId());
 
-		assertThat(operator.getLastOrganization().getId()).isEqualTo(other.getId());
-		assertThat(operator.getLastRole()).isEqualTo(Role.OPERATOR);
+		assertThat(dual.getLastRole()).isEqualTo(Role.OPERATOR);
 	}
 
 	@Test

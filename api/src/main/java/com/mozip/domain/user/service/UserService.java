@@ -19,7 +19,7 @@ public class UserService {
 
 	// 회원이 없으면 404
 	public User getMe(Long userId) {
-		return userRepository.findWithLastOrganizationById(userId)
+		return userRepository.findById(userId)
 			.orElseThrow(() -> new BusinessException(CommonErrorCode.NOT_FOUND).addContext("userId", userId));
 	}
 
