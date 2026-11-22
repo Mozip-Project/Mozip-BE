@@ -30,18 +30,19 @@ public class FileService {
 	public PresignedUrlResponse issuePresignedUrl(PresignedUrlRequest request) {
 		request.purpose().validate(request.contentType(), request.size());
 
-		String fileKey = buildFileKey(request.purpose(), request.fileName());
-		String uploadUrl = presignPut(fileKey, request.contentType());
+		String fileKey = buildFileKey(request.purpose(), request.contentType());
+		String uploadUrl = presignPut(fileKey, request.contentType(), request.size());
 		String fileUrl = s3Properties.cdnDomain() + "/" + fileKey;
 
 		return new PresignedUrlResponse(uploadUrl, fileKey, fileUrl);
 	}
 
-	private String presignPut(String fileKey, String contentType) {
+	private String presignPut(String fileKey, String contentType, long contentLength) {
 		PutObjectRequest putObjectRequest = PutObjectRequest.builder()
 			.bucket(s3Properties.bucket())
 			.key(fileKey)
 			.contentType(contentType)
+			.contentLength(contentLength)
 			.build();
 
 		PutObjectPresignRequest presignRequest = PutObjectPresignRequest.builder()
@@ -52,14 +53,10 @@ public class FileService {
 		return s3Presigner.presignPutObject(presignRequest).url().toString();
 	}
 
-	private String buildFileKey(FilePurpose purpose, String fileName) {
+	private String buildFileKey(FilePurpose purpose, String contentType) {
 		String datePath = LocalDate.now().format(DATE_PATH);
-		return "%s/%s/%s%s".formatted(purpose.keyPrefix(), datePath, UUID.randomUUID(), extensionOf(fileName));
-	}
-
-	private String extensionOf(String fileName) {
-		int dotIndex = fileName.lastIndexOf('.');
-		return dotIndex >= 0 ? fileName.substring(dotIndex) : "";
+		return "%s/%s/%s%s".formatted(purpose.keyPrefix(), datePath, UUID.randomUUID(),
+			purpose.extensionFor(contentType));
 	}
 
 }

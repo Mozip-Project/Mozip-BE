@@ -4,6 +4,7 @@ import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.Mockito.mock;
+import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 
 import java.net.URI;
@@ -11,6 +12,7 @@ import java.time.Duration;
 
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
+import org.mockito.ArgumentCaptor;
 
 import com.mozip.domain.file.dto.FilePurpose;
 import com.mozip.domain.file.dto.PresignedUrlRequest;
@@ -68,6 +70,39 @@ class FileServiceTest {
 		assertThat(response.uploadUrl()).isEqualTo("https://s3.example.com/presigned");
 		assertThat(response.fileKey()).startsWith("posting-image/").endsWith(".png");
 		assertThat(response.fileUrl()).isEqualTo("https://cdn.mozip.kr/" + response.fileKey());
+	}
+
+	@Test
+	@DisplayName("신고한 size가 서명의 contentLength로 들어가 다른 크기의 업로드를 S3가 거부하게 만든다")
+	void signsWithReportedContentLength() throws Exception {
+		PresignedPutObjectRequest presigned = mock(PresignedPutObjectRequest.class);
+		when(presigned.url()).thenReturn(URI.create("https://s3.example.com/presigned").toURL());
+		ArgumentCaptor<PutObjectPresignRequest> captor = ArgumentCaptor.forClass(PutObjectPresignRequest.class);
+		when(s3Presigner.presignPutObject(captor.capture())).thenReturn(presigned);
+
+		PresignedUrlRequest request = new PresignedUrlRequest(FilePurpose.POSTING_IMAGE, "poster.png", "image/png",
+			1000L);
+
+		fileService.issuePresignedUrl(request);
+
+		verify(s3Presigner).presignPutObject(any(PutObjectPresignRequest.class));
+		assertThat(captor.getValue().putObjectRequest().contentLength()).isEqualTo(1000L);
+	}
+
+	@Test
+	@DisplayName("fileName의 확장자가 contentType과 달라도 fileKey는 contentType이 정한 확장자로 끝난다")
+	void fileKeyExtensionComesFromContentTypeNotFileName() throws Exception {
+		PresignedPutObjectRequest presigned = mock(PresignedPutObjectRequest.class);
+		when(presigned.url()).thenReturn(URI.create("https://s3.example.com/presigned").toURL());
+		when(s3Presigner.presignPutObject(any(PutObjectPresignRequest.class))).thenReturn(presigned);
+
+		PresignedUrlRequest request = new PresignedUrlRequest(FilePurpose.POSTING_IMAGE,
+			"malicious.html/../../etc", "image/png", 1000L);
+
+		PresignedUrlResponse response = fileService.issuePresignedUrl(request);
+
+		assertThat(response.fileKey()).startsWith("posting-image/").endsWith(".png");
+		assertThat(response.fileKey()).doesNotContain("..", "etc", "html");
 	}
 
 }
