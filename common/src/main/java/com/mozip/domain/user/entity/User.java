@@ -1,8 +1,6 @@
 package com.mozip.domain.user.entity;
 
 import java.time.LocalDateTime;
-import java.util.ArrayList;
-import java.util.List;
 
 import com.mozip.domain.organization.entity.Organization;
 import com.mozip.domain.school.entity.School;
@@ -18,7 +16,6 @@ import jakarta.persistence.GenerationType;
 import jakarta.persistence.Id;
 import jakarta.persistence.JoinColumn;
 import jakarta.persistence.ManyToOne;
-import jakarta.persistence.OneToMany;
 import jakarta.persistence.Table;
 import lombok.AccessLevel;
 import lombok.Getter;
@@ -95,13 +92,6 @@ public class User extends BaseEntity {
 
 	@Column(nullable = false)
 	private boolean notifyOperator;
-
-	// TODO: 지금은 엔티티 getter를 그대로 GraphQL property fetcher로 쓰고 있어, 회원을 여러 명 조회해서
-	// 각각 experiences를 요청하면(예: organizations.members.user.experiences) N+1이 발생함.
-	// Organization.members에 적용한 것처럼 @BatchMapping(typeName = "User", field = "experiences")로
-	// ExperienceRepository.findByUserIdIn(...) 배치 조회를 나중에 추가해야 함
-	@OneToMany(mappedBy = "user", fetch = FetchType.LAZY)
-	private List<Experience> experiences = new ArrayList<>();
 
 	private User(String phone, String encodedPassword, String name, Authority authority, Role lastRole,
 		boolean marketingAgreed, LocalDateTime termsAgreedAt) {
