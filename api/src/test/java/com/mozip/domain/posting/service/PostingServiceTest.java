@@ -52,6 +52,7 @@ import com.mozip.domain.posting.repository.PostingImageRepository;
 import com.mozip.domain.posting.repository.PostingRepository;
 import com.mozip.domain.posting.repository.QuestionRepository;
 import com.mozip.domain.school.entity.School;
+import com.mozip.global.config.graphql.LocalDateTimeScalar;
 import com.mozip.domain.school.repository.SchoolRepository;
 import com.mozip.domain.user.entity.User;
 import com.mozip.domain.user.repository.UserRepository;
@@ -419,10 +420,12 @@ class PostingServiceTest {
 	@Test
 	@DisplayName("postings는 closingSoon 필터와 CLOSING_SOON 정렬이 마감 임박 순으로 동작한다")
 	void filtersAndSortsByClosingSoon() {
+		// closingSoon은 서울 시각 기준으로 비교하므로, 테스트 기준 시각도 JVM 기본 시간대와 무관하게 서울로 맞춤
+		LocalDateTime seoulNow = LocalDateTime.now(LocalDateTimeScalar.ZONE);
 		postingService.publish(operator.getId(),
-			publishablePosting("마감 임박", LocalDateTime.now().plusHours(1)).getId());
+			publishablePosting("마감 임박", seoulNow.plusHours(1)).getId());
 		postingService.publish(operator.getId(),
-			publishablePosting("마감 여유", LocalDateTime.now().plusDays(10)).getId());
+			publishablePosting("마감 여유", seoulNow.plusDays(10)).getId());
 
 		PostingPage closingSoonOnly = postingService.findList(new PostingFilter(null, null, null, null, true),
 			PostingSort.LATEST, 0, 10);
