@@ -54,6 +54,7 @@ import com.mozip.domain.school.entity.School;
 import com.mozip.domain.school.repository.SchoolRepository;
 import com.mozip.domain.user.entity.User;
 import com.mozip.domain.user.repository.UserRepository;
+import com.mozip.global.common.response.FieldErrorResponse;
 import com.mozip.global.exception.BusinessException;
 import com.mozip.global.exception.CommonErrorCode;
 
@@ -278,6 +279,46 @@ class ApplicationServiceTest {
 			.isInstanceOf(BusinessException.class)
 			.extracting(e -> ((BusinessException)e).getErrorCode())
 			.isEqualTo(ApplicationErrorCode.INVALID_INPUT);
+	}
+
+	@Test
+	@DisplayName("면접 공고인데 availableTimes 없이 제출하면 APPLICATION_400을 던지고 fieldErrors에 availableTimes가 담긴다")
+	void rejectsSubmitWithoutAvailableTimesWhenPostingHasInterview() {
+		LocalDate date = LocalDate.now().plusDays(10);
+		Posting posting = recruitingPostingWithInterview(date, LocalTime.of(10, 0), LocalTime.of(11, 0));
+		Position position = onlyPosition(posting);
+		Long questionId = onlyQuestionId(posting);
+		applicant.verifySchool(school);
+		userRepository.save(applicant);
+		Application application = applicationService.saveDraft(applicant.getId(), posting.getId(),
+			new ApplicationInput(position.getId(), List.of(new AnswerInput(questionId, "답변", null)), null));
+
+		assertThatThrownBy(() -> applicationService.submit(applicant.getId(), application.getId()))
+			.isInstanceOf(BusinessException.class)
+			.satisfies(e -> {
+				BusinessException businessException = (BusinessException)e;
+				assertThat(businessException.getErrorCode()).isEqualTo(ApplicationErrorCode.INVALID_INPUT);
+				assertThat(businessException.getFieldErrors()).extracting(FieldErrorResponse::field)
+					.contains("availableTimes");
+			});
+	}
+
+	@Test
+	@DisplayName("면접 공고에서 열려 있는 시간을 고르고 제출하면 성공한다")
+	void submitsSuccessfullyWithAvailableTimesWhenPostingHasInterview() {
+		LocalDate date = LocalDate.now().plusDays(10);
+		Posting posting = recruitingPostingWithInterview(date, LocalTime.of(10, 0), LocalTime.of(11, 0));
+		Position position = onlyPosition(posting);
+		Long questionId = onlyQuestionId(posting);
+		applicant.verifySchool(school);
+		userRepository.save(applicant);
+		LocalDateTime validSlot = date.atTime(10, 0);
+		Application application = applicationService.saveDraft(applicant.getId(), posting.getId(),
+			new ApplicationInput(position.getId(), List.of(new AnswerInput(questionId, "답변", null)), List.of(validSlot)));
+
+		Application submitted = applicationService.submit(applicant.getId(), application.getId());
+
+		assertThat(submitted.getStatus()).isEqualTo(ApplicationStatus.SUBMITTED);
 	}
 
 	@Test

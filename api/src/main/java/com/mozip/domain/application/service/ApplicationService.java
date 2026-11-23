@@ -248,6 +248,10 @@ public class ApplicationService {
 			int attachmentCount = answer == null ? 0 : attachmentCountByAnswerId.getOrDefault(answer.getId(), 0);
 			validateAnswer(question, answer, attachmentCount, fieldErrors);
 		}
+		// 면접 공고인데 saveApplicationDraft에서 availableTimes를 한 번도 안 골랐으면 제출 시점에 막음
+		if (posting.isHasInterview() && application.getAvailableTimes().isEmpty()) {
+			fieldErrors.add(new FieldErrorResponse("availableTimes", "면접 가능 시간을 선택해주세요."));
+		}
 		if (!fieldErrors.isEmpty()) {
 			throw new BusinessException(ApplicationErrorCode.INVALID_INPUT).withFieldErrors(fieldErrors);
 		}
