@@ -58,7 +58,7 @@ jobs:
 
       # 6. Docker Buildx 설정
       - name: Set up Docker Buildx
-        uses: docker/setup-buildx-action@v3
+        uses: docker/setup-buildx-action@v4
 
       # 7. GHCR 로그인
       - name: Login to GHCR
@@ -82,7 +82,7 @@ jobs:
       # 9. Docker metadata (API)
       - name: Docker metadata (API)
         id: meta-api
-        uses: docker/metadata-action@v5
+        uses: docker/metadata-action@v6
         with:
           images: ${{ steps.images.outputs.api }}
           tags: |
