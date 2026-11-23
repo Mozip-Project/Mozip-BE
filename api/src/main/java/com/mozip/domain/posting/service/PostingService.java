@@ -1,48 +1,28 @@
 package com.mozip.domain.posting.service;
 
-import java.time.LocalDateTime;
-import java.util.ArrayList;
-import java.util.List;
-
-import org.springframework.data.domain.PageRequest;
-import org.springframework.data.domain.Pageable;
-import org.springframework.data.jpa.domain.Specification;
-import org.springframework.stereotype.Service;
-import org.springframework.transaction.annotation.Transactional;
-
 import com.mozip.domain.evaluation.service.PostingResultChecker;
 import com.mozip.domain.organization.entity.Organization;
 import com.mozip.domain.organization.exception.OrganizationErrorCode;
 import com.mozip.domain.organization.repository.TeamRepository;
 import com.mozip.domain.organization.service.OrganizationAccessChecker;
 import com.mozip.domain.payment.service.SubscriptionService;
-import com.mozip.domain.posting.dto.InterviewTimeRangeInput;
-import com.mozip.domain.posting.dto.PositionInput;
-import com.mozip.domain.posting.dto.PostingDraftInput;
-import com.mozip.domain.posting.dto.PostingFilter;
-import com.mozip.domain.posting.dto.PostingImageInput;
-import com.mozip.domain.posting.dto.PostingPage;
-import com.mozip.domain.posting.dto.QuestionInput;
-import com.mozip.domain.posting.entity.InterviewTimeRange;
-import com.mozip.domain.posting.entity.Position;
-import com.mozip.domain.posting.entity.Posting;
-import com.mozip.domain.posting.entity.PostingImage;
-import com.mozip.domain.posting.entity.PostingSort;
-import com.mozip.domain.posting.entity.PostingStatus;
-import com.mozip.domain.posting.entity.Question;
+import com.mozip.domain.posting.dto.*;
+import com.mozip.domain.posting.entity.*;
 import com.mozip.domain.posting.exception.PostingConflictReason;
 import com.mozip.domain.posting.exception.PostingErrorCode;
-import com.mozip.domain.posting.repository.InterviewTimeRangeRepository;
-import com.mozip.domain.posting.repository.PositionRepository;
-import com.mozip.domain.posting.repository.PostingImageRepository;
-import com.mozip.domain.posting.repository.PostingRepository;
-import com.mozip.domain.posting.repository.PostingSpecifications;
-import com.mozip.domain.posting.repository.QuestionRepository;
+import com.mozip.domain.posting.repository.*;
 import com.mozip.global.common.response.FieldErrorResponse;
 import com.mozip.global.exception.BusinessException;
 import com.mozip.global.exception.CommonErrorCode;
-
 import lombok.RequiredArgsConstructor;
+import org.springframework.data.domain.PageRequest;
+import org.springframework.data.domain.Pageable;
+import org.springframework.data.jpa.domain.Specification;
+import org.springframework.stereotype.Service;
+import org.springframework.transaction.annotation.Transactional;
+
+import java.util.ArrayList;
+import java.util.List;
 
 @Service
 @RequiredArgsConstructor
