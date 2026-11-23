@@ -3,7 +3,9 @@ package com.mozip.domain.application.service;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 
+import java.time.LocalDate;
 import java.time.LocalDateTime;
+import java.time.LocalTime;
 import java.util.List;
 
 import org.junit.jupiter.api.BeforeEach;
@@ -32,10 +34,13 @@ import com.mozip.domain.organization.entity.OrganizationScope;
 import com.mozip.domain.organization.entity.OrganizationType;
 import com.mozip.domain.organization.repository.MemberRepository;
 import com.mozip.domain.organization.repository.OrganizationRepository;
+import com.mozip.domain.posting.dto.InterviewTimeRangeInput;
 import com.mozip.domain.posting.dto.PositionInput;
 import com.mozip.domain.posting.dto.PostingDraftInput;
 import com.mozip.domain.posting.dto.QuestionInput;
 import com.mozip.domain.posting.dto.QuestionOptionsInput;
+import com.mozip.domain.posting.entity.AssignRule;
+import com.mozip.domain.posting.entity.InterviewMethod;
 import com.mozip.domain.posting.entity.Position;
 import com.mozip.domain.posting.entity.Posting;
 import com.mozip.domain.posting.entity.QuestionType;
@@ -135,6 +140,35 @@ class ApplicationServiceTest {
 			new ApplicationInput(position.getId(), List.of(), List.of(LocalDateTime.now().plusDays(1))));
 
 		assertThat(application.getAvailableTimes()).isEmpty();
+	}
+
+	@Test
+	@DisplayName("면접 공고에서 열려 있는 시간대의 블록 시작 시각이면 availableTimes로 저장된다")
+	void acceptsAvailableTimesMatchingOpenInterviewSlot() {
+		LocalDate date = LocalDate.now().plusDays(10);
+		Posting posting = recruitingPostingWithInterview(date, LocalTime.of(10, 0), LocalTime.of(11, 0));
+		Position position = onlyPosition(posting);
+		LocalDateTime validSlot = date.atTime(10, 0);
+
+		Application application = applicationService.saveDraft(applicant.getId(), posting.getId(),
+			new ApplicationInput(position.getId(), List.of(), List.of(validSlot)));
+
+		assertThat(application.getAvailableTimes()).containsExactly(validSlot);
+	}
+
+	@Test
+	@DisplayName("면접 공고에서 열려 있는 블록의 시작 시각이 아니면 COMMON_400을 던진다")
+	void rejectsAvailableTimesNotMatchingAnyOpenSlot() {
+		LocalDate date = LocalDate.now().plusDays(10);
+		Posting posting = recruitingPostingWithInterview(date, LocalTime.of(10, 0), LocalTime.of(11, 0));
+		Position position = onlyPosition(posting);
+		LocalDateTime invalidSlot = date.atTime(10, 15);
+
+		assertThatThrownBy(() -> applicationService.saveDraft(applicant.getId(), posting.getId(),
+			new ApplicationInput(position.getId(), List.of(), List.of(invalidSlot))))
+			.isInstanceOf(BusinessException.class)
+			.extracting(e -> ((BusinessException)e).getErrorCode())
+			.isEqualTo(CommonErrorCode.INVALID_INPUT);
 	}
 
 	@Test
@@ -371,6 +405,32 @@ class ApplicationServiceTest {
 			withQuestions(List.of(new QuestionInput(null, QuestionType.TEXT, "자기소개", null, true, 500, null, 0))));
 		postingService.publish(operator.getId(), posting.getId());
 		return posting;
+	}
+
+	private Posting recruitingPostingWithInterview(LocalDate date, LocalTime startTime, LocalTime endTime) {
+		Posting posting = postingService.saveDraft(operator.getId(), organization.getId(), null,
+			basicInput("면접 공고 " + System.nanoTime()));
+		postingService.saveDraft(operator.getId(), organization.getId(), posting.getId(),
+			withPositions(List.of(new PositionInput(null, "백엔드", 1, 0))));
+		postingService.saveDraft(operator.getId(), organization.getId(), posting.getId(),
+			withInterview(true, InterviewMethod.ONLINE, 20, 10, AssignRule.ALL_MEMBERS, 1, 1,
+				List.of(new InterviewTimeRangeInput(null, date, startTime, endTime, List.of()))));
+		postingService.saveDraft(operator.getId(), organization.getId(), posting.getId(),
+			withQuestions(List.of(new QuestionInput(null, QuestionType.TEXT, "자기소개", null, true, 500, null, 0))));
+		postingService.publish(operator.getId(), posting.getId());
+		return posting;
+	}
+
+	private PostingDraftInput withInterview(Boolean hasInterview, InterviewMethod interviewMethod,
+		Integer interviewMinutes, Integer breakMinutes, AssignRule assignRule, Integer maxApplicantsPerInterview,
+		Integer maxParallelInterviews, List<InterviewTimeRangeInput> interviewTimeRanges) {
+		return new PostingDraftInput(null, null, null, null, null, null, null, null,
+			null, null, null, null, null,
+			null, null,
+			hasInterview, interviewMethod, interviewMinutes, breakMinutes, assignRule, maxApplicantsPerInterview,
+			maxParallelInterviews, interviewTimeRanges,
+			null, null,
+			null);
 	}
 
 	private Position onlyPosition(Posting posting) {

@@ -1,10 +1,12 @@
 package com.mozip.domain.application.service;
 
 import java.time.LocalDateTime;
+import java.time.LocalTime;
 import java.util.ArrayList;
 import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
+import java.util.Set;
 import java.util.function.Function;
 import java.util.stream.Collectors;
 
@@ -28,7 +30,12 @@ import com.mozip.domain.application.repository.AnswerRepository;
 import com.mozip.domain.application.repository.ApplicationRepository;
 import com.mozip.domain.application.repository.AttachmentRepository;
 import com.mozip.domain.interview.service.InterviewAvailabilityService;
+import com.mozip.domain.interview.timetable.InterviewSetting;
+import com.mozip.domain.interview.timetable.InterviewSlotCalculator;
+import com.mozip.domain.interview.timetable.Slot;
+import com.mozip.domain.interview.timetable.TimeRange;
 import com.mozip.domain.organization.service.OrganizationAccessChecker;
+import com.mozip.domain.posting.entity.InterviewTimeRange;
 import com.mozip.domain.posting.entity.Position;
 import com.mozip.domain.posting.entity.Posting;
 import com.mozip.domain.posting.entity.PostingStatus;
@@ -36,6 +43,7 @@ import com.mozip.domain.posting.entity.Question;
 import com.mozip.domain.posting.entity.QuestionType;
 import com.mozip.domain.posting.exception.PostingConflictReason;
 import com.mozip.domain.posting.exception.PostingErrorCode;
+import com.mozip.domain.posting.repository.InterviewTimeRangeRepository;
 import com.mozip.domain.posting.repository.PositionRepository;
 import com.mozip.domain.posting.repository.PostingRepository;
 import com.mozip.domain.posting.repository.QuestionRepository;
@@ -58,6 +66,7 @@ public class ApplicationService {
 	private final AttachmentRepository attachmentRepository;
 	private final PostingRepository postingRepository;
 	private final PositionRepository positionRepository;
+	private final InterviewTimeRangeRepository interviewTimeRangeRepository;
 	private final QuestionRepository questionRepository;
 	private final UserRepository userRepository;
 	private final InterviewAvailabilityService interviewAvailabilityService;
@@ -78,7 +87,9 @@ public class ApplicationService {
 
 		Position position = resolvePosition(posting, input.positionId());
 		// 면접 없는 공고는 availableTimes를 받아도 저장하지 않음
-		List<LocalDateTime> availableTimes = posting.isHasInterview() ? input.availableTimes() : List.of();
+		List<LocalDateTime> availableTimes = posting.isHasInterview() && input.availableTimes() != null
+			? input.availableTimes() : List.of();
+		validateAvailableTimes(posting, position, availableTimes);
 		application.updateDraft(position, availableTimes);
 		replaceAnswers(application, posting, position, input.answers());
 
@@ -281,6 +292,51 @@ public class ApplicationService {
 
 	private boolean isValidChoice(Question question, String choice) {
 		return question.getChoices() != null && question.getChoices().contains(choice);
+	}
+
+	// 운영진이 연 시간대(InterviewTimeRange)를 블록으로 잘라서, 고른 시간이 실제로 열려 있는 블록의 시작 시각인지 확인
+	private void validateAvailableTimes(Posting posting, Position position, List<LocalDateTime> availableTimes) {
+		if (availableTimes.isEmpty()) {
+			return;
+		}
+		Set<LocalDateTime> openStartTimes = openSlotStartTimes(posting, position);
+		for (LocalDateTime time : availableTimes) {
+			if (!openStartTimes.contains(time)) {
+				throw new BusinessException(CommonErrorCode.INVALID_INPUT)
+					.addContext("reason", "면접 가능 시간이 열려 있는 시간대가 아닙니다")
+					.addContext("postingId", posting.getId())
+					.addContext("availableTime", time);
+			}
+		}
+	}
+
+	private Set<LocalDateTime> openSlotStartTimes(Posting posting, Position position) {
+		if (posting.getInterviewMinutes() == null || posting.getBreakMinutes() == null
+			|| posting.getMaxApplicantsPerInterview() == null || posting.getMaxParallelInterviews() == null
+			|| posting.getAssignRule() == null) {
+			return Set.of();
+		}
+		List<TimeRange> ranges = interviewTimeRangeRepository.findAllByPostingOrderByDateAscStartTimeAsc(posting)
+			.stream()
+			.filter(range -> range.getPosition() == null
+				|| (position != null && range.getPosition().getId().equals(position.getId())))
+			.map(this::toTimeRange)
+			.toList();
+		if (ranges.isEmpty()) {
+			return Set.of();
+		}
+		InterviewSetting setting = new InterviewSetting(posting.getInterviewMinutes(), posting.getBreakMinutes(),
+			posting.getMaxApplicantsPerInterview(), posting.getMaxParallelInterviews(), posting.getAssignRule());
+		return InterviewSlotCalculator.calculate(ranges, setting).stream()
+			.filter(slot -> !slot.closed())
+			.map(Slot::startAt)
+			.collect(Collectors.toSet());
+	}
+
+	private TimeRange toTimeRange(InterviewTimeRange range) {
+		List<LocalTime> closedSlots = range.getClosedSlots();
+		return new TimeRange(range.getDate(), range.getStartTime(), range.getEndTime(),
+			closedSlots == null ? Set.of() : Set.copyOf(closedSlots));
 	}
 
 	private List<String> readStringList(String json) {
