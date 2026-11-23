@@ -25,6 +25,7 @@ import com.mozip.domain.application.entity.ApplicationStatus;
 import com.mozip.domain.application.exception.ApplicationConflictReason;
 import com.mozip.domain.application.exception.ApplicationErrorCode;
 import com.mozip.domain.application.exception.ApplicationForbiddenReason;
+import com.mozip.domain.application.exception.ApplicationInputReason;
 import com.mozip.domain.application.repository.AnswerRepository;
 import com.mozip.domain.application.repository.ApplicationRepository;
 import com.mozip.domain.organization.entity.Member;
@@ -167,8 +168,10 @@ class ApplicationServiceTest {
 		assertThatThrownBy(() -> applicationService.saveDraft(applicant.getId(), posting.getId(),
 			new ApplicationInput(position.getId(), List.of(), List.of(invalidSlot))))
 			.isInstanceOf(BusinessException.class)
-			.extracting(e -> ((BusinessException)e).getErrorCode())
-			.isEqualTo(CommonErrorCode.INVALID_INPUT);
+			.satisfies(e -> {
+				assertThat(((BusinessException)e).getErrorCode()).isEqualTo(CommonErrorCode.INVALID_INPUT);
+				assertThat(((BusinessException)e).getReason()).isEqualTo(ApplicationInputReason.AVAILABLE_TIME_NOT_OPEN.name());
+			});
 	}
 
 	@Test
@@ -182,8 +185,10 @@ class ApplicationServiceTest {
 		assertThatThrownBy(() -> applicationService.saveDraft(applicant.getId(), posting.getId(),
 			new ApplicationInput(position.getId(), List.of(new AnswerInput(otherQuestionId, "답변", null)), null)))
 			.isInstanceOf(BusinessException.class)
-			.extracting(e -> ((BusinessException)e).getErrorCode())
-			.isEqualTo(CommonErrorCode.INVALID_INPUT);
+			.satisfies(e -> {
+				assertThat(((BusinessException)e).getErrorCode()).isEqualTo(CommonErrorCode.INVALID_INPUT);
+				assertThat(((BusinessException)e).getReason()).isEqualTo(ApplicationInputReason.QUESTION_FROM_ANOTHER_POSTING.name());
+			});
 	}
 
 	@Test
@@ -196,8 +201,10 @@ class ApplicationServiceTest {
 		assertThatThrownBy(() -> applicationService.saveDraft(applicant.getId(), posting.getId(),
 			new ApplicationInput(otherPosition.getId(), List.of(), null)))
 			.isInstanceOf(BusinessException.class)
-			.extracting(e -> ((BusinessException)e).getErrorCode())
-			.isEqualTo(CommonErrorCode.INVALID_INPUT);
+			.satisfies(e -> {
+				assertThat(((BusinessException)e).getErrorCode()).isEqualTo(CommonErrorCode.INVALID_INPUT);
+				assertThat(((BusinessException)e).getReason()).isEqualTo(ApplicationInputReason.POSITION_FROM_ANOTHER_POSTING.name());
+			});
 	}
 
 	@Test

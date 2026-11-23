@@ -26,6 +26,7 @@ import com.mozip.domain.application.entity.FinalResult;
 import com.mozip.domain.application.exception.ApplicationConflictReason;
 import com.mozip.domain.application.exception.ApplicationErrorCode;
 import com.mozip.domain.application.exception.ApplicationForbiddenReason;
+import com.mozip.domain.application.exception.ApplicationInputReason;
 import com.mozip.domain.application.repository.AnswerRepository;
 import com.mozip.domain.application.repository.ApplicationRepository;
 import com.mozip.domain.application.repository.AttachmentRepository;
@@ -203,14 +204,12 @@ public class ApplicationService {
 					.addContext("questionId", i.questionId());
 			}
 			if (!question.getPosting().getId().equals(posting.getId())) {
-				throw new BusinessException(CommonErrorCode.INVALID_INPUT)
-					.addContext("reason", "다른 공고의 문항입니다")
+				throw new BusinessException(CommonErrorCode.INVALID_INPUT, ApplicationInputReason.QUESTION_FROM_ANOTHER_POSTING)
 					.addContext("questionId", i.questionId());
 			}
 			if (question.getPosition() != null
 				&& (position == null || !question.getPosition().getId().equals(position.getId()))) {
-				throw new BusinessException(CommonErrorCode.INVALID_INPUT)
-					.addContext("reason", "선택한 포지션의 문항이 아닙니다")
+				throw new BusinessException(CommonErrorCode.INVALID_INPUT, ApplicationInputReason.QUESTION_NOT_FOR_POSITION)
 					.addContext("questionId", i.questionId());
 			}
 			Answer answer = Answer.create(application, question, i.content());
@@ -302,8 +301,7 @@ public class ApplicationService {
 		Set<LocalDateTime> openStartTimes = openSlotStartTimes(posting, position);
 		for (LocalDateTime time : availableTimes) {
 			if (!openStartTimes.contains(time)) {
-				throw new BusinessException(CommonErrorCode.INVALID_INPUT)
-					.addContext("reason", "면접 가능 시간이 열려 있는 시간대가 아닙니다")
+				throw new BusinessException(CommonErrorCode.INVALID_INPUT, ApplicationInputReason.AVAILABLE_TIME_NOT_OPEN)
 					.addContext("postingId", posting.getId())
 					.addContext("availableTime", time);
 			}
@@ -355,8 +353,7 @@ public class ApplicationService {
 			.orElseThrow(() -> new BusinessException(CommonErrorCode.INVALID_INPUT)
 				.addContext("positionId", positionId));
 		if (!position.getPosting().getId().equals(posting.getId())) {
-			throw new BusinessException(CommonErrorCode.INVALID_INPUT)
-				.addContext("reason", "다른 공고의 포지션입니다")
+			throw new BusinessException(CommonErrorCode.INVALID_INPUT, ApplicationInputReason.POSITION_FROM_ANOTHER_POSTING)
 				.addContext("positionId", positionId);
 		}
 		return position;
