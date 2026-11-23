@@ -239,6 +239,9 @@ public class ApplicationService {
 
 		Position position = application.getPosition();
 		List<FieldErrorResponse> fieldErrors = new ArrayList<>();
+		if (!posting.isNoPosition() && position == null) {
+			fieldErrors.add(new FieldErrorResponse("position", "지원 포지션을 선택해주세요."));
+		}
 		for (Question question : questions) {
 			if (question.getPosition() != null
 				&& (position == null || !question.getPosition().getId().equals(position.getId()))) {
@@ -341,12 +344,20 @@ public class ApplicationService {
 			closedSlots == null ? Set.of() : Set.copyOf(closedSlots));
 	}
 
+	// 선택지는 문자열이어야 함. [1]처럼 다른 타입이 섞여 있으면 선택지 불일치로 처리 (원소를 String으로 바로 캐스팅하면 ClassCastException)
 	private List<String> readStringList(String json) {
+		List<?> raw;
 		try {
-			return objectMapper.readValue(json, List.class);
+			raw = objectMapper.readValue(json, List.class);
 		} catch (RuntimeException e) {
 			return null;
 		}
+		for (Object element : raw) {
+			if (!(element instanceof String)) {
+				return null;
+			}
+		}
+		return (List<String>)raw;
 	}
 
 	private Position resolvePosition(Posting posting, Long positionId) {

@@ -19,15 +19,18 @@ import org.springframework.transaction.annotation.Transactional;
 import com.mozip.TestcontainersConfiguration;
 import com.mozip.domain.application.dto.AnswerInput;
 import com.mozip.domain.application.dto.ApplicationInput;
+import com.mozip.domain.application.dto.AttachmentInput;
 import com.mozip.domain.application.entity.Answer;
 import com.mozip.domain.application.entity.Application;
 import com.mozip.domain.application.entity.ApplicationStatus;
+import com.mozip.domain.application.entity.AttachmentType;
 import com.mozip.domain.application.exception.ApplicationConflictReason;
 import com.mozip.domain.application.exception.ApplicationErrorCode;
 import com.mozip.domain.application.exception.ApplicationForbiddenReason;
 import com.mozip.domain.application.exception.ApplicationInputReason;
 import com.mozip.domain.application.repository.AnswerRepository;
 import com.mozip.domain.application.repository.ApplicationRepository;
+import com.mozip.domain.application.repository.AttachmentRepository;
 import com.mozip.domain.organization.entity.Member;
 import com.mozip.domain.organization.entity.MemberRole;
 import com.mozip.domain.organization.entity.Organization;
@@ -74,6 +77,9 @@ class ApplicationServiceTest {
 
 	@Autowired
 	private AnswerRepository answerRepository;
+
+	@Autowired
+	private AttachmentRepository attachmentRepository;
 
 	@Autowired
 	private PositionRepository positionRepository;
@@ -269,6 +275,7 @@ class ApplicationServiceTest {
 	void rejectsSubmitWithMissingRequiredAnswer() {
 		Posting posting = recruitingPostingWithPosition();
 		Position position = onlyPosition(posting);
+		Long questionId = onlyQuestionId(posting);
 		applicant.verifySchool(school);
 		userRepository.save(applicant);
 
@@ -276,9 +283,12 @@ class ApplicationServiceTest {
 			new ApplicationInput(position.getId(), List.of(), null));
 
 		assertThatThrownBy(() -> applicationService.submit(applicant.getId(), application.getId()))
-			.isInstanceOf(BusinessException.class)
-			.extracting(e -> ((BusinessException)e).getErrorCode())
-			.isEqualTo(ApplicationErrorCode.INVALID_INPUT);
+			.isInstanceOfSatisfying(BusinessException.class, e -> {
+				assertThat(e.getErrorCode()).isEqualTo(ApplicationErrorCode.INVALID_INPUT);
+				assertThat(e.getFieldErrors())
+					.extracting(FieldErrorResponse::field)
+					.containsExactly("question:" + questionId);
+			});
 	}
 
 	@Test
@@ -401,6 +411,196 @@ class ApplicationServiceTest {
 	}
 
 	@Test
+	@DisplayName("SINGLE_CHOICE 문항에 보기에 있는 값으로 제출하면 성공한다")
+	void submitsSuccessfullyWithValidSingleChoice() {
+		Posting posting = recruitingPostingWithQuestion(QuestionType.SINGLE_CHOICE, true, null,
+			new QuestionOptionsInput(List.of("학교 홈페이지", "SNS"), null, null, null));
+		Position position = onlyPosition(posting);
+		Long questionId = onlyQuestionId(posting);
+		applicant.verifySchool(school);
+		userRepository.save(applicant);
+		Application application = applicationService.saveDraft(applicant.getId(), posting.getId(),
+			new ApplicationInput(position.getId(), List.of(new AnswerInput(questionId, "SNS", null)), null));
+
+		Application submitted = applicationService.submit(applicant.getId(), application.getId());
+
+		assertThat(submitted.getStatus()).isEqualTo(ApplicationStatus.SUBMITTED);
+	}
+
+	@Test
+	@DisplayName("MULTI_CHOICE 문항에 선택지에 있는 값들로 제출하면 성공한다")
+	void submitsSuccessfullyWithValidMultiChoice() {
+		Posting posting = recruitingPostingWithQuestion(QuestionType.MULTI_CHOICE, true, null,
+			new QuestionOptionsInput(List.of("A", "B", "C"), null, null, null));
+		Position position = onlyPosition(posting);
+		Long questionId = onlyQuestionId(posting);
+		applicant.verifySchool(school);
+		userRepository.save(applicant);
+		Application application = applicationService.saveDraft(applicant.getId(), posting.getId(),
+			new ApplicationInput(position.getId(), List.of(new AnswerInput(questionId, "[\"A\",\"B\"]", null)), null));
+
+		Application submitted = applicationService.submit(applicant.getId(), application.getId());
+
+		assertThat(submitted.getStatus()).isEqualTo(ApplicationStatus.SUBMITTED);
+	}
+
+	@Test
+	@DisplayName("MULTI_CHOICE 문항에 선택지에 없는 값이 섞여 있으면 APPLICATION_400을 던진다")
+	void rejectsSubmitWithInvalidMultiChoiceValue() {
+		Posting posting = recruitingPostingWithQuestion(QuestionType.MULTI_CHOICE, true, null,
+			new QuestionOptionsInput(List.of("A", "B", "C"), null, null, null));
+		Position position = onlyPosition(posting);
+		Long questionId = onlyQuestionId(posting);
+		applicant.verifySchool(school);
+		userRepository.save(applicant);
+		Application application = applicationService.saveDraft(applicant.getId(), posting.getId(),
+			new ApplicationInput(position.getId(), List.of(new AnswerInput(questionId, "[\"A\",\"없는값\"]", null)), null));
+
+		assertThatThrownBy(() -> applicationService.submit(applicant.getId(), application.getId()))
+			.isInstanceOfSatisfying(BusinessException.class, e -> {
+				assertThat(e.getErrorCode()).isEqualTo(ApplicationErrorCode.INVALID_INPUT);
+				assertThat(e.getFieldErrors()).extracting(FieldErrorResponse::message).containsExactly("선택지에 없는 값입니다.");
+			});
+	}
+
+	@Test
+	@DisplayName("MULTI_CHOICE 문항에 문자열이 아닌 값이 섞여 있으면 APPLICATION_400을 던진다")
+	void rejectsSubmitWithNonStringMultiChoiceValue() {
+		Posting posting = recruitingPostingWithQuestion(QuestionType.MULTI_CHOICE, true, null,
+			new QuestionOptionsInput(List.of("A", "B", "C"), null, null, null));
+		Position position = onlyPosition(posting);
+		Long questionId = onlyQuestionId(posting);
+		applicant.verifySchool(school);
+		userRepository.save(applicant);
+		Application application = applicationService.saveDraft(applicant.getId(), posting.getId(),
+			new ApplicationInput(position.getId(), List.of(new AnswerInput(questionId, "[1]", null)), null));
+
+		assertThatThrownBy(() -> applicationService.submit(applicant.getId(), application.getId()))
+			.isInstanceOfSatisfying(BusinessException.class, e -> {
+				assertThat(e.getErrorCode()).isEqualTo(ApplicationErrorCode.INVALID_INPUT);
+				assertThat(e.getFieldErrors()).extracting(FieldErrorResponse::message).containsExactly("선택지에 없는 값입니다.");
+			});
+	}
+
+	@Test
+	@DisplayName("TEXT 문항에 maxLength보다 긴 답변을 제출하면 APPLICATION_400(글자 수 제한을 넘었습니다.)을 던진다")
+	void rejectsSubmitWhenTextExceedsMaxLength() {
+		Posting posting = recruitingPostingWithQuestion(QuestionType.TEXT, false, 5, null);
+		Position position = onlyPosition(posting);
+		Long questionId = onlyQuestionId(posting);
+		applicant.verifySchool(school);
+		userRepository.save(applicant);
+		Application application = applicationService.saveDraft(applicant.getId(), posting.getId(),
+			new ApplicationInput(position.getId(), List.of(new AnswerInput(questionId, "123456", null)), null));
+
+		assertThatThrownBy(() -> applicationService.submit(applicant.getId(), application.getId()))
+			.isInstanceOfSatisfying(BusinessException.class, e -> {
+				assertThat(e.getErrorCode()).isEqualTo(ApplicationErrorCode.INVALID_INPUT);
+				assertThat(e.getFieldErrors()).extracting(FieldErrorResponse::message).containsExactly("글자 수 제한을 넘었습니다.");
+			});
+	}
+
+	@Test
+	@DisplayName("필수 FILE_LINK 문항에 첨부 없이 제출하면 APPLICATION_400(필수 첨부입니다.)을 던진다")
+	void rejectsSubmitWithRequiredFileLinkMissingAttachment() {
+		Posting posting = recruitingPostingWithQuestion(QuestionType.FILE_LINK, true, null,
+			new QuestionOptionsInput(null, null, null, 5));
+		Position position = onlyPosition(posting);
+		applicant.verifySchool(school);
+		userRepository.save(applicant);
+		Application application = applicationService.saveDraft(applicant.getId(), posting.getId(),
+			new ApplicationInput(position.getId(), List.of(), null));
+
+		assertThatThrownBy(() -> applicationService.submit(applicant.getId(), application.getId()))
+			.isInstanceOfSatisfying(BusinessException.class, e -> {
+				assertThat(e.getErrorCode()).isEqualTo(ApplicationErrorCode.INVALID_INPUT);
+				assertThat(e.getFieldErrors()).extracting(FieldErrorResponse::message).containsExactly("필수 첨부입니다.");
+			});
+	}
+
+	@Test
+	@DisplayName("maxFiles가 2인 문항에 첨부 3개로 제출하면 APPLICATION_400(첨부 개수 제한을 넘었습니다.)을 던진다")
+	void rejectsSubmitWhenAttachmentCountExceedsMaxFiles() {
+		Posting posting = recruitingPostingWithQuestion(QuestionType.FILE_LINK, false, null,
+			new QuestionOptionsInput(null, null, null, 2));
+		Position position = onlyPosition(posting);
+		Long questionId = onlyQuestionId(posting);
+		applicant.verifySchool(school);
+		userRepository.save(applicant);
+		List<AttachmentInput> threeAttachments = List.of(
+			new AttachmentInput(AttachmentType.LINK, "https://a.com", null),
+			new AttachmentInput(AttachmentType.LINK, "https://b.com", null),
+			new AttachmentInput(AttachmentType.LINK, "https://c.com", null));
+		Application application = applicationService.saveDraft(applicant.getId(), posting.getId(),
+			new ApplicationInput(position.getId(), List.of(new AnswerInput(questionId, null, threeAttachments)), null));
+
+		assertThatThrownBy(() -> applicationService.submit(applicant.getId(), application.getId()))
+			.isInstanceOfSatisfying(BusinessException.class, e -> {
+				assertThat(e.getErrorCode()).isEqualTo(ApplicationErrorCode.INVALID_INPUT);
+				assertThat(e.getFieldErrors()).extracting(FieldErrorResponse::message).containsExactly("첨부 개수 제한을 넘었습니다.");
+			});
+	}
+
+	@Test
+	@DisplayName("첨부 2개로 저장한 답변을 첨부 1개로 다시 저장하면 첨부가 1개만 남는다")
+	void keepsOnlyLatestAttachmentsOnResave() {
+		Posting posting = recruitingPostingWithQuestion(QuestionType.FILE_LINK, true, null,
+			new QuestionOptionsInput(null, null, null, 5));
+		Position position = onlyPosition(posting);
+		Long questionId = onlyQuestionId(posting);
+		List<AttachmentInput> twoAttachments = List.of(
+			new AttachmentInput(AttachmentType.LINK, "https://a.com", null),
+			new AttachmentInput(AttachmentType.LINK, "https://b.com", null));
+
+		Application application = applicationService.saveDraft(applicant.getId(), posting.getId(),
+			new ApplicationInput(position.getId(), List.of(new AnswerInput(questionId, null, twoAttachments)), null));
+		assertThat(attachmentRepository.findAllByAnswerInOrderById(
+			answerRepository.findAllByApplicationOrderById(application))).hasSize(2);
+
+		applicationService.saveDraft(applicant.getId(), posting.getId(),
+			new ApplicationInput(position.getId(),
+				List.of(new AnswerInput(questionId, null, List.of(twoAttachments.get(0)))), null));
+
+		assertThat(attachmentRepository.findAllByAnswerInOrderById(
+			answerRepository.findAllByApplicationOrderById(application))).hasSize(1);
+	}
+
+	@Test
+	@DisplayName("포지션 있는 공고에 positionId 없이 제출하면 APPLICATION_400(position)을 던진다")
+	void rejectsSubmitWithoutPositionWhenPostingHasPositions() {
+		Posting posting = recruitingPostingWithPosition();
+		Long questionId = onlyQuestionId(posting);
+		applicant.verifySchool(school);
+		userRepository.save(applicant);
+		Application application = applicationService.saveDraft(applicant.getId(), posting.getId(),
+			new ApplicationInput(null, List.of(new AnswerInput(questionId, "답변", null)), null));
+
+		assertThatThrownBy(() -> applicationService.submit(applicant.getId(), application.getId()))
+			.isInstanceOfSatisfying(BusinessException.class, e -> {
+				assertThat(e.getErrorCode()).isEqualTo(ApplicationErrorCode.INVALID_INPUT);
+				assertThat(e.getFieldErrors()).extracting(FieldErrorResponse::field).contains("position");
+			});
+	}
+
+	@Test
+	@DisplayName("다른 회원의 지원서를 제출하려 하면 COMMON_403을 던진다")
+	void rejectsSubmittingByNonOwner() {
+		Posting posting = recruitingPostingWithPosition();
+		Position position = onlyPosition(posting);
+		Long questionId = onlyQuestionId(posting);
+		applicant.verifySchool(school);
+		userRepository.save(applicant);
+		Application application = applicationService.saveDraft(applicant.getId(), posting.getId(),
+			new ApplicationInput(position.getId(), List.of(new AnswerInput(questionId, "답변", null)), null));
+		User stranger = userRepository.save(User.create("01044440099", "encoded", "타인", false, LocalDateTime.now()));
+
+		assertThatThrownBy(() -> applicationService.submit(stranger.getId(), application.getId()))
+			.isInstanceOf(BusinessException.class)
+			.extracting(e -> ((BusinessException)e).getErrorCode())
+			.isEqualTo(CommonErrorCode.FORBIDDEN);
+	}
+
+	@Test
 	@DisplayName("본인 또는 그 공고 단체 운영진이 아니면 조회 시 COMMON_403을 던진다")
 	void rejectsViewingByOthers() {
 		Posting posting = recruitingPostingWithPosition();
@@ -451,6 +651,18 @@ class ApplicationServiceTest {
 		Long positionId = positionRepository.findAllByPostingOrderBySortOrder(posting).get(0).getId();
 		postingService.saveDraft(operator.getId(), organization.getId(), posting.getId(),
 			withQuestions(List.of(new QuestionInput(null, QuestionType.TEXT, "자기소개", null, true, 500, null, 0))));
+		postingService.publish(operator.getId(), posting.getId());
+		return posting;
+	}
+
+	private Posting recruitingPostingWithQuestion(QuestionType type, boolean required, Integer maxLength,
+		QuestionOptionsInput options) {
+		Posting posting = postingService.saveDraft(operator.getId(), organization.getId(), null,
+			basicInput("문항 테스트 공고 " + System.nanoTime()));
+		postingService.saveDraft(operator.getId(), organization.getId(), posting.getId(),
+			withPositions(List.of(new PositionInput(null, "백엔드", 1, 0))));
+		postingService.saveDraft(operator.getId(), organization.getId(), posting.getId(),
+			withQuestions(List.of(new QuestionInput(null, type, "문항", null, required, maxLength, options, 0))));
 		postingService.publish(operator.getId(), posting.getId());
 		return posting;
 	}
