@@ -669,6 +669,77 @@ class ApplicationServiceTest {
 	}
 
 	@Test
+	@DisplayName("FILE_LINK가 아닌 문항에 첨부를 보내면 COMMON_400을 던진다")
+	void rejectsAttachmentsForNonFileLinkQuestion() {
+		Posting posting = recruitingPostingWithQuestion(QuestionType.TEXT, false, 500, null);
+		Position position = onlyPosition(posting);
+		Long questionId = onlyQuestionId(posting);
+		List<AttachmentInput> attachments = List.of(new AttachmentInput(AttachmentType.LINK, "https://a.com", null));
+
+		assertThatThrownBy(() -> applicationService.saveDraft(applicant.getId(), posting.getId(),
+			new ApplicationInput(position.getId(), List.of(new AnswerInput(questionId, "답변", attachments)), null)))
+			.isInstanceOfSatisfying(BusinessException.class, e -> {
+				assertThat(e.getErrorCode()).isEqualTo(CommonErrorCode.INVALID_INPUT);
+				assertThat(e.getReason()).isEqualTo(ApplicationInputReason.ATTACHMENT_NOT_ALLOWED_FOR_QUESTION_TYPE.name());
+			});
+	}
+
+	@Test
+	@DisplayName("LINK 첨부가 http/https가 아니면 COMMON_400을 던진다")
+	void rejectsNonHttpLinkAttachment() {
+		Posting posting = recruitingPostingWithQuestion(QuestionType.FILE_LINK, true, null,
+			new QuestionOptionsInput(null, null, null, 5));
+		Position position = onlyPosition(posting);
+		Long questionId = onlyQuestionId(posting);
+		List<AttachmentInput> attachments = List.of(
+			new AttachmentInput(AttachmentType.LINK, "javascript:alert(1)", null));
+
+		assertThatThrownBy(() -> applicationService.saveDraft(applicant.getId(), posting.getId(),
+			new ApplicationInput(position.getId(), List.of(new AnswerInput(questionId, null, attachments)), null)))
+			.isInstanceOfSatisfying(BusinessException.class, e -> {
+				assertThat(e.getErrorCode()).isEqualTo(CommonErrorCode.INVALID_INPUT);
+				assertThat(e.getReason()).isEqualTo(ApplicationInputReason.INVALID_ATTACHMENT_URL.name());
+			});
+	}
+
+	@Test
+	@DisplayName("FILE 첨부가 presigned로 올린 application-attachment 경로가 아니면 COMMON_400을 던진다")
+	void rejectsFileAttachmentOutsideAttachmentPrefix() {
+		Posting posting = recruitingPostingWithQuestion(QuestionType.FILE_LINK, true, null,
+			new QuestionOptionsInput(null, null, null, 5));
+		Position position = onlyPosition(posting);
+		Long questionId = onlyQuestionId(posting);
+		List<AttachmentInput> attachments = List.of(
+			new AttachmentInput(AttachmentType.FILE, "https://아무-사이트.com/x.exe", null));
+
+		assertThatThrownBy(() -> applicationService.saveDraft(applicant.getId(), posting.getId(),
+			new ApplicationInput(position.getId(), List.of(new AnswerInput(questionId, null, attachments)), null)))
+			.isInstanceOfSatisfying(BusinessException.class, e -> {
+				assertThat(e.getErrorCode()).isEqualTo(CommonErrorCode.INVALID_INPUT);
+				assertThat(e.getReason()).isEqualTo(ApplicationInputReason.INVALID_ATTACHMENT_URL.name());
+			});
+	}
+
+	@Test
+	@DisplayName("FILE 첨부가 application-attachment 경로이고 LINK 첨부가 https면 정상 저장된다")
+	void savesValidLinkAndFileAttachments() {
+		Posting posting = recruitingPostingWithQuestion(QuestionType.FILE_LINK, true, null,
+			new QuestionOptionsInput(null, null, null, 5));
+		Position position = onlyPosition(posting);
+		Long questionId = onlyQuestionId(posting);
+		List<AttachmentInput> attachments = List.of(
+			new AttachmentInput(AttachmentType.LINK, "https://a.com", null),
+			new AttachmentInput(AttachmentType.FILE,
+				"https://cdn.mozip.kr/application-attachment/2026/02/uuid.pdf", "결과.pdf"));
+
+		Application application = applicationService.saveDraft(applicant.getId(), posting.getId(),
+			new ApplicationInput(position.getId(), List.of(new AnswerInput(questionId, null, attachments)), null));
+
+		assertThat(attachmentRepository.findAllByAnswerInOrderById(
+			answerRepository.findAllByApplicationOrderById(application))).hasSize(2);
+	}
+
+	@Test
 	@DisplayName("포지션 있는 공고에 positionId 없이 제출하면 APPLICATION_400(position)을 던진다")
 	void rejectsSubmitWithoutPositionWhenPostingHasPositions() {
 		Posting posting = recruitingPostingWithPosition();
@@ -704,23 +775,32 @@ class ApplicationServiceTest {
 	}
 
 	@Test
-	@DisplayName("본인 또는 그 공고 단체 운영진이 아니면 조회 시 COMMON_403을 던진다")
+	@DisplayName("본인은 DRAFT도 조회 가능하고, 운영진은 제출된 뒤에만 조회 가능하며, 그 외는 COMMON_403을 던진다")
 	void rejectsViewingByOthers() {
 		Posting posting = recruitingPostingWithPosition();
 		Position position = onlyPosition(posting);
 		Long questionId = onlyQuestionId(posting);
+		applicant.verifySchool(school);
+		userRepository.save(applicant);
 		Application application = applicationService.saveDraft(applicant.getId(), posting.getId(),
 			new ApplicationInput(position.getId(), List.of(new AnswerInput(questionId, "답변", null)), null));
 		User stranger = userRepository.save(User.create("01044440003", "encoded", "타인", false, LocalDateTime.now()));
 
 		assertThat(applicationService.findDetail(application.getId(), applicant.getId()).getId())
 			.isEqualTo(application.getId());
-		assertThat(applicationService.findDetail(application.getId(), operator.getId()).getId())
-			.isEqualTo(application.getId());
+		assertThatThrownBy(() -> applicationService.findDetail(application.getId(), operator.getId()))
+			.isInstanceOf(BusinessException.class)
+			.extracting(e -> ((BusinessException)e).getErrorCode())
+			.isEqualTo(CommonErrorCode.FORBIDDEN);
 		assertThatThrownBy(() -> applicationService.findDetail(application.getId(), stranger.getId()))
 			.isInstanceOf(BusinessException.class)
 			.extracting(e -> ((BusinessException)e).getErrorCode())
 			.isEqualTo(CommonErrorCode.FORBIDDEN);
+
+		applicationService.submit(applicant.getId(), application.getId());
+
+		assertThat(applicationService.findDetail(application.getId(), operator.getId()).getId())
+			.isEqualTo(application.getId());
 	}
 
 	@Test

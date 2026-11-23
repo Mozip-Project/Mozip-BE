@@ -1,5 +1,6 @@
 package com.mozip.domain.application.service;
 
+import java.net.URI;
 import java.time.LocalDateTime;
 import java.time.LocalTime;
 import java.util.ArrayList;
@@ -21,6 +22,7 @@ import com.mozip.domain.application.entity.Answer;
 import com.mozip.domain.application.entity.Application;
 import com.mozip.domain.application.entity.ApplicationStatus;
 import com.mozip.domain.application.entity.Attachment;
+import com.mozip.domain.application.entity.AttachmentType;
 import com.mozip.domain.application.entity.DocResult;
 import com.mozip.domain.application.entity.FinalResult;
 import com.mozip.domain.application.exception.ApplicationConflictReason;
@@ -144,9 +146,12 @@ public class ApplicationService {
 		return application;
 	}
 
+	// 운영진은 제출 전(DRAFT) 지원서는 못 봄. 지원자가 제출 버튼을 누르기 전 내용까지 보이면 안 됨
 	public Application findDetail(Long applicationId, Long requestUserId) {
 		Application application = findById(applicationId);
-		if (!application.isOwnedBy(requestUserId) && !isOperatorOfPosting(application, requestUserId)) {
+		boolean isOwner = application.isOwnedBy(requestUserId);
+		boolean isOperatorViewable = !application.isDraft() && isOperatorOfPosting(application, requestUserId);
+		if (!isOwner && !isOperatorViewable) {
 			throw new BusinessException(CommonErrorCode.FORBIDDEN)
 				.addContext("userId", requestUserId)
 				.addContext("applicationId", applicationId);
@@ -214,6 +219,7 @@ public class ApplicationService {
 				throw new BusinessException(CommonErrorCode.INVALID_INPUT, ApplicationInputReason.QUESTION_NOT_FOR_POSITION)
 					.addContext("questionId", i.questionId());
 			}
+			validateAttachments(question, i.attachments());
 			Answer answer = Answer.create(application, question, i.content());
 			answerRepository.save(answer);
 			if (i.attachments() != null) {
@@ -221,6 +227,49 @@ public class ApplicationService {
 					attachmentRepository.save(Attachment.create(answer, a.type(), a.url(), a.fileName()));
 				}
 			}
+		}
+	}
+
+	// S3 presigned URL(#34)이 발급하는 키 접두어. FilePurpose.APPLICATION_ATTACHMENT.keyPrefix()와 같은 값이라
+	// #34가 머지되면 그쪽 enum을 직접 참조하도록 바꿔야 함
+	private static final String ATTACHMENT_FILE_PATH_PREFIX = "/application-attachment/";
+
+	// 어노테이션으로 표현 못 하는, 타입에 따라 달라지는 검사. FILE_LINK가 아닌 문항에 첨부가 오면 막고,
+	// LINK는 http(s) 주소만, FILE은 APPLICATION_ATTACHMENT 용도로 올린 경로만 허용
+	private void validateAttachments(Question question, List<AttachmentInput> attachments) {
+		if (attachments == null || attachments.isEmpty()) {
+			return;
+		}
+		if (question.getType() != QuestionType.FILE_LINK) {
+			throw new BusinessException(CommonErrorCode.INVALID_INPUT,
+				ApplicationInputReason.ATTACHMENT_NOT_ALLOWED_FOR_QUESTION_TYPE)
+				.addContext("questionId", question.getId());
+		}
+		for (AttachmentInput a : attachments) {
+			boolean valid = a.type() == AttachmentType.LINK ? isHttpUrl(a.url()) : isAttachmentFileUrl(a.url());
+			if (!valid) {
+				throw new BusinessException(CommonErrorCode.INVALID_INPUT, ApplicationInputReason.INVALID_ATTACHMENT_URL)
+					.addContext("questionId", question.getId())
+					.addContext("url", a.url());
+			}
+		}
+	}
+
+	private boolean isHttpUrl(String url) {
+		try {
+			String scheme = URI.create(url).getScheme();
+			return "http".equalsIgnoreCase(scheme) || "https".equalsIgnoreCase(scheme);
+		} catch (IllegalArgumentException e) {
+			return false;
+		}
+	}
+
+	private boolean isAttachmentFileUrl(String url) {
+		try {
+			String path = URI.create(url).getPath();
+			return path != null && path.startsWith(ATTACHMENT_FILE_PATH_PREFIX);
+		} catch (IllegalArgumentException e) {
+			return false;
 		}
 	}
 

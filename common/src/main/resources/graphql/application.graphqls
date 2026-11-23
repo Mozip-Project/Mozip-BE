@@ -86,7 +86,7 @@ input ApplicationInput {
 }
 
 extend type Query {
-    "지원서 상세. 지원자 본인 또는 그 공고 단체 운영진만 조회 가능. 없으면 APPLICATION_404"
+    "지원서 상세. 지원자 본인 또는 그 공고 단체 운영진(제출된 지원서만) 조회 가능. 없으면 APPLICATION_404"
     application(id: ID!): Application!
     "내 작성 중·제출 지원서 목록"
     myApplications(status: ApplicationStatus): [Application!]!

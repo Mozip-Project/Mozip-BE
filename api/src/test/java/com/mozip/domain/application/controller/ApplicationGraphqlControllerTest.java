@@ -31,6 +31,7 @@ import com.mozip.domain.organization.repository.MemberRepository;
 import com.mozip.domain.organization.repository.OrganizationRepository;
 import com.mozip.domain.posting.dto.PostingDraftInput;
 import com.mozip.domain.posting.dto.QuestionInput;
+import com.mozip.domain.posting.dto.QuestionOptionsInput;
 import com.mozip.domain.posting.entity.Posting;
 import com.mozip.domain.posting.entity.PostingStatus;
 import com.mozip.domain.posting.entity.QuestionType;
@@ -137,6 +138,41 @@ class ApplicationGraphqlControllerTest {
 			.variable("id", application.getId())
 			.execute()
 			.path("application.docResult").entity(String.class).isEqualTo("PASS");
+	}
+
+	@Test
+	@DisplayName("첨부 url이 500자를 넘으면 COMMON_400을 던진다 (DB 길이 제약에 걸려 COMMON_500이 되면 안 됨)")
+	void rejectsOversizedAttachmentUrl() {
+		User operator = saveUser("운영진");
+		User applicant = saveUser("지원자");
+		Organization organization = organizationRepository.save(
+			Organization.create("검증 테스트 단체 " + ThreadLocalRandom.current().nextInt(1_000_000), OrganizationType.CLUB,
+				null, OrganizationScope.CAMPUS, null, true, null, null));
+		memberRepository.save(Member.create(organization, operator, null, MemberRole.REPRESENTATIVE));
+
+		Posting posting = postingService.saveDraft(operator.getId(), organization.getId(), null,
+			basicInput("검증 공고 " + System.nanoTime()));
+		postingService.saveDraft(operator.getId(), organization.getId(), posting.getId(), withNoPosition());
+		postingService.saveDraft(operator.getId(), organization.getId(), posting.getId(),
+			withQuestions(List.of(new QuestionInput(null, QuestionType.FILE_LINK, "첨부", null, false, null,
+				new QuestionOptionsInput(null, null, null, 5), 0))));
+		postingService.publish(operator.getId(), posting.getId());
+		Long questionId = questionRepository.findAllByPostingOrderBySortOrder(posting).get(0).getId();
+		String tooLongUrl = "https://" + "a".repeat(500);
+
+		asUser(applicant).document("""
+			mutation($postingId: ID!, $input: ApplicationInput!) {
+				saveApplicationDraft(postingId: $postingId, input: $input) { id }
+			}
+			""")
+			.variable("postingId", posting.getId())
+			.variable("input", Map.of(
+				"answers", List.of(Map.of(
+					"questionId", questionId,
+					"attachments", List.of(Map.of("type", "LINK", "url", tooLongUrl))))))
+			.execute()
+			.errors()
+			.satisfy(errors -> assertThat(errors.getFirst().getExtensions()).containsEntry("code", "COMMON_400"));
 	}
 
 	private PostingDraftInput basicInput(String title) {

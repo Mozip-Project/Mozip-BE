@@ -10,6 +10,10 @@ public enum ApplicationInputReason {
 	// 선택한 포지션의 문항이 아닌 문항에 답변함
 	QUESTION_NOT_FOR_POSITION,
 	// availableTimes가 열려 있는 면접 시간 블록의 시작 시각이 아님
-	AVAILABLE_TIME_NOT_OPEN
+	AVAILABLE_TIME_NOT_OPEN,
+	// FILE_LINK가 아닌 문항에 attachments를 보냄
+	ATTACHMENT_NOT_ALLOWED_FOR_QUESTION_TYPE,
+	// LINK인데 http/https가 아니거나, FILE인데 presigned로 올린 경로가 아님
+	INVALID_ATTACHMENT_URL
 
 }
