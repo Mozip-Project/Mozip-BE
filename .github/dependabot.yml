@@ -33,3 +33,8 @@ updates:
       - '🔧 chore'
     commit-message:
       prefix: chore
+    groups:
+      # action마다 PR이 따로 오면 머지할 때마다 배포가 돌아 한 PR로 묶음
+      actions:
+        patterns:
+          - '*'
