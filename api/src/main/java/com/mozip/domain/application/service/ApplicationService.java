@@ -77,11 +77,13 @@ public class ApplicationService {
 		}
 
 		Position position = resolvePosition(posting, input.positionId());
-		application.updateDraft(position, input.availableTimes());
+		// 면접 없는 공고는 availableTimes를 받아도 저장하지 않음
+		List<LocalDateTime> availableTimes = posting.isHasInterview() ? input.availableTimes() : List.of();
+		application.updateDraft(position, availableTimes);
 		replaceAnswers(application, posting, position, input.answers());
 
 		if (posting.isHasInterview()) {
-			interviewAvailabilityService.save(application.getId(), input.availableTimes());
+			interviewAvailabilityService.save(application.getId(), availableTimes);
 		}
 		return application;
 	}

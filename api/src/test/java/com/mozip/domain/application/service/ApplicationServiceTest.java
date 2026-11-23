@@ -126,6 +126,18 @@ class ApplicationServiceTest {
 	}
 
 	@Test
+	@DisplayName("면접 없는 공고에 availableTimes를 보내도 저장하지 않는다")
+	void ignoresAvailableTimesWhenPostingHasNoInterview() {
+		Posting posting = recruitingPostingWithPosition();
+		Position position = onlyPosition(posting);
+
+		Application application = applicationService.saveDraft(applicant.getId(), posting.getId(),
+			new ApplicationInput(position.getId(), List.of(), List.of(LocalDateTime.now().plusDays(1))));
+
+		assertThat(application.getAvailableTimes()).isEmpty();
+	}
+
+	@Test
 	@DisplayName("다른 공고의 문항으로 답변하면 COMMON_400을 던진다")
 	void rejectsAnswerForQuestionFromAnotherPosting() {
 		Posting posting = recruitingPostingWithPosition();
