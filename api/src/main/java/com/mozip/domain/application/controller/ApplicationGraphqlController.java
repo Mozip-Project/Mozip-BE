@@ -100,7 +100,7 @@ public class ApplicationGraphqlController {
 		Map<Long, PostingStatus> statusByPostingId = postingStatusByPostingId(applications);
 		return applications.stream().collect(Collectors.toMap(Function.identity(), application -> {
 			PostingStatus status = statusByPostingId.get(application.getPosting().getId());
-			return isAtOrAfter(status, PostingStatus.DOC_RESULT_NOTICE) ? application.getDocResult() : DocResult.PENDING;
+			return applicationService.resolveDocResult(application, status);
 		}));
 	}
 
@@ -109,7 +109,7 @@ public class ApplicationGraphqlController {
 		Map<Long, PostingStatus> statusByPostingId = postingStatusByPostingId(applications);
 		return applications.stream().collect(Collectors.toMap(Function.identity(), application -> {
 			PostingStatus status = statusByPostingId.get(application.getPosting().getId());
-			return isAtOrAfter(status, PostingStatus.FINAL_RESULT) ? application.getFinalResult() : FinalResult.PENDING;
+			return applicationService.resolveFinalResult(application, status);
 		}));
 	}
 
@@ -137,10 +137,6 @@ public class ApplicationGraphqlController {
 		List<Long> postingIds = applications.stream().map(a -> a.getPosting().getId()).distinct().toList();
 		return postingRepository.findAllById(postingIds).stream()
 			.collect(Collectors.toMap(Posting::getId, Posting::getStatus));
-	}
-
-	private static boolean isAtOrAfter(PostingStatus status, PostingStatus threshold) {
-		return status != null && status.ordinal() >= threshold.ordinal();
 	}
 
 	// 자식의 부모 참조는 프록시일 수 있어 id로 묶어서, 결과 Map의 키는 GraphQL이 넘긴 부모 객체 그대로 사용

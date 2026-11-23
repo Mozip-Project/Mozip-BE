@@ -19,6 +19,8 @@ import com.mozip.domain.application.entity.Answer;
 import com.mozip.domain.application.entity.Application;
 import com.mozip.domain.application.entity.ApplicationStatus;
 import com.mozip.domain.application.entity.Attachment;
+import com.mozip.domain.application.entity.DocResult;
+import com.mozip.domain.application.entity.FinalResult;
 import com.mozip.domain.application.exception.ApplicationConflictReason;
 import com.mozip.domain.application.exception.ApplicationErrorCode;
 import com.mozip.domain.application.exception.ApplicationForbiddenReason;
@@ -155,6 +157,19 @@ public class ApplicationService {
 	public List<Application> getSubmittedApplications(Long postingId) {
 		Posting posting = findPosting(postingId);
 		return applicationRepository.findAllByPostingAndStatus(posting, ApplicationStatus.SUBMITTED);
+	}
+
+	// 공고가 결과 발표 단계까지 가기 전에는 지원자에게 PENDING으로 가림
+	public DocResult resolveDocResult(Application application, PostingStatus postingStatus) {
+		return postingStatus != null && postingStatus.isDocResultVisible()
+			? application.getDocResult()
+			: DocResult.PENDING;
+	}
+
+	public FinalResult resolveFinalResult(Application application, PostingStatus postingStatus) {
+		return postingStatus != null && postingStatus.isFinalResultVisible()
+			? application.getFinalResult()
+			: FinalResult.PENDING;
 	}
 
 	private void replaceAnswers(Application application, Posting posting, Position position,
