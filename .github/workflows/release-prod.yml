@@ -58,7 +58,7 @@ jobs:
 
       # 6. Docker Buildx 설정
       - name: Set up Docker Buildx
-        uses: docker/setup-buildx-action@v3
+        uses: docker/setup-buildx-action@v4
 
       # 7. GHCR 로그인
       - name: Login to GHCR
