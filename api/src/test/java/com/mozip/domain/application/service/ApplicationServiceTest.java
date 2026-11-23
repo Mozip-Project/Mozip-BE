@@ -7,6 +7,7 @@ import java.time.LocalDate;
 import java.time.LocalDateTime;
 import java.time.LocalTime;
 import java.util.List;
+import java.util.TimeZone;
 
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.DisplayName;
@@ -58,6 +59,7 @@ import com.mozip.domain.school.repository.SchoolRepository;
 import com.mozip.domain.user.entity.User;
 import com.mozip.domain.user.repository.UserRepository;
 import com.mozip.global.common.response.FieldErrorResponse;
+import com.mozip.global.config.graphql.LocalDateTimeScalar;
 import com.mozip.global.exception.BusinessException;
 import com.mozip.global.exception.CommonErrorCode;
 
@@ -268,6 +270,30 @@ class ApplicationServiceTest {
 				assertThat(((BusinessException)e).getErrorCode()).isEqualTo(PostingErrorCode.CONFLICT);
 				assertThat(((BusinessException)e).getReason()).isEqualTo(PostingConflictReason.NOT_RECRUITING.name());
 			});
+	}
+
+	@Test
+	@DisplayName("JVM 기본 시간대가 서울이 아니어도 recruitStartAt/recruitEndAt은 서울 시각 기준으로 판단한다")
+	void judgesRecruitingWindowInSeoulTimeRegardlessOfJvmDefaultZone() {
+		TimeZone originalDefault = TimeZone.getDefault();
+		try {
+			TimeZone.setDefault(TimeZone.getTimeZone("UTC"));
+			LocalDateTime seoulNow = LocalDateTime.now(LocalDateTimeScalar.ZONE);
+			Posting posting = postingService.saveDraft(operator.getId(), organization.getId(), null,
+				basicInputWithWindow("시간대 테스트 공고 " + System.nanoTime(), seoulNow.minusHours(1), seoulNow.plusDays(1)));
+			postingService.saveDraft(operator.getId(), organization.getId(), posting.getId(),
+				withPositions(List.of(new PositionInput(null, "백엔드", 1, 0))));
+			postingService.saveDraft(operator.getId(), organization.getId(), posting.getId(),
+				withQuestions(List.of(new QuestionInput(null, QuestionType.TEXT, "자기소개", null, true, 500, null, 0))));
+			postingService.publish(operator.getId(), posting.getId());
+
+			Application application = applicationService.saveDraft(applicant.getId(), posting.getId(),
+				new ApplicationInput(null, null, null));
+
+			assertThat(application.getStatus()).isEqualTo(ApplicationStatus.DRAFT);
+		} finally {
+			TimeZone.setDefault(originalDefault);
+		}
 	}
 
 	@Test
@@ -785,6 +811,16 @@ class ApplicationServiceTest {
 	private PostingDraftInput basicInput(String title, LocalDateTime recruitEndAt) {
 		return new PostingDraftInput(title, "본문", "2026-2", "서울", "무료", true, false, null,
 			null, null, LocalDateTime.now(), recruitEndAt, null,
+			null, null,
+			null, null, null, null, null, null, null, null,
+			null, null,
+			null);
+	}
+
+	private PostingDraftInput basicInputWithWindow(String title, LocalDateTime recruitStartAt,
+		LocalDateTime recruitEndAt) {
+		return new PostingDraftInput(title, "본문", "2026-2", "서울", "무료", true, false, null,
+			null, null, recruitStartAt, recruitEndAt, null,
 			null, null,
 			null, null, null, null, null, null, null, null,
 			null, null,

@@ -51,6 +51,7 @@ import com.mozip.domain.posting.repository.QuestionRepository;
 import com.mozip.domain.user.entity.User;
 import com.mozip.domain.user.repository.UserRepository;
 import com.mozip.global.common.response.FieldErrorResponse;
+import com.mozip.global.config.graphql.LocalDateTimeScalar;
 import com.mozip.global.exception.BusinessException;
 import com.mozip.global.exception.CommonErrorCode;
 
@@ -396,7 +397,9 @@ public class ApplicationService {
 	}
 
 	private void requireRecruiting(Posting posting) {
-		LocalDateTime now = LocalDateTime.now();
+		// recruitStartAt/recruitEndAt은 LocalDateTimeScalar가 서울 시각으로 저장한 값이라, now도 서울 시각 기준으로 맞춤
+		// (JVM 시간대가 서울이 아니면 어긋남. 배포 환경은 TZ를 안 맞춰 둘 수 있어 안전하게 명시)
+		LocalDateTime now = LocalDateTime.now(LocalDateTimeScalar.ZONE);
 		boolean withinWindow = (posting.getRecruitStartAt() == null || !now.isBefore(posting.getRecruitStartAt()))
 			&& (posting.getRecruitEndAt() == null || !now.isAfter(posting.getRecruitEndAt()));
 		if (posting.getStatus() != PostingStatus.RECRUITING || !withinWindow) {
