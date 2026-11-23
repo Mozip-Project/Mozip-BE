@@ -55,6 +55,7 @@ import com.mozip.global.exception.BusinessException;
 import com.mozip.global.exception.CommonErrorCode;
 
 import lombok.RequiredArgsConstructor;
+import tools.jackson.core.type.TypeReference;
 import tools.jackson.databind.ObjectMapper;
 
 @Service
@@ -294,6 +295,17 @@ public class ApplicationService {
 				fieldErrors.add(new FieldErrorResponse(field, "선택지에 없는 값입니다."));
 			}
 		}
+		if (question.getType() == QuestionType.TABLE && !blank) {
+			List<List<String>> rows = readTable(answer.getContent());
+			if (rows == null) {
+				fieldErrors.add(new FieldErrorResponse(field, "표 형식이 올바르지 않습니다."));
+			} else if (question.getMaxRows() != null && rows.size() > question.getMaxRows()) {
+				fieldErrors.add(new FieldErrorResponse(field, "행 수 제한을 넘었습니다."));
+			} else if (question.getColumns() != null
+				&& rows.stream().anyMatch(row -> row.size() != question.getColumns().size())) {
+				fieldErrors.add(new FieldErrorResponse(field, "열 구성이 문항과 다릅니다."));
+			}
+		}
 	}
 
 	private boolean isValidChoice(Question question, String choice) {
@@ -358,6 +370,15 @@ public class ApplicationService {
 			}
 		}
 		return (List<String>)raw;
+	}
+
+	private List<List<String>> readTable(String json) {
+		try {
+			return objectMapper.readValue(json, new TypeReference<List<List<String>>>() {
+			});
+		} catch (RuntimeException e) {
+			return null;
+		}
 	}
 
 	private Position resolvePosition(Posting posting, Long positionId) {

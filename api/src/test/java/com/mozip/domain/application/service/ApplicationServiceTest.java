@@ -501,6 +501,83 @@ class ApplicationServiceTest {
 	}
 
 	@Test
+	@DisplayName("TABLE 문항에 JSON 배열이 아닌 값을 제출하면 APPLICATION_400(표 형식이 올바르지 않습니다.)을 던진다")
+	void rejectsSubmitWithMalformedTable() {
+		Posting posting = recruitingPostingWithQuestion(QuestionType.TABLE, true, null,
+			new QuestionOptionsInput(null, List.of("이름", "역할"), 3, null));
+		Position position = onlyPosition(posting);
+		Long questionId = onlyQuestionId(posting);
+		applicant.verifySchool(school);
+		userRepository.save(applicant);
+		Application application = applicationService.saveDraft(applicant.getId(), posting.getId(),
+			new ApplicationInput(position.getId(), List.of(new AnswerInput(questionId, "abc", null)), null));
+
+		assertThatThrownBy(() -> applicationService.submit(applicant.getId(), application.getId()))
+			.isInstanceOfSatisfying(BusinessException.class, e -> {
+				assertThat(e.getErrorCode()).isEqualTo(ApplicationErrorCode.INVALID_INPUT);
+				assertThat(e.getFieldErrors()).extracting(FieldErrorResponse::message).containsExactly("표 형식이 올바르지 않습니다.");
+			});
+	}
+
+	@Test
+	@DisplayName("TABLE 문항에 maxRows보다 많은 행을 제출하면 APPLICATION_400(행 수 제한을 넘었습니다.)을 던진다")
+	void rejectsSubmitWhenTableExceedsMaxRows() {
+		Posting posting = recruitingPostingWithQuestion(QuestionType.TABLE, true, null,
+			new QuestionOptionsInput(null, List.of("이름", "역할"), 3, null));
+		Position position = onlyPosition(posting);
+		Long questionId = onlyQuestionId(posting);
+		applicant.verifySchool(school);
+		userRepository.save(applicant);
+		String tooManyRows = "[[\"a\",\"1\"],[\"b\",\"2\"],[\"c\",\"3\"],[\"d\",\"4\"]]";
+		Application application = applicationService.saveDraft(applicant.getId(), posting.getId(),
+			new ApplicationInput(position.getId(), List.of(new AnswerInput(questionId, tooManyRows, null)), null));
+
+		assertThatThrownBy(() -> applicationService.submit(applicant.getId(), application.getId()))
+			.isInstanceOfSatisfying(BusinessException.class, e -> {
+				assertThat(e.getErrorCode()).isEqualTo(ApplicationErrorCode.INVALID_INPUT);
+				assertThat(e.getFieldErrors()).extracting(FieldErrorResponse::message).containsExactly("행 수 제한을 넘었습니다.");
+			});
+	}
+
+	@Test
+	@DisplayName("TABLE 문항에 열 개수가 다른 행을 제출하면 APPLICATION_400(열 구성이 문항과 다릅니다.)을 던진다")
+	void rejectsSubmitWhenTableColumnCountMismatches() {
+		Posting posting = recruitingPostingWithQuestion(QuestionType.TABLE, true, null,
+			new QuestionOptionsInput(null, List.of("이름", "역할"), 3, null));
+		Position position = onlyPosition(posting);
+		Long questionId = onlyQuestionId(posting);
+		applicant.verifySchool(school);
+		userRepository.save(applicant);
+		String wrongColumnCount = "[[\"a\",\"1\",\"여분\"]]";
+		Application application = applicationService.saveDraft(applicant.getId(), posting.getId(),
+			new ApplicationInput(position.getId(), List.of(new AnswerInput(questionId, wrongColumnCount, null)), null));
+
+		assertThatThrownBy(() -> applicationService.submit(applicant.getId(), application.getId()))
+			.isInstanceOfSatisfying(BusinessException.class, e -> {
+				assertThat(e.getErrorCode()).isEqualTo(ApplicationErrorCode.INVALID_INPUT);
+				assertThat(e.getFieldErrors()).extracting(FieldErrorResponse::message).containsExactly("열 구성이 문항과 다릅니다.");
+			});
+	}
+
+	@Test
+	@DisplayName("TABLE 문항에 제약을 지키는 값을 제출하면 성공한다")
+	void submitsSuccessfullyWithValidTable() {
+		Posting posting = recruitingPostingWithQuestion(QuestionType.TABLE, true, null,
+			new QuestionOptionsInput(null, List.of("이름", "역할"), 3, null));
+		Position position = onlyPosition(posting);
+		Long questionId = onlyQuestionId(posting);
+		applicant.verifySchool(school);
+		userRepository.save(applicant);
+		String validTable = "[[\"a\",\"1\"],[\"b\",\"2\"]]";
+		Application application = applicationService.saveDraft(applicant.getId(), posting.getId(),
+			new ApplicationInput(position.getId(), List.of(new AnswerInput(questionId, validTable, null)), null));
+
+		Application submitted = applicationService.submit(applicant.getId(), application.getId());
+
+		assertThat(submitted.getStatus()).isEqualTo(ApplicationStatus.SUBMITTED);
+	}
+
+	@Test
 	@DisplayName("필수 FILE_LINK 문항에 첨부 없이 제출하면 APPLICATION_400(필수 첨부입니다.)을 던진다")
 	void rejectsSubmitWithRequiredFileLinkMissingAttachment() {
 		Posting posting = recruitingPostingWithQuestion(QuestionType.FILE_LINK, true, null,
