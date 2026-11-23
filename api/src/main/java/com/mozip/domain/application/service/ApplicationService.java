@@ -21,6 +21,7 @@ import com.mozip.domain.application.entity.ApplicationStatus;
 import com.mozip.domain.application.entity.Attachment;
 import com.mozip.domain.application.exception.ApplicationConflictReason;
 import com.mozip.domain.application.exception.ApplicationErrorCode;
+import com.mozip.domain.application.exception.ApplicationForbiddenReason;
 import com.mozip.domain.application.repository.AnswerRepository;
 import com.mozip.domain.application.repository.ApplicationRepository;
 import com.mozip.domain.application.repository.AttachmentRepository;
@@ -37,7 +38,6 @@ import com.mozip.domain.posting.repository.PositionRepository;
 import com.mozip.domain.posting.repository.PostingRepository;
 import com.mozip.domain.posting.repository.QuestionRepository;
 import com.mozip.domain.user.entity.User;
-import com.mozip.domain.user.exception.UserErrorCode;
 import com.mozip.domain.user.repository.UserRepository;
 import com.mozip.global.common.response.FieldErrorResponse;
 import com.mozip.global.exception.BusinessException;
@@ -116,9 +116,8 @@ public class ApplicationService {
 
 		User user = application.getUser();
 		if (user.getSchool() == null) {
-			throw new BusinessException(UserErrorCode.INELIGIBLE)
-				.addContext("userId", userId)
-				.addContext("reason", "학교 인증 안 됨");
+			throw new BusinessException(ApplicationErrorCode.FORBIDDEN, ApplicationForbiddenReason.SCHOOL_NOT_VERIFIED)
+				.addContext("userId", userId);
 		}
 
 		validateAnswers(application, posting);

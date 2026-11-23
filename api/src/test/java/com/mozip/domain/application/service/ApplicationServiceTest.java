@@ -22,6 +22,7 @@ import com.mozip.domain.application.entity.Application;
 import com.mozip.domain.application.entity.ApplicationStatus;
 import com.mozip.domain.application.exception.ApplicationConflictReason;
 import com.mozip.domain.application.exception.ApplicationErrorCode;
+import com.mozip.domain.application.exception.ApplicationForbiddenReason;
 import com.mozip.domain.application.repository.AnswerRepository;
 import com.mozip.domain.application.repository.ApplicationRepository;
 import com.mozip.domain.organization.entity.Member;
@@ -46,7 +47,6 @@ import com.mozip.domain.posting.service.PostingService;
 import com.mozip.domain.school.entity.School;
 import com.mozip.domain.school.repository.SchoolRepository;
 import com.mozip.domain.user.entity.User;
-import com.mozip.domain.user.exception.UserErrorCode;
 import com.mozip.domain.user.repository.UserRepository;
 import com.mozip.global.exception.BusinessException;
 import com.mozip.global.exception.CommonErrorCode;
@@ -228,7 +228,7 @@ class ApplicationServiceTest {
 	}
 
 	@Test
-	@DisplayName("학교 인증이 안 된 회원이 제출하면 USER_403을 던진다")
+	@DisplayName("학교 인증이 안 된 회원이 제출하면 APPLICATION_403(SCHOOL_NOT_VERIFIED)을 던진다")
 	void rejectsSubmitWithoutSchoolVerification() {
 		Posting posting = recruitingPostingWithPosition();
 		Position position = onlyPosition(posting);
@@ -238,8 +238,10 @@ class ApplicationServiceTest {
 
 		assertThatThrownBy(() -> applicationService.submit(applicant.getId(), application.getId()))
 			.isInstanceOf(BusinessException.class)
-			.extracting(e -> ((BusinessException)e).getErrorCode())
-			.isEqualTo(UserErrorCode.INELIGIBLE);
+			.satisfies(e -> {
+				assertThat(((BusinessException)e).getErrorCode()).isEqualTo(ApplicationErrorCode.FORBIDDEN);
+				assertThat(((BusinessException)e).getReason()).isEqualTo(ApplicationForbiddenReason.SCHOOL_NOT_VERIFIED.name());
+			});
 	}
 
 	@Test

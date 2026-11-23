@@ -10,7 +10,8 @@ import lombok.RequiredArgsConstructor;
 @Getter
 @RequiredArgsConstructor
 public enum ApplicationErrorCode implements ErrorCode {
-
+	// reason으로 상황 구분 (ApplicationForbiddenReason)
+	FORBIDDEN(HttpStatus.FORBIDDEN, "APPLICATION_403", "지원 자격을 확인해주세요."),
 	NOT_FOUND(HttpStatus.NOT_FOUND, "APPLICATION_404", "지원서를 찾을 수 없습니다."),
 	// reason으로 상황 구분 (ApplicationConflictReason)
 	CONFLICT(HttpStatus.CONFLICT, "APPLICATION_409", "처리할 수 없는 상태입니다."),

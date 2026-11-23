@@ -101,7 +101,7 @@ extend type Mutation {
     """
     지원서 제출. 이후 수정·철회 불가.
     필수 문항 누락·글자 수·선택지·첨부 개수 위반이면 APPLICATION_400(fieldErrors에 questionId별 메시지),
-    지원 자격(학교 인증) 미충족이면 USER_403,
+    지원 자격(학교 인증) 미충족이면 APPLICATION_403(reason: SCHOOL_NOT_VERIFIED),
     모집 마감이면 POSTING_409(reason: NOT_RECRUITING), 이미 제출했으면 APPLICATION_409(reason: ALREADY_SUBMITTED)
     """
     submitApplication(id: ID!): Application!
