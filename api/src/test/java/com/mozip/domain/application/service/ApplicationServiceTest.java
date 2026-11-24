@@ -509,6 +509,61 @@ class ApplicationServiceTest {
 	}
 
 	@Test
+	@DisplayName("필수 MULTI_CHOICE 문항에 빈 배열을 제출하면 APPLICATION_400(필수 문항입니다.)을 던진다")
+	void rejectsSubmitWithRequiredMultiChoiceEmptySelection() {
+		Posting posting = recruitingPostingWithQuestion(QuestionType.MULTI_CHOICE, true, null,
+			new QuestionOptionsInput(List.of("A", "B", "C"), null, null, null));
+		Position position = onlyPosition(posting);
+		Long questionId = onlyQuestionId(posting);
+		applicant.verifySchool(school);
+		userRepository.save(applicant);
+		Application application = applicationService.saveDraft(applicant.getId(), posting.getId(),
+			new ApplicationInput(position.getId(), List.of(new AnswerInput(questionId, "[]", null)), null));
+
+		assertThatThrownBy(() -> applicationService.submit(applicant.getId(), application.getId()))
+			.isInstanceOfSatisfying(BusinessException.class, e -> {
+				assertThat(e.getErrorCode()).isEqualTo(ApplicationErrorCode.INVALID_INPUT);
+				assertThat(e.getFieldErrors()).extracting(FieldErrorResponse::message).containsExactly("필수 문항입니다.");
+			});
+	}
+
+	@Test
+	@DisplayName("선택 MULTI_CHOICE 문항에 빈 배열을 제출하면 성공한다")
+	void submitsSuccessfullyWithOptionalMultiChoiceEmptySelection() {
+		Posting posting = recruitingPostingWithQuestion(QuestionType.MULTI_CHOICE, false, null,
+			new QuestionOptionsInput(List.of("A", "B", "C"), null, null, null));
+		Position position = onlyPosition(posting);
+		Long questionId = onlyQuestionId(posting);
+		applicant.verifySchool(school);
+		userRepository.save(applicant);
+		Application application = applicationService.saveDraft(applicant.getId(), posting.getId(),
+			new ApplicationInput(position.getId(), List.of(new AnswerInput(questionId, "[]", null)), null));
+
+		Application submitted = applicationService.submit(applicant.getId(), application.getId());
+
+		assertThat(submitted.getStatus()).isEqualTo(ApplicationStatus.SUBMITTED);
+	}
+
+	@Test
+	@DisplayName("MULTI_CHOICE 문항에 JSON null 리터럴을 제출하면 APPLICATION_400(선택지에 없는 값입니다.)을 던진다")
+	void rejectsSubmitWithNullLiteralMultiChoiceContent() {
+		Posting posting = recruitingPostingWithQuestion(QuestionType.MULTI_CHOICE, true, null,
+			new QuestionOptionsInput(List.of("A", "B", "C"), null, null, null));
+		Position position = onlyPosition(posting);
+		Long questionId = onlyQuestionId(posting);
+		applicant.verifySchool(school);
+		userRepository.save(applicant);
+		Application application = applicationService.saveDraft(applicant.getId(), posting.getId(),
+			new ApplicationInput(position.getId(), List.of(new AnswerInput(questionId, "null", null)), null));
+
+		assertThatThrownBy(() -> applicationService.submit(applicant.getId(), application.getId()))
+			.isInstanceOfSatisfying(BusinessException.class, e -> {
+				assertThat(e.getErrorCode()).isEqualTo(ApplicationErrorCode.INVALID_INPUT);
+				assertThat(e.getFieldErrors()).extracting(FieldErrorResponse::message).containsExactly("선택지에 없는 값입니다.");
+			});
+	}
+
+	@Test
 	@DisplayName("TEXT 문항에 maxLength보다 긴 답변을 제출하면 APPLICATION_400(글자 수 제한을 넘었습니다.)을 던진다")
 	void rejectsSubmitWhenTextExceedsMaxLength() {
 		Posting posting = recruitingPostingWithQuestion(QuestionType.TEXT, false, 5, null);
@@ -582,6 +637,25 @@ class ApplicationServiceTest {
 			.isInstanceOfSatisfying(BusinessException.class, e -> {
 				assertThat(e.getErrorCode()).isEqualTo(ApplicationErrorCode.INVALID_INPUT);
 				assertThat(e.getFieldErrors()).extracting(FieldErrorResponse::message).containsExactly("열 구성이 문항과 다릅니다.");
+			});
+	}
+
+	@Test
+	@DisplayName("필수 TABLE 문항에 빈 배열을 제출하면 APPLICATION_400(필수 문항입니다.)을 던진다")
+	void rejectsSubmitWithRequiredTableEmptyRows() {
+		Posting posting = recruitingPostingWithQuestion(QuestionType.TABLE, true, null,
+			new QuestionOptionsInput(null, List.of("이름", "역할"), 3, null));
+		Position position = onlyPosition(posting);
+		Long questionId = onlyQuestionId(posting);
+		applicant.verifySchool(school);
+		userRepository.save(applicant);
+		Application application = applicationService.saveDraft(applicant.getId(), posting.getId(),
+			new ApplicationInput(position.getId(), List.of(new AnswerInput(questionId, "[]", null)), null));
+
+		assertThatThrownBy(() -> applicationService.submit(applicant.getId(), application.getId()))
+			.isInstanceOfSatisfying(BusinessException.class, e -> {
+				assertThat(e.getErrorCode()).isEqualTo(ApplicationErrorCode.INVALID_INPUT);
+				assertThat(e.getFieldErrors()).extracting(FieldErrorResponse::message).containsExactly("필수 문항입니다.");
 			});
 	}
 
