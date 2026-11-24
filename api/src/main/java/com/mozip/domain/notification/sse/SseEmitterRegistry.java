@@ -1,6 +1,7 @@
 package com.mozip.domain.notification.sse;
 
 import java.io.IOException;
+import java.time.Duration;
 import java.util.List;
 import java.util.Map;
 import java.util.concurrent.ConcurrentHashMap;
@@ -10,6 +11,7 @@ import org.springframework.scheduling.annotation.Scheduled;
 import org.springframework.stereotype.Component;
 import org.springframework.web.servlet.mvc.method.annotation.SseEmitter;
 
+import jakarta.annotation.PreDestroy;
 import lombok.extern.slf4j.Slf4j;
 
 // 이 파드가 들고 있는 SSE 연결만 관리. 다른 파드가 들고 있는 연결은 Redis 구독 쪽에서 각자 처리
@@ -22,15 +24,21 @@ public class SseEmitterRegistry {
 	// 항상 똑같이 실패하므로 즉시 정리함
 	private static final int MAX_SEND_ATTEMPTS = 3;
 	private static final long RETRY_DELAY_MS = 100;
+	// access token 수명(30분)보다 짧게 잡아, 토큰이 만료/로그아웃된 뒤에도 연결이 살아남아 알림이 계속 나가는 걸 막음.
+	// 타임아웃으로 끊기면 프론트 EventSource가 재연결하면서 인증을 다시 탐
+	private static final long TIMEOUT_MS = Duration.ofMinutes(25).toMillis();
 
 	private final Map<Long, List<SseEmitter>> emittersByUserId = new ConcurrentHashMap<>();
 
 	public SseEmitter register(Long userId) {
-		SseEmitter emitter = new SseEmitter(0L);
+		SseEmitter emitter = new SseEmitter(TIMEOUT_MS);
 		List<SseEmitter> emitters = emittersByUserId.computeIfAbsent(userId, key -> new CopyOnWriteArrayList<>());
 		emitters.add(emitter);
 		emitter.onCompletion(() -> remove(userId, emitter));
-		emitter.onTimeout(() -> remove(userId, emitter));
+		emitter.onTimeout(() -> {
+			remove(userId, emitter);
+			emitter.complete();
+		});
 		emitter.onError(e -> remove(userId, emitter));
 		return emitter;
 	}
@@ -98,6 +106,12 @@ public class SseEmitterRegistry {
 			emitters.remove(emitter);
 			return emitters.isEmpty() ? null : emitters;
 		});
+	}
+
+	// 배포로 파드가 내려갈 때 열려 있는 연결을 정리. 프론트는 completion을 받고 재연결을 시도함
+	@PreDestroy
+	void closeAll() {
+		emittersByUserId.values().forEach(emitters -> emitters.forEach(SseEmitter::complete));
 	}
 
 }
