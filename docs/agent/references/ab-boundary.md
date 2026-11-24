@@ -34,8 +34,8 @@
 | 이용권 검사 (`ORG_402 SUBSCRIPTION_REQUIRED`) | A | B (유료 기능 호출 시) | 구현됨. `publishPosting`에서 사용 (#65) |
 | `MailSender`, `NotificationService` | A | B (결과 안내 발송) | 미정. B 결과 안내 순서 전에 A가 만들거나 B가 임시 구현 |
 | `User.contactEmail` | A | B (결과 안내 수신 주소) | 미정. A가 컬럼만 먼저 추가하거나 B가 지원서 `profile_snapshot`에서 임시로 꺼냄 |
-| `PostingResultChecker.isDocResultConfirmed(postingId)` | B | A (`advancePostingStatus`의 DOC_REVIEW -> DOC_RESULT_NOTICE 조건, #66) | 임시 구현 `TemporaryPostingResultChecker` (#66). 항상 true. B가 서류 평가 결과 취합을 구현하면 실제 구현으로 교체 |
-| `PostingResultChecker.isFinalResultConfirmed(postingId)` | B | A (`advancePostingStatus`의 FINAL_RESULT 전환 조건, #66) | 임시 구현 `TemporaryPostingResultChecker` (#66). 항상 true. B가 최종 결과 확정을 구현하면 실제 구현으로 교체 |
+| `PostingResultChecker.isDocResultConfirmed(postingId)` | B | A (`advancePostingStatus`의 DOC_REVIEW -> DOC_RESULT_NOTICE 조건, #66) | 구현됨 `DefaultPostingResultChecker` (#91). `postings.doc_result_confirmed_at`이 채워졌으면 true, 공고가 없으면 false |
+| `PostingResultChecker.isFinalResultConfirmed(postingId)` | B | A (`advancePostingStatus`의 FINAL_RESULT 전환 조건, #66) | 임시 구현. `DefaultPostingResultChecker` 안에서 항상 true (#91에서 클래스만 옮김). B가 최종 결과 확정을 구현하면 실제 구현으로 교체 |
 | `PostingService.getPostingStatus(postingId)` | A | B (평가·면접 화면을 열어도 되는 단계인지 확인) | 구현됨 (#66). B가 아직 안 씀 |
 | `InterviewAvailabilityService.save(applicationId, availableTimes)` | B | A (`saveApplicationDraft`에서 면접 가능 시간 저장, #69) | 임시 구현 `TemporaryInterviewAvailabilityService` (#69). 로그만 남김. B가 면접 타임테이블 배정을 구현하면 실제 구현으로 교체 |
 | `ApplicationService.getSubmittedApplications(postingId)` | A | B (서류 평가 대상 조회, #69) | 구현됨 (#69). 서류 평가 목록과 저장 응답의 남은 수 계산에서 씀 (#90) |
@@ -44,8 +44,8 @@
 
 | 엔티티 | 소유 | B가 쓰는 부분 | 상태 |
 |---|---|---|---|
-| `Application` | A | `doc_result`, `final_result` 컬럼과 변경 메서드 `decideDocResult`, `decideFinalResult` | 컬럼 존재 (#69). 변경 메서드는 아직 B가 안 만듦 (지금은 PENDING에서 안 바뀜) |
-| `Posting` | A | `doc_result_confirmed_at`, `final_result_confirmed_at`, `timetable_confirmed_at`, 면접 설정 컬럼 6개(`interviewMethod`, `interviewMinutes`, `breakMinutes`, `assignRule`, `maxApplicantsPerInterview`, `maxParallelInterviews`) | 컬럼 추가됨 (#65). 변경 메서드(`decideDocResult` 등)는 아직 B가 안 만듦 |
+| `Application` | A | `doc_result`, `final_result` 컬럼과 변경 메서드 `decideDocResult`, `decideFinalResult` | 컬럼 존재 (#69). `decideDocResult`는 B가 추가함 (#91, `setDocResult`에서 호출). `decideFinalResult`는 아직 없음 |
+| `Posting` | A | `doc_result_confirmed_at`, `final_result_confirmed_at`, `timetable_confirmed_at`, 면접 설정 컬럼 6개(`interviewMethod`, `interviewMinutes`, `breakMinutes`, `assignRule`, `maxApplicantsPerInterview`, `maxParallelInterviews`) | 컬럼 추가됨 (#65). `doc_result_confirmed_at`은 B가 `isDocResultConfirmed`와 `PostingRepository.confirmDocResult`(조건부 UPDATE), `findByIdWithOrganizationForUpdate`(행 잠금), `findByIdForShare`(공유 잠금)를 추가함 (#91). 나머지 컬럼의 변경 메서드는 아직 없음 |
 | `Posting.doc_score_per_question`, `Question.short_title` | A | B가 평가 화면에서 읽음 | 컬럼 추가됨 (#65). `short_title`은 아직 입력 경로 없어 항상 null |
 
 ## 아직 결정 안 된 것
@@ -72,3 +72,12 @@
   - 지원 자격 검사는 학교 인증 여부만 함. 대학생·휴학생 허용 여부는 `User`에 재학 상태를 나타내는 필드가 없어서 검사 안 함
   - DRAFT 지원서를 지원자가 지우는 기능은 안 만듦 (할 일/API 목록에 없었음)
   - `Attachment.url`은 그냥 문자열로 저장만 함. #34(presigned URL)가 아직 안 머지돼서 실제 S3 발급/검증과는 연동 안 함
+- #91(서류 평가 취합, 결과 확정)에서 정한 것. A 확인 필요
+  - A 소유 코드에 추가한 것: `Application.decideDocResult`, `Posting.isDocResultConfirmed`,
+    `PostingRepository.confirmDocResult`, `findByIdWithOrganizationForUpdate`, `findByIdForShare`
+  - A 소유 코드에서 바꾼 것: `ApplicationService.submit`은 공고를 공유 잠금으로, `PostingService.advanceStatus`는 행 잠금으로 읽음.
+    단계 전환이나 서류 결과 확정 도중에 제출이 끼어들지 않게 하려는 것. 제출끼리는 서로 안 막음
+  - `isDocResultConfirmed`가 실제 값을 보게 되면서 DOC_RESULT_NOTICE로 넘어가는 A 테스트 3곳에 확정 시각을 채우는 줄을 넣음
+  - 평가 완료 기준인 "운영진 전원"은 공고 단체의 `Member` 전원임. `Reviewer` 배정은 아직 쓰는 곳이 없어서 안 봄
+  - 서류 결과 지정과 확정은 공고가 DOC_REVIEW일 때만 됨. 취합 조회와 평가 저장은 공고 상태를 안 봄 (모집 중에도 평가 저장 가능)
+  - 평가 저장, 결과 지정, 확정, 단계 전환은 모두 같은 공고 행을 잠그고 시작함

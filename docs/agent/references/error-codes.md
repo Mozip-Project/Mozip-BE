@@ -66,12 +66,14 @@
 | `APPLICATION_409` | 409 | `CONFLICT` | `reason`으로 구분 (`ApplicationConflictReason`) |
 | `APPLICATION_400` | 400 | `INVALID_INPUT` | `submitApplication`에서 필수 문항 누락·글자 수·선택지·첨부 개수 위반. `fieldErrors`에 questionId별 메시지가 담김 |
 
-## 평가 (`EvaluationErrorCode`, #90)
+## 평가 (`EvaluationErrorCode`, #90, #91)
 
 | 코드 | HTTP | 상수 | 언제 |
 |---|---|---|---|
 | `EVALUATION_404` | 404 | `APPLICATION_NOT_FOUND` | 평가할 지원서 없음. 아직 제출 전(DRAFT)인 지원서도 같음 |
-| `EVALUATION_423` | 423 | `RESULT_CONFIRMED` | 서류 결과가 확정된 공고의 평가를 저장하려 함 |
+| `EVALUATION_409` | 409 | `RESULT_NOT_SELECTABLE` | `setDocResult`에서 아직 결과를 지정할 수 없음. `reason`으로 구분 (`DocResultConflictReason`, #91) |
+| `EVALUATION_422` | 422 | `RESULT_NOT_CONFIRMABLE` | `confirmDocResult`에서 확정 조건이 안 됨. `reason`으로 구분 (`DocResultConfirmReason`, #91) |
+| `EVALUATION_423` | 423 | `RESULT_CONFIRMED` | 서류 결과가 확정된 공고의 평가를 저장하거나(#90) 결과를 바꾸거나 다시 확정하려 함(#91) |
 
 ## reason enum
 
@@ -86,6 +88,8 @@
 | `ApplicationForbiddenReason` | `APPLICATION_403` | `SCHOOL_NOT_VERIFIED`(학교 인증을 하지 않은 회원, #69) |
 | `ApplicationInputReason` | `COMMON_400` | `POSITION_FROM_ANOTHER_POSTING`, `QUESTION_FROM_ANOTHER_POSTING`, `QUESTION_NOT_FOR_POSITION`, `AVAILABLE_TIME_NOT_OPEN`(면접 가능 시간이 열려 있는 블록의 시작 시각이 아님), `ATTACHMENT_NOT_ALLOWED_FOR_QUESTION_TYPE`(FILE_LINK가 아닌 문항에 첨부를 보냄), `INVALID_ATTACHMENT_URL`(LINK가 http/https가 아니거나 FILE이 presigned 경로가 아님) (#69) |
 | `DocEvaluationInputReason` | `COMMON_400` | `OPINION_REQUIRED`(저장인데 의견이 없음), `SCORE_REQUIRED`(저장인데 적용 문항 점수가 빠짐), `INVALID_SCORE`(점수가 1~5가 아님), `MEMO_TOO_LONG`(메모 300자 초과), `QUESTION_NOT_IN_POSTING`(이 지원서에 적용되지 않는 문항) (#90) |
+| `DocResultConflictReason` | `EVALUATION_409` | `NOT_DOC_REVIEW`(공고가 서류 평가 단계가 아님), `NOT_ALL_SAVED`(운영진 전원이 평가를 저장하기 전) (#91) |
+| `DocResultConfirmReason` | `EVALUATION_422` | `NOT_DOC_REVIEW`(공고가 서류 평가 단계가 아님), `NO_APPLICANTS`(제출된 지원서 없음), `NOT_ALL_EVALUATED`(평가가 덜 끝난 지원자가 있음), `RESULT_NOT_SELECTED`(결과를 안 고른 지원자가 있음), `HOLD_REMAINING`(보류가 남음). 여러 개에 걸리면 이 순서로 먼저 걸리는 것 하나 (#91) |
 
 ## fieldErrors를 응답에 담는 BusinessException
 
