@@ -25,10 +25,8 @@ import com.mozip.global.exception.BusinessException;
 import com.mozip.global.exception.CommonErrorCode;
 
 import lombok.RequiredArgsConstructor;
-import lombok.extern.slf4j.Slf4j;
 
 // B의 inviteMember(INVITATION), assignReviewers(EVALUATION_REQUEST), 결과 안내(DOC_RESULT, FINAL_RESULT)에서 호출하는 연결 함수
-@Slf4j
 @Service
 @RequiredArgsConstructor
 @Transactional(readOnly = true)
@@ -50,33 +48,31 @@ public class NotificationService {
 	}
 
 	// 결과 안내처럼 알림이 가리키는 메시지가 있는 경우용 오버로드
+	// title/linkUrl/userId/organizationId는 모두 호출자(B)가 만들거나 이미 검사한 값이라, 여기서 어긋나면
+	// 호출자의 버그다. 사용자가 고칠 수 있는 입력이 아니므로 BusinessException이 아니라 IllegalArgumentException으로
+	// 던진다 (code.md 예외 구분). send가 inviteMember/assignReviewers 트랜잭션 안에서 불리므로 여기서 던지면
+	// 호출한 트랜잭션 전체가 롤백된다 — title에 단체명/공고명을 넣는 호출자는 합쳐도 200자를 넘지 않는지 미리 확인해야 함
 	@Transactional
 	public void send(Long userId, NotificationType type, Long organizationId, Long messageId, String title,
 		String linkUrl) {
 		if (title != null && title.length() > MAX_TITLE_LENGTH) {
-			throw new BusinessException(CommonErrorCode.INVALID_INPUT)
-				.addContext("titleLength", title.length());
+			throw new IllegalArgumentException("title이 %d자를 넘음: %d자".formatted(MAX_TITLE_LENGTH, title.length()));
 		}
 		if (linkUrl != null && linkUrl.length() > MAX_LINK_URL_LENGTH) {
-			throw new BusinessException(CommonErrorCode.INVALID_INPUT)
-				.addContext("linkUrlLength", linkUrl.length());
+			throw new IllegalArgumentException(
+				"linkUrl이 %d자를 넘음: %d자".formatted(MAX_LINK_URL_LENGTH, linkUrl.length()));
 		}
-		User user = userRepository.findById(userId).orElse(null);
-		if (user == null) {
-			// 호출자(B)가 이미 유효한 userId로 호출하는 내부 연결 함수라 예외 대신 로그로 남김
-			log.warn("알림 대상 회원을 찾을 수 없어 건너뜀: userId={}, type={}", userId, type);
-			return;
-		}
+		User user = userRepository.findById(userId)
+			.orElseThrow(() -> new IllegalArgumentException("알림 대상 회원을 찾을 수 없음: userId=" + userId));
 		if (!type.isAllowedFor(user)) {
 			return;
 		}
-		Organization organization = findOrganizationOrWarn(organizationId, userId, type);
+		Organization organization = findOrganization(organizationId);
 
 		Notification notification = notificationRepository.save(
 			Notification.create(user, type, organization, messageId, title, linkUrl));
 
-		// organization이 아니라 원본 organizationId를 그대로 넘기면, DB엔 단체 없이 저장됐는데(findOrganizationOrWarn이
-		// null로 바꿈) 이벤트엔 존재하지 않는 organizationId가 실려 나가는 불일치가 생김
+		// organizationId가 null일 때만 organization도 null (존재하지 않는 id면 findOrganization이 먼저 던짐)
 		Long broadcastOrganizationId = organization == null ? null : organization.getId();
 
 		// 커밋 전에 롤백되면 알림도 같이 사라져야 하므로, 실제 SSE/Redis 발행은 커밋 후(NotificationEventListener)에서 함
@@ -116,17 +112,13 @@ public class NotificationService {
 		return NotificationSettings.from(user);
 	}
 
-	// organizationId를 줬는데 찾을 수 없으면 호출한 쪽(B)이 잘못된/오래된 id를 넘겼을 가능성이 있어 로그로 남김
-	private Organization findOrganizationOrWarn(Long organizationId, Long userId, NotificationType type) {
+	// organizationId를 줬는데 찾을 수 없으면 호출한 쪽(B)이 잘못된/오래된 id를 넘긴 버그
+	private Organization findOrganization(Long organizationId) {
 		if (organizationId == null) {
 			return null;
 		}
-		Organization organization = organizationRepository.findById(organizationId).orElse(null);
-		if (organization == null) {
-			log.warn("알림에 지정된 단체를 찾을 수 없어 단체 없이 저장함: organizationId={}, userId={}, type={}",
-				organizationId, userId, type);
-		}
-		return organization;
+		return organizationRepository.findById(organizationId)
+			.orElseThrow(() -> new IllegalArgumentException("알림에 지정된 단체를 찾을 수 없음: organizationId=" + organizationId));
 	}
 
 }

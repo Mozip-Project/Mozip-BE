@@ -149,38 +149,41 @@ class NotificationServiceTest {
 	}
 
 	@Test
-	@DisplayName("존재하지 않는 organizationId를 줘도 예외 없이 단체 없는 알림으로 저장한다")
-	void savesWithoutOrganizationWhenOrganizationIdNotFound() {
-		notificationService.send(user.getId(), NotificationType.DOC_RESULT, 999_999L, "내 알림", null);
-
-		Notification notification = notificationService.notifications(user.getId(), Role.APPLICANT, 0, 10).get(0);
-		assertThat(notification.getOrganization()).isNull();
+	@DisplayName("존재하지 않는 organizationId를 주면 호출자 버그로 보고 IllegalArgumentException을 던진다")
+	void rejectsOrganizationIdNotFound() {
+		assertThatThrownBy(
+			() -> notificationService.send(user.getId(), NotificationType.DOC_RESULT, 999_999L, "내 알림", null))
+			.isInstanceOf(IllegalArgumentException.class);
 	}
 
 	@Test
-	@DisplayName("title이 컬럼 길이(200자)를 넘으면 COMMON_400을 던지고 저장하지 않는다")
+	@DisplayName("존재하지 않는 userId를 주면 호출자 버그로 보고 IllegalArgumentException을 던진다")
+	void rejectsUserIdNotFound() {
+		assertThatThrownBy(
+			() -> notificationService.send(999_999L, NotificationType.DOC_RESULT, null, "내 알림", null))
+			.isInstanceOf(IllegalArgumentException.class);
+	}
+
+	@Test
+	@DisplayName("title이 컬럼 길이(200자)를 넘으면 IllegalArgumentException을 던지고 저장하지 않는다")
 	void rejectsTooLongTitle() {
 		String tooLong = "가".repeat(201);
 
 		assertThatThrownBy(
 			() -> notificationService.send(user.getId(), NotificationType.DOC_RESULT, null, tooLong, null))
-			.isInstanceOf(BusinessException.class)
-			.extracting(e -> ((BusinessException)e).getErrorCode())
-			.isEqualTo(CommonErrorCode.INVALID_INPUT);
+			.isInstanceOf(IllegalArgumentException.class);
 
 		assertThat(notificationService.notifications(user.getId(), Role.APPLICANT, 0, 10)).isEmpty();
 	}
 
 	@Test
-	@DisplayName("linkUrl이 컬럼 길이(500자)를 넘으면 COMMON_400을 던진다")
+	@DisplayName("linkUrl이 컬럼 길이(500자)를 넘으면 IllegalArgumentException을 던진다")
 	void rejectsTooLongLinkUrl() {
 		String tooLong = "https://mo-zip.com/" + "a".repeat(500);
 
 		assertThatThrownBy(
 			() -> notificationService.send(user.getId(), NotificationType.DOC_RESULT, null, "제목", tooLong))
-			.isInstanceOf(BusinessException.class)
-			.extracting(e -> ((BusinessException)e).getErrorCode())
-			.isEqualTo(CommonErrorCode.INVALID_INPUT);
+			.isInstanceOf(IllegalArgumentException.class);
 	}
 
 	@Test

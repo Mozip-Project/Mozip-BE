@@ -1,6 +1,6 @@
 package com.mozip.domain.notification.event;
 
-import static org.assertj.core.api.Assertions.assertThat;
+import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.verify;
@@ -11,7 +11,6 @@ import java.util.concurrent.ThreadLocalRandom;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
-import org.mockito.ArgumentCaptor;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.context.SpringBootTest;
 import org.springframework.context.annotation.Import;
@@ -74,14 +73,13 @@ class NotificationEventListenerTest {
 	}
 
 	@Test
-	@DisplayName("존재하지 않는 organizationId로 보내면, DB와 맞춰 발행되는 이벤트의 organizationId도 null이다")
-	void publishesNullOrganizationIdWhenNotFound() {
-		new TransactionTemplate(transactionManager).executeWithoutResult(status ->
-			notificationService.send(userId, NotificationType.DOC_RESULT, 999_999L, "서류 결과", null));
+	@DisplayName("존재하지 않는 organizationId로 보내면 예외를 던지고 발행하지 않는다")
+	void doesNotPublishWhenOrganizationIdNotFound() {
+		assertThatThrownBy(() -> new TransactionTemplate(transactionManager).executeWithoutResult(status ->
+			notificationService.send(userId, NotificationType.DOC_RESULT, 999_999L, "서류 결과", null)))
+			.isInstanceOf(IllegalArgumentException.class);
 
-		ArgumentCaptor<NotificationCreatedEvent> captor = ArgumentCaptor.forClass(NotificationCreatedEvent.class);
-		verify(notificationPublisher).publish(captor.capture());
-		assertThat(captor.getValue().organizationId()).isNull();
+		verify(notificationPublisher, never()).publish(any());
 	}
 
 }
