@@ -89,6 +89,7 @@ type Organization {
     "심사 증빙. 소속 운영진에게만 보이고 그 외에는 null"
     proofFileUrl: String
     reviewStatus: ReviewStatus!
+    "미승인 사유. REJECTED일 때만 값이 있고 소속 운영진에게만 보인다. 그 외에는 null"
     rejectReason: String
     trialEndsAt: DateTime
     "유료 기능 사용 가능 기한"
