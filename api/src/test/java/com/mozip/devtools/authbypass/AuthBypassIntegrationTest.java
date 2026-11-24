@@ -14,6 +14,7 @@ import org.hamcrest.Matchers;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.boot.DefaultApplicationArguments;
 import org.springframework.boot.test.context.SpringBootTest;
 import org.springframework.boot.webmvc.test.autoconfigure.AutoConfigureMockMvc;
 import org.springframework.context.annotation.Import;
@@ -25,9 +26,18 @@ import org.springframework.transaction.annotation.Transactional;
 import com.mozip.TestcontainersConfiguration;
 import com.mozip.domain.user.entity.Authority;
 import com.mozip.devtools.seed.SeedFixtures;
+import com.mozip.devtools.seed.SeedRunner;
+import com.mozip.domain.application.entity.Application;
+import com.mozip.domain.application.service.ApplicationService;
+import com.mozip.domain.evaluation.dto.DocEvaluationApplicationPage;
+import com.mozip.domain.evaluation.service.DocEvaluationService;
 import com.mozip.domain.organization.entity.Member;
 import com.mozip.domain.organization.entity.MemberRole;
 import com.mozip.domain.organization.repository.MemberRepository;
+import com.mozip.domain.posting.entity.Posting;
+import com.mozip.domain.posting.entity.PostingStatus;
+import com.mozip.domain.posting.repository.PostingRepository;
+import com.mozip.domain.posting.repository.QuestionRepository;
 import com.mozip.domain.user.entity.User;
 import com.mozip.domain.user.repository.UserRepository;
 import com.mozip.global.security.AdminOnlyTestController;
@@ -52,6 +62,21 @@ class AuthBypassIntegrationTest {
 
 	@Autowired
 	private MemberRepository memberRepository;
+
+	@Autowired
+	private PostingRepository postingRepository;
+
+	@Autowired
+	private QuestionRepository questionRepository;
+
+	@Autowired
+	private ApplicationService applicationService;
+
+	@Autowired
+	private DocEvaluationService docEvaluationService;
+
+	@Autowired
+	private SeedRunner seedRunner;
 
 	@Test
 	@DisplayName("인증 우회가 켜져 있으면 토큰 없이 @PreAuthorize가 달린 API도 호출할 수 있다")
@@ -79,6 +104,40 @@ class AuthBypassIntegrationTest {
 		assertThat(memberships).hasSize(1);
 		assertThat(memberships.getFirst().getRole()).isEqualTo(MemberRole.REPRESENTATIVE);
 		assertThat(memberships.getFirst().getOrganization().getName()).isEqualTo(SeedFixtures.ORGANIZATION_NAME);
+	}
+
+	@Test
+	@Transactional
+	@DisplayName("앱 시작 시 개발용 단체에 모집 중 공고 1개, 문항 3개, 제출된 지원서 10개가 만들어진다")
+	void seedPostingWithSubmittedApplications() {
+		List<Posting> postings = seedPostings();
+
+		assertThat(postings).hasSize(1);
+		Posting posting = postings.getFirst();
+		assertThat(posting.getStatus()).isEqualTo(PostingStatus.RECRUITING);
+		assertThat(questionRepository.findAllByPostingOrderBySortOrder(posting)).hasSize(3);
+		List<Application> applications = applicationService.getSubmittedApplications(posting.getId());
+		assertThat(applications).hasSize(10);
+		assertThat(applications).extracting(application -> application.getUser().getName())
+			.containsExactlyInAnyOrderElementsOf(SeedFixtures.APPLICANT_NAMES);
+
+		// 개발용 운영진으로 서류 평가 목록을 바로 볼 수 있어야 함
+		DocEvaluationApplicationPage page = docEvaluationService.findApplications(userId(MockRole.OPERATOR),
+			posting.getId(), null, null, null, null, null);
+		assertThat(page.totalCount()).isEqualTo(10);
+		assertThat(page.tabCounts().notEvaluated()).isEqualTo(10);
+	}
+
+	@Test
+	@Transactional
+	@DisplayName("시드를 다시 실행해도 공고와 지원서가 더 쌓이지 않는다")
+	void seedIsIdempotent() {
+		seedRunner.run(new DefaultApplicationArguments());
+
+		List<Posting> postings = seedPostings();
+		assertThat(postings).hasSize(1);
+		assertThat(applicationService.getSubmittedApplications(postings.getFirst().getId())).hasSize(10);
+		assertThat(memberRepository.findAllByUserId(userId(MockRole.OPERATOR))).hasSize(1);
 	}
 
 	@Test
@@ -147,6 +206,16 @@ class AuthBypassIntegrationTest {
 				.header(MockAuthenticationFilter.MOCK_ROLE_HEADER, "ADMIN"))
 			.andExpect(jsonPath("$.data.userId").value(999))
 			.andExpect(jsonPath("$.data.authority").value("USER"));
+	}
+
+	private List<Posting> seedPostings() {
+		Member membership = memberRepository.findAllByUserId(userId(MockRole.OPERATOR)).getFirst();
+		return postingRepository
+			.findAllByOrganizationAndStatusInOrderByCreatedAtDesc(membership.getOrganization(),
+				List.of(PostingStatus.values()))
+			.stream()
+			.filter(posting -> SeedFixtures.POSTING_TITLE.equals(posting.getTitle()))
+			.toList();
 	}
 
 	private Long userId(MockRole role) {
