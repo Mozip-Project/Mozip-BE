@@ -44,12 +44,15 @@ import com.mozip.domain.posting.entity.PostingSort;
 import com.mozip.domain.posting.entity.PostingStatus;
 import com.mozip.domain.posting.entity.Question;
 import com.mozip.domain.posting.entity.QuestionType;
+import com.mozip.domain.posting.exception.PostingConflictReason;
 import com.mozip.domain.posting.exception.PostingErrorCode;
 import com.mozip.domain.posting.repository.InterviewTimeRangeRepository;
 import com.mozip.domain.posting.repository.PositionRepository;
 import com.mozip.domain.posting.repository.PostingImageRepository;
+import com.mozip.domain.posting.repository.PostingRepository;
 import com.mozip.domain.posting.repository.QuestionRepository;
 import com.mozip.domain.school.entity.School;
+import com.mozip.global.config.graphql.LocalDateTimeScalar;
 import com.mozip.domain.school.repository.SchoolRepository;
 import com.mozip.domain.user.entity.User;
 import com.mozip.domain.user.repository.UserRepository;
@@ -65,6 +68,9 @@ class PostingServiceTest {
 
 	@Autowired
 	private PostingService postingService;
+
+	@Autowired
+	private PostingRepository postingRepository;
 
 	@Autowired
 	private UserRepository userRepository;
@@ -272,7 +278,7 @@ class PostingServiceTest {
 	}
 
 	@Test
-	@DisplayName("publishAt 없이 게시하면 즉시 RECRUITING이 되고 publishedAt/bumpedAt이 찍힌다")
+	@DisplayName("게시하면 즉시 RECRUITING이 되고 publishedAt/bumpedAt이 찍힌다")
 	void publishesImmediately() {
 		Posting posting = publishablePosting("게시용 공고");
 
@@ -293,24 +299,6 @@ class PostingServiceTest {
 			.isInstanceOf(BusinessException.class)
 			.extracting(e -> ((BusinessException)e).getErrorCode())
 			.isEqualTo(PostingErrorCode.INVALID_INPUT);
-	}
-
-	@Test
-	@DisplayName("publishAt이 있으면 DRAFT로 두고 스케줄러에 맡긴다")
-	void scheduledPublishStaysDraft() {
-		Posting posting = postingService.saveDraft(operator.getId(), organization.getId(), null,
-			basicInput("예약 게시용"));
-		postingService.saveDraft(operator.getId(), organization.getId(), posting.getId(),
-			withPositions(List.of(new PositionInput(null, "백엔드", 1, 0))));
-		postingService.saveDraft(operator.getId(), organization.getId(), posting.getId(),
-			withQuestions(List.of(new QuestionInput(null, QuestionType.TEXT, "자기소개", null, true, 500, null, 0))));
-		postingService.saveDraft(operator.getId(), organization.getId(), posting.getId(),
-			withPublishAt(LocalDateTime.now().plusDays(1)));
-
-		Posting result = postingService.publish(operator.getId(), posting.getId());
-
-		assertThat(result.getStatus()).isEqualTo(PostingStatus.DRAFT);
-		assertThat(result.getPublishedAt()).isNull();
 	}
 
 	@Test
@@ -432,10 +420,12 @@ class PostingServiceTest {
 	@Test
 	@DisplayName("postings는 closingSoon 필터와 CLOSING_SOON 정렬이 마감 임박 순으로 동작한다")
 	void filtersAndSortsByClosingSoon() {
+		// closingSoon은 서울 시각 기준으로 비교하므로, 테스트 기준 시각도 JVM 기본 시간대와 무관하게 서울로 맞춤
+		LocalDateTime seoulNow = LocalDateTime.now(LocalDateTimeScalar.ZONE);
 		postingService.publish(operator.getId(),
-			publishablePosting("마감 임박", LocalDateTime.now().plusHours(1)).getId());
+			publishablePosting("마감 임박", seoulNow.plusHours(1)).getId());
 		postingService.publish(operator.getId(),
-			publishablePosting("마감 여유", LocalDateTime.now().plusDays(10)).getId());
+			publishablePosting("마감 여유", seoulNow.plusDays(10)).getId());
 
 		PostingPage closingSoonOnly = postingService.findList(new PostingFilter(null, null, null, null, true),
 			PostingSort.LATEST, 0, 10);
@@ -576,7 +566,7 @@ class PostingServiceTest {
 	// 9 activityStartedOn, 10 activityEndedOn, 11 recruitStartAt, 12 recruitEndAt, 13 images,
 	// 14 noPosition, 15 positions, 16 hasInterview, 17 interviewMethod, 18 interviewMinutes, 19 breakMinutes,
 	// 20 assignRule, 21 maxApplicantsPerInterview, 22 maxParallelInterviews, 23 interviewTimeRanges,
-	// 24 docScorePerQuestion, 25 questions, 26 publishAt, 27 representativeImageId
+	// 24 docScorePerQuestion, 25 questions, 26 representativeImageId
 	private PostingDraftInput basicInput(String title) {
 		return basicInput(title, LocalDateTime.now().plusDays(7));
 	}
@@ -587,7 +577,7 @@ class PostingServiceTest {
 			null, null,
 			null, null, null, null, null, null, null, null,
 			null, null,
-			null, null);
+			null);
 	}
 
 	private PostingDraftInput withPositions(List<PositionInput> positions) {
@@ -596,7 +586,7 @@ class PostingServiceTest {
 			false, positions,
 			null, null, null, null, null, null, null, null,
 			null, null,
-			null, null);
+			null);
 	}
 
 	private PostingDraftInput withNoPosition(boolean noPosition) {
@@ -605,7 +595,7 @@ class PostingServiceTest {
 			noPosition, null,
 			null, null, null, null, null, null, null, null,
 			null, null,
-			null, null);
+			null);
 	}
 
 	private PostingDraftInput withQuestions(List<QuestionInput> questions) {
@@ -614,16 +604,7 @@ class PostingServiceTest {
 			null, null,
 			null, null, null, null, null, null, null, null,
 			true, questions,
-			null, null);
-	}
-
-	private PostingDraftInput withPublishAt(LocalDateTime publishAt) {
-		return new PostingDraftInput(null, null, null, null, null, null, null, null,
-			null, null, null, null, null,
-			null, null,
-			null, null, null, null, null, null, null, null,
-			null, null,
-			publishAt, null);
+			null);
 	}
 
 	private PostingDraftInput withImages(List<PostingImageInput> images) {
@@ -632,7 +613,7 @@ class PostingServiceTest {
 			null, null,
 			null, null, null, null, null, null, null, null,
 			null, null,
-			null, null);
+			null);
 	}
 
 	private PostingDraftInput withRepresentativeImage(Long imageId) {
@@ -641,7 +622,7 @@ class PostingServiceTest {
 			null, null,
 			null, null, null, null, null, null, null, null,
 			null, null,
-			null, imageId);
+			imageId);
 	}
 
 	private PostingDraftInput withInterview(Boolean hasInterview, InterviewMethod interviewMethod,
@@ -653,7 +634,126 @@ class PostingServiceTest {
 			hasInterview, interviewMethod, interviewMinutes, breakMinutes, assignRule, maxApplicantsPerInterview,
 			maxParallelInterviews, interviewTimeRanges,
 			null, null,
-			null, null);
+			null);
+	}
+
+	@Test
+	@DisplayName("비면접 공고는 advancePostingStatus로 INTERVIEW를 건너뛰고 정해진 순서대로 전환된다")
+	void advancesNonInterviewPostingSkippingInterview() {
+		Posting posting = publishablePosting("비면접 공고");
+		postingService.publish(operator.getId(), posting.getId());
+
+		assertThat(postingService.advanceStatus(operator.getId(), posting.getId(), PostingStatus.DOC_REVIEW)
+			.getStatus()).isEqualTo(PostingStatus.DOC_REVIEW);
+		Posting docResultNotice = postingService.advanceStatus(operator.getId(), posting.getId(),
+			PostingStatus.DOC_RESULT_NOTICE);
+		assertThat(docResultNotice.getStatus()).isEqualTo(PostingStatus.DOC_RESULT_NOTICE);
+		assertThat(docResultNotice.getDocResultAt()).isNotNull();
+		Posting finalResult = postingService.advanceStatus(operator.getId(), posting.getId(),
+			PostingStatus.FINAL_RESULT);
+		assertThat(finalResult.getStatus()).isEqualTo(PostingStatus.FINAL_RESULT);
+		assertThat(finalResult.getFinalResultAt()).isNotNull();
+		assertThat(postingService.advanceStatus(operator.getId(), posting.getId(), PostingStatus.ENDED).getStatus())
+			.isEqualTo(PostingStatus.ENDED);
+	}
+
+	@Test
+	@DisplayName("면접 공고는 advancePostingStatus로 INTERVIEW 단계를 거쳐 전환된다")
+	void advancesInterviewPostingThroughInterviewStep() {
+		Posting posting = publishablePosting("면접 공고");
+		postingService.saveDraft(operator.getId(), organization.getId(), posting.getId(),
+			withInterview(true, InterviewMethod.ONLINE, 20, 5, AssignRule.ALL_MEMBERS, null, null, null));
+		postingService.publish(operator.getId(), posting.getId());
+		postingService.advanceStatus(operator.getId(), posting.getId(), PostingStatus.DOC_REVIEW);
+
+		Posting intoInterview = postingService.advanceStatus(operator.getId(), posting.getId(),
+			PostingStatus.DOC_RESULT_NOTICE);
+		assertThat(intoInterview.getStatus()).isEqualTo(PostingStatus.DOC_RESULT_NOTICE);
+
+		Posting interview = postingService.advanceStatus(operator.getId(), posting.getId(), PostingStatus.INTERVIEW);
+		assertThat(interview.getStatus()).isEqualTo(PostingStatus.INTERVIEW);
+	}
+
+	@Test
+	@DisplayName("정해진 다음 단계가 아닌 to로 advancePostingStatus를 부르면 POSTING_409(INVALID_STATUS_TRANSITION)를 던진다")
+	void rejectsSkippingStatusSequence() {
+		Posting posting = publishablePosting("순서 위반 공고");
+		postingService.publish(operator.getId(), posting.getId());
+
+		assertThatThrownBy(() -> postingService.advanceStatus(operator.getId(), posting.getId(),
+			PostingStatus.DOC_RESULT_NOTICE))
+			.isInstanceOf(BusinessException.class)
+			.satisfies(e -> {
+				assertThat(((BusinessException)e).getErrorCode()).isEqualTo(PostingErrorCode.CONFLICT);
+				assertThat(((BusinessException)e).getReason()).isEqualTo(PostingConflictReason.INVALID_STATUS_TRANSITION.name());
+			});
+	}
+
+	@Test
+	@DisplayName("DRAFT 공고에 advancePostingStatus를 부르면 POSTING_409(INVALID_STATUS_TRANSITION)를 던진다")
+	void rejectsAdvancingDraftPosting() {
+		Posting posting = postingService.saveDraft(operator.getId(), organization.getId(), null,
+			basicInput("아직 작성 중"));
+
+		assertThatThrownBy(() -> postingService.advanceStatus(operator.getId(), posting.getId(),
+			PostingStatus.DOC_REVIEW))
+			.isInstanceOf(BusinessException.class)
+			.satisfies(e -> {
+				assertThat(((BusinessException)e).getErrorCode()).isEqualTo(PostingErrorCode.CONFLICT);
+				assertThat(((BusinessException)e).getReason()).isEqualTo(PostingConflictReason.INVALID_STATUS_TRANSITION.name());
+			});
+	}
+
+	@Test
+	@DisplayName("advancePostingStatus도 운영진이 아니면 COMMON_403을 던진다")
+	void rejectsAdvancingByNonOperator() {
+		Posting posting = publishablePosting("권한 확인용");
+		postingService.publish(operator.getId(), posting.getId());
+
+		assertThatThrownBy(() -> postingService.advanceStatus(other.getId(), posting.getId(),
+			PostingStatus.DOC_REVIEW))
+			.isInstanceOf(BusinessException.class)
+			.extracting(e -> ((BusinessException)e).getErrorCode())
+			.isEqualTo(CommonErrorCode.FORBIDDEN);
+	}
+
+	@Test
+	@DisplayName("deletePosting은 DRAFT 공고와 그 하위 포지션/문항을 같이 지운다")
+	void deletesDraftPostingWithChildren() {
+		Posting posting = publishablePosting("지울 공고");
+		Long postingId = posting.getId();
+
+		postingService.delete(operator.getId(), postingId);
+
+		assertThat(postingRepository.findById(postingId)).isEmpty();
+		assertThat(positionRepository.findAllByPostingOrderBySortOrder(posting)).isEmpty();
+		assertThat(questionRepository.findAllByPostingOrderBySortOrder(posting)).isEmpty();
+	}
+
+	@Test
+	@DisplayName("게시된 공고를 deletePosting하면 POSTING_409(NOT_DRAFT)를 던진다")
+	void rejectsDeletingNonDraftPosting() {
+		Posting posting = publishablePosting("삭제 거부용");
+		postingService.publish(operator.getId(), posting.getId());
+
+		assertThatThrownBy(() -> postingService.delete(operator.getId(), posting.getId()))
+			.isInstanceOf(BusinessException.class)
+			.satisfies(e -> {
+				assertThat(((BusinessException)e).getErrorCode()).isEqualTo(PostingErrorCode.CONFLICT);
+				assertThat(((BusinessException)e).getReason()).isEqualTo(PostingConflictReason.NOT_DRAFT.name());
+			});
+	}
+
+	@Test
+	@DisplayName("getPostingStatus는 공고의 현재 상태를 돌려준다")
+	void getPostingStatusReturnsCurrentStatus() {
+		Posting posting = publishablePosting("상태 조회용");
+
+		assertThat(postingService.getPostingStatus(posting.getId())).isEqualTo(PostingStatus.DRAFT);
+
+		postingService.publish(operator.getId(), posting.getId());
+
+		assertThat(postingService.getPostingStatus(posting.getId())).isEqualTo(PostingStatus.RECRUITING);
 	}
 
 }

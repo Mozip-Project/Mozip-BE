@@ -101,6 +101,10 @@ public class Organization extends BaseEntity {
 		return new Organization(name, type, councilLevel, scope, school, noTeam, proofLink, proofFileUrl);
 	}
 
+	public void updateLogo(String logoUrl) {
+		this.logoUrl = logoUrl;
+	}
+
 	// logoUrl이 null이면 기본 이미지 (키워드, 분야, 링크는 OrganizationService에서 교체)
 	public void updateProfile(String logoUrl, String tagline, String description, String email) {
 		this.logoUrl = logoUrl;

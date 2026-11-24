@@ -91,9 +91,6 @@ public class Posting extends BaseEntity {
 
 	private LocalDate activityEndedOn;
 
-	// 게시 예정 시각, 이 시각이 되면 DRAFT에서 RECRUITING으로 전환. null = 게시하기 누를 때 바로 게시
-	private LocalDateTime publishAt;
-
 	private LocalDateTime publishedAt;
 
 	// 지원 접수 시작, 게시 후 이 시각 전까지는 공고만 보이고 지원 불가
@@ -204,8 +201,7 @@ public class Posting extends BaseEntity {
 	}
 
 	// 5단계: 노출 (대표 이미지는 PostingImage 쪽에서 처리)
-	public void updateExposureStep(LocalDateTime publishAt) {
-		this.publishAt = publishAt;
+	public void updateExposureStep() {
 		advanceDraftStep(5);
 	}
 
@@ -217,6 +213,17 @@ public class Posting extends BaseEntity {
 
 	public boolean isDraft() {
 		return status == PostingStatus.DRAFT;
+	}
+
+	// advancePostingStatus에서 씀. 순서·조건 검사는 호출하는 쪽(PostingService)에서 끝내고 넘어옴.
+	// 스케줄러의 자동 전환은 조건부 UPDATE(PostingRepository)로 따로 처리해 이 메서드를 안 탐
+	public void advanceStatus(PostingStatus to) {
+		this.status = to;
+		if (to == PostingStatus.DOC_RESULT_NOTICE) {
+			this.docResultAt = LocalDateTime.now();
+		} else if (to == PostingStatus.FINAL_RESULT) {
+			this.finalResultAt = LocalDateTime.now();
+		}
 	}
 
 	private void advanceDraftStep(int step) {

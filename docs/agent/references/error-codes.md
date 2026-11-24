@@ -34,6 +34,14 @@
 | 코드 | HTTP | 상수 | 언제 |
 |---|---|---|---|
 | `USER_001` | 409 | `DUPLICATE_PHONE` | 이미 가입된 휴대폰 번호 |
+| `USER_404` | 404 | `NOT_FOUND` | 회원 없음 (알림 설정 변경 시 사용, #48) |
+
+## 파일 (`FileErrorCode`)
+
+| 코드 | HTTP | 상수 | 언제 |
+|---|---|---|---|
+| `FILE_413` | 413 | `FILE_TOO_LARGE` | presigned URL 발급 시 신고한 size가 purpose별 허용 용량 초과 |
+| `FILE_415` | 415 | `UNSUPPORTED_FILE_TYPE` | presigned URL 발급 시 contentType이 purpose가 허용하지 않는 타입 |
 
 ## 단체 (`OrganizationErrorCode`, PR #40)
 
@@ -41,6 +49,12 @@
 |---|---|---|---|
 | `ORG_402` | 402 | `SUBSCRIPTION_REQUIRED` | 이용권 없는 단체의 유료 기능 호출 (A 이용권에서 사용, `publishPosting`에서도 사용, #65) |
 | `ORG_404` | 404 | `ORGANIZATION_NOT_FOUND` | 단체 없음. 심사 전이거나 반려된 단체를 소속이 아닌 사람이 상세 조회할 때도 같음 |
+
+## 알림 (`NotificationErrorCode`, #48)
+
+| 코드 | HTTP | 상수 | 언제 |
+|---|---|---|---|
+| `NOTIFICATION_403` | 403 | `FORBIDDEN` | `markNotificationsRead`에 본인 알림이 아닌 id가 섞여 있음 |
 
 ## 공고 (`PostingErrorCode`, #65)
 
@@ -50,6 +64,15 @@
 | `POSTING_409` | 409 | `CONFLICT` | `reason`으로 구분 (`PostingConflictReason`) |
 | `POSTING_400` | 400 | `INVALID_INPUT` | `publishPosting`에서 필수 단계 누락. `fieldErrors`에 어느 단계인지 담김 |
 
+## 지원서 (`ApplicationErrorCode`, #69)
+
+| 코드 | HTTP | 상수 | 언제 |
+|---|---|---|---|
+| `APPLICATION_403` | 403 | `FORBIDDEN` | `reason`으로 구분 (`ApplicationForbiddenReason`) |
+| `APPLICATION_404` | 404 | `NOT_FOUND` | 지원서 없음 |
+| `APPLICATION_409` | 409 | `CONFLICT` | `reason`으로 구분 (`ApplicationConflictReason`) |
+| `APPLICATION_400` | 400 | `INVALID_INPUT` | `submitApplication`에서 필수 문항 누락·글자 수·선택지·첨부 개수 위반. `fieldErrors`에 questionId별 메시지가 담김 |
+
 ## reason enum
 
 같은 코드 안에서 상황을 나누는 값. 응답의 `extensions.reason`에 enum 이름이 들어간다. `BusinessException(errorCode, reason)`
@@ -58,7 +81,10 @@
 | enum | 코드 | 값 |
 |---|---|---|
 | `OrganizationInputReason` | `COMMON_400` | `COUNCIL_LEVEL_REQUIRED`, `COUNCIL_LEVEL_NOT_ALLOWED`, `SCHOOL_REQUIRED`, `SCHOOL_NOT_ALLOWED`, `SCHOOL_NOT_FOUND` (#37), `FIELDS_REQUIRED`, `FIELDS_NOT_ALLOWED`, `LINK_URL_INVALID` (#38) |
-| `PostingConflictReason` | `POSTING_409` | `NOT_DRAFT`(DRAFT 아닌 공고 수정), `ALREADY_PUBLISHED`(이미 게시된 공고 재게시) |
+| `PostingConflictReason` | `POSTING_409` | `NOT_DRAFT`(DRAFT 아닌 공고 수정 또는 삭제), `ALREADY_PUBLISHED`(이미 게시된 공고 재게시), `INVALID_STATUS_TRANSITION`(정해진 다음 단계가 아님, #66), `DOC_RESULT_NOT_CONFIRMED`(서류 결과 미확정, #66), `FINAL_RESULT_NOT_CONFIRMED`(최종 결과 미확정, #66), `NOT_RECRUITING`(모집 기간이 아님, #69) |
+| `ApplicationConflictReason` | `APPLICATION_409` | `ALREADY_SUBMITTED`(이미 제출된 지원서를 다시 저장·제출하려 함, #69), `CONCURRENT_SAVE`(동시 요청으로 지원서가 막 생성됨, 다시 요청하면 됨, #69) |
+| `ApplicationForbiddenReason` | `APPLICATION_403` | `SCHOOL_NOT_VERIFIED`(학교 인증을 하지 않은 회원, #69) |
+| `ApplicationInputReason` | `COMMON_400` | `POSITION_FROM_ANOTHER_POSTING`, `QUESTION_FROM_ANOTHER_POSTING`, `QUESTION_NOT_FOR_POSITION`, `AVAILABLE_TIME_NOT_OPEN`(면접 가능 시간이 열려 있는 블록의 시작 시각이 아님), `ATTACHMENT_NOT_ALLOWED_FOR_QUESTION_TYPE`(FILE_LINK가 아닌 문항에 첨부를 보냄), `INVALID_ATTACHMENT_URL`(LINK가 http/https가 아니거나 FILE이 presigned 경로가 아님) (#69) |
 
 ## fieldErrors를 응답에 담는 BusinessException
 

@@ -71,8 +71,6 @@ type Posting {
     activityStartedOn: Date
     "활동 기간 종료 월 (1일)"
     activityEndedOn: Date
-    "게시 예정 시각, 이 시각이 되면 DRAFT에서 RECRUITING으로 전환, null = 게시하기 누를 때 바로 게시"
-    publishAt: DateTime
     "실제 게시된 시각"
     publishedAt: DateTime
     "지원 접수 시작, 게시 후 이 시각 전까지는 공고만 보이고 지원 불가"
@@ -304,7 +302,6 @@ input PostingDraftInput {
     questions: [QuestionInput!]
 
     "5단계 exposure"
-    publishAt: DateTime
     representativeImageId: ID
 }
 
@@ -325,9 +322,22 @@ extend type Mutation {
     """
     savePostingDraft(organizationId: ID!, id: ID, input: PostingDraftInput!): Posting!
     """
-    공고 게시. publishAt이 없으면 즉시 RECRUITING으로 전환하고, 있으면 DRAFT로 두고 스케줄러에 맡김.
+    공고 게시. 즉시 RECRUITING으로 전환함.
     필수 단계가 비어 있으면 POSTING_400(fieldErrors에 단계 표시), 이미 게시됨이면 POSTING_409(reason: ALREADY_PUBLISHED),
     단체 이용권이 없으면 ORG_402
     """
     publishPosting(id: ID!): Posting!
+    """
+    공고 진행 단계를 정해진 순서로만 한 단계 전환.
+    RECRUITING -> DOC_REVIEW -> DOC_RESULT_NOTICE -> (비면접은 건너뜀) INTERVIEW -> FINAL_RESULT -> ENDED.
+    순서가 아니거나 DRAFT/ENDED에서 호출하면 POSTING_409(reason: INVALID_STATUS_TRANSITION),
+    서류 결과 미확정이면 POSTING_409(reason: DOC_RESULT_NOT_CONFIRMED),
+    최종 결과 미확정이면 POSTING_409(reason: FINAL_RESULT_NOT_CONFIRMED)
+    """
+    advancePostingStatus(id: ID!, to: PostingStatus!): Posting!
+    """
+    작성 중(DRAFT) 공고 삭제. 포지션, 문항, 이미지, 면접 가능 시간대를 같이 지움.
+    게시된 공고를 지우려 하면 POSTING_409(reason: NOT_DRAFT)
+    """
+    deletePosting(id: ID!): Boolean!
 }

@@ -1,6 +1,5 @@
 package com.mozip.domain.posting.service;
 
-import java.time.LocalDateTime;
 import java.util.ArrayList;
 import java.util.List;
 
@@ -10,6 +9,7 @@ import org.springframework.data.jpa.domain.Specification;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
+import com.mozip.domain.evaluation.service.PostingResultChecker;
 import com.mozip.domain.organization.entity.Organization;
 import com.mozip.domain.organization.exception.OrganizationErrorCode;
 import com.mozip.domain.organization.repository.TeamRepository;
@@ -59,6 +59,7 @@ public class PostingService {
 	private final TeamRepository teamRepository;
 	private final OrganizationAccessChecker organizationAccessChecker;
 	private final SubscriptionService subscriptionService;
+	private final PostingResultChecker postingResultChecker;
 
 	@Transactional
 	public Posting saveDraft(Long userId, Long organizationId, Long postingId, PostingDraftInput input) {
@@ -100,11 +101,66 @@ public class PostingService {
 		}
 		validateRequiredSteps(posting);
 
-		if (posting.getPublishAt() == null) {
-			posting.publishNow();
-		}
-		// publishAt이 있으면 DRAFT로 두고 스케줄러(4단계 이슈)가 그 시각에 RECRUITING으로 전환함
+		posting.publishNow();
 		return posting;
+	}
+
+	@Transactional
+	public Posting advanceStatus(Long userId, Long postingId, PostingStatus to) {
+		Posting posting = findById(postingId);
+		requireOperator(userId, posting.getOrganization().getId());
+
+		PostingStatus next = nextStatus(posting);
+		if (next == null || next != to) {
+			throw new BusinessException(PostingErrorCode.CONFLICT, PostingConflictReason.INVALID_STATUS_TRANSITION)
+				.addContext("postingId", postingId)
+				.addContext("from", posting.getStatus())
+				.addContext("to", to);
+		}
+		if (to == PostingStatus.DOC_RESULT_NOTICE && !postingResultChecker.isDocResultConfirmed(postingId)) {
+			throw new BusinessException(PostingErrorCode.CONFLICT, PostingConflictReason.DOC_RESULT_NOT_CONFIRMED)
+				.addContext("postingId", postingId);
+		}
+		if (to == PostingStatus.FINAL_RESULT && !postingResultChecker.isFinalResultConfirmed(postingId)) {
+			throw new BusinessException(PostingErrorCode.CONFLICT, PostingConflictReason.FINAL_RESULT_NOT_CONFIRMED)
+				.addContext("postingId", postingId);
+		}
+
+		posting.advanceStatus(to);
+		return posting;
+	}
+
+	@Transactional
+	public void delete(Long userId, Long postingId) {
+		Posting posting = findById(postingId);
+		requireOperator(userId, posting.getOrganization().getId());
+		if (!posting.isDraft()) {
+			throw new BusinessException(PostingErrorCode.CONFLICT, PostingConflictReason.NOT_DRAFT)
+				.addContext("postingId", postingId);
+		}
+
+		questionRepository.deleteAllByPosting(posting);
+		interviewTimeRangeRepository.deleteAllByPosting(posting);
+		positionRepository.deleteAllByPosting(posting);
+		postingImageRepository.deleteAllByPosting(posting);
+		postingRepository.delete(posting);
+	}
+
+	// B가 평가/면접 화면을 열어도 되는 단계인지 확인할 때 쓰는 연결 함수 (A -> B, ab-boundary.md)
+	public PostingStatus getPostingStatus(Long postingId) {
+		return findById(postingId).getStatus();
+	}
+
+	// advancePostingStatus에서 허용하는 단 하나의 다음 단계. 없으면(DRAFT, ENDED) null
+	private static PostingStatus nextStatus(Posting posting) {
+		return switch (posting.getStatus()) {
+			case RECRUITING -> PostingStatus.DOC_REVIEW;
+			case DOC_REVIEW -> PostingStatus.DOC_RESULT_NOTICE;
+			case DOC_RESULT_NOTICE -> posting.isHasInterview() ? PostingStatus.INTERVIEW : PostingStatus.FINAL_RESULT;
+			case INTERVIEW -> PostingStatus.FINAL_RESULT;
+			case FINAL_RESULT -> PostingStatus.ENDED;
+			case DRAFT, ENDED -> null;
+		};
 	}
 
 	public Posting findDetail(Long postingId, Long requestUserId) {
@@ -232,7 +288,7 @@ public class PostingService {
 		if (!touchesExposureStep(input)) {
 			return;
 		}
-		posting.updateExposureStep(orElse(input.publishAt(), posting.getPublishAt()));
+		posting.updateExposureStep();
 		if (input.representativeImageId() != null) {
 			markRepresentativeImage(posting, input.representativeImageId());
 		}
@@ -359,7 +415,7 @@ public class PostingService {
 	}
 
 	private static boolean touchesExposureStep(PostingDraftInput input) {
-		return input.publishAt() != null || input.representativeImageId() != null;
+		return input.representativeImageId() != null;
 	}
 
 	private static Specification<Posting> addIfPresent(Specification<Posting> spec, Specification<Posting> toAdd) {

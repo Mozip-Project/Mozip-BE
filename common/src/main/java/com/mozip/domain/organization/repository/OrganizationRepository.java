@@ -13,6 +13,7 @@ import jakarta.persistence.LockModeType;
 
 public interface OrganizationRepository extends JpaRepository<Organization, Long> {
 
+	// school까지 같이 로딩 (GraphQL로 Organization을 돌려줄 때 open-in-view=false라 미리 로딩해야 함)
 	@Query("select o from Organization o left join fetch o.school where o.id = :id")
 	Optional<Organization> findWithSchoolById(@Param("id") Long id);
 
