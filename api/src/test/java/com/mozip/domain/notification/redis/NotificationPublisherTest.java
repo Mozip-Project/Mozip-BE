@@ -15,10 +15,12 @@ import org.springframework.data.redis.core.StringRedisTemplate;
 import com.mozip.domain.notification.entity.NotificationType;
 import com.mozip.domain.notification.event.NotificationCreatedEvent;
 
+import tools.jackson.databind.ObjectMapper;
+
 class NotificationPublisherTest {
 
 	private final StringRedisTemplate redisTemplate = mock(StringRedisTemplate.class);
-	private final NotificationPublisher publisher = new NotificationPublisher(redisTemplate);
+	private final NotificationPublisher publisher = new NotificationPublisher(redisTemplate, new ObjectMapper());
 
 	@Test
 	@DisplayName("createdAt을 GraphQL DateTime 스칼라와 같은 서울 오프셋 형식으로 직렬화한다")

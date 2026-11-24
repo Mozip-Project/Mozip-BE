@@ -6,11 +6,11 @@ import org.springframework.data.redis.connection.Message;
 import org.springframework.data.redis.connection.MessageListener;
 import org.springframework.stereotype.Component;
 
-import com.fasterxml.jackson.databind.ObjectMapper;
 import com.mozip.domain.notification.sse.SseEmitterRegistry;
 
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
+import tools.jackson.databind.ObjectMapper;
 
 // mozip:notification:events로 들어오는 메시지를 받아, 이 파드가 들고 있는 SSE 연결에만 전달
 @Slf4j
@@ -19,7 +19,7 @@ import lombok.extern.slf4j.Slf4j;
 public class NotificationRedisListener implements MessageListener {
 
 	private final SseEmitterRegistry sseEmitterRegistry;
-	private final ObjectMapper objectMapper = new ObjectMapper();
+	private final ObjectMapper objectMapper;
 
 	// 메시지 하나 처리 실패가 이 파드의 알림 수신 전체를 막으면 안 되므로, 파싱 실패든 뭐든 여기서 전부 삼킴
 	// (컨테이너에도 ErrorHandler를 걸어뒀지만, 리스너 자체도 방어적으로 막아둠)

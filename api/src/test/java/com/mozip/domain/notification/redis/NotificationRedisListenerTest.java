@@ -12,10 +12,13 @@ import org.springframework.data.redis.connection.DefaultMessage;
 
 import com.mozip.domain.notification.sse.SseEmitterRegistry;
 
+import tools.jackson.databind.ObjectMapper;
+
 class NotificationRedisListenerTest {
 
 	private final SseEmitterRegistry sseEmitterRegistry = mock(SseEmitterRegistry.class);
-	private final NotificationRedisListener listener = new NotificationRedisListener(sseEmitterRegistry);
+	private final NotificationRedisListener listener = new NotificationRedisListener(sseEmitterRegistry,
+		new ObjectMapper());
 
 	@Test
 	@DisplayName("정상 메시지는 파싱해서 해당 userId로 push한다")

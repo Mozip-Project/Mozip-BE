@@ -8,13 +8,13 @@ import org.springframework.dao.DataAccessException;
 import org.springframework.data.redis.core.StringRedisTemplate;
 import org.springframework.stereotype.Component;
 
-import com.fasterxml.jackson.core.JsonProcessingException;
-import com.fasterxml.jackson.databind.ObjectMapper;
 import com.mozip.domain.notification.event.NotificationCreatedEvent;
 import com.mozip.global.config.graphql.LocalDateTimeScalar;
 
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
+import tools.jackson.core.JacksonException;
+import tools.jackson.databind.ObjectMapper;
 
 // NotificationEventListener(AFTER_COMMIT)가 호출. 파드 전체에 broadcast하면 각 파드의 NotificationRedisListener가 받아
 // 자기 로컬 SSE 연결(SseEmitterRegistry)에만 전달함
@@ -24,7 +24,7 @@ import lombok.extern.slf4j.Slf4j;
 public class NotificationPublisher {
 
 	private final StringRedisTemplate redisTemplate;
-	private final ObjectMapper objectMapper = new ObjectMapper();
+	private final ObjectMapper objectMapper;
 
 	public void publish(NotificationCreatedEvent event) {
 		Map<String, Object> payload = new LinkedHashMap<>();
@@ -41,7 +41,7 @@ public class NotificationPublisher {
 			.format(DateTimeFormatter.ISO_OFFSET_DATE_TIME));
 		try {
 			redisTemplate.convertAndSend(NotificationChannel.EVENTS, objectMapper.writeValueAsString(payload));
-		} catch (DataAccessException | JsonProcessingException e) {
+		} catch (DataAccessException | JacksonException e) {
 			// SSE는 best-effort라 발행 실패해도 알림 자체(DB)는 이미 저장돼 있음. 클라이언트는 notifications 쿼리로 보정
 			log.warn("알림 broadcast 발행 실패: notificationId={}, cause={}", event.notificationId(),
 				e.getClass().getSimpleName());
