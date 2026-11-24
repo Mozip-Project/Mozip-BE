@@ -8,6 +8,7 @@ import java.util.List;
 import java.util.Locale;
 import java.util.Set;
 
+import org.springframework.context.ApplicationEventPublisher;
 import org.springframework.data.domain.PageRequest;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
@@ -63,6 +64,7 @@ public class OrganizationService {
 	private final UserRepository userRepository;
 	private final SchoolRepository schoolRepository;
 	private final SubscriptionService subscriptionService;
+	private final ApplicationEventPublisher eventPublisher;
 
 	@Transactional
 	public Organization updateLogo(Long organizationId, String fileKey, Long requesterId) {
@@ -89,6 +91,11 @@ public class OrganizationService {
 			input.councilLevel(), input.scope(), school, input.noTeam(), input.proofLink(), input.proofFileUrl()));
 		memberRepository.save(Member.create(organization, user, null, MemberRole.REPRESENTATIVE));
 		subscriptionService.startFreeTrial(organization.getId());
+		// 커밋 후 운영팀 디스코드에 심사 요청을 보냄 (리스너 실패는 단체 생성에 영향 없음)
+		eventPublisher.publishEvent(new OrganizationCreatedEvent(organization.getId(), organization.getName(),
+			organization.getType(), organization.getCouncilLevel(), organization.getScope(),
+			school == null ? null : school.getName(), user.getId(), user.getName(), organization.getProofLink(),
+			organization.getProofFileUrl()));
 		return organization;
 	}
 
