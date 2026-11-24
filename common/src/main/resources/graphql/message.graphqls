@@ -15,6 +15,9 @@ enum MessageTarget {
 
 enum MessageStatus {
     DRAFT
+    "발송 시작. PENDING인 전달 내역이 남아 있음"
+    SENDING
+    "전달 내역이 전부 SUCCESS 또는 FAILED로 끝남"
     SENT
 }
 
@@ -24,31 +27,127 @@ enum MessageDeliveryStatus {
     FAILED
 }
 
+"서버가 판단한 이메일 경고. 경고가 있는 지원자는 발송 대상에서 빠짐"
+enum EmailWarning {
+    "흔한 메일 도메인 또는 학교 메일 도메인과 한 글자만 다름 (gmal.com -> gmail.com)"
+    SUSPICIOUS_DOMAIN
+    "연락 이메일이 없거나 주소 형식이 아님"
+    MISSING
+}
+
 "합격자용과 불합격자용을 따로 작성해 두고 각각 발송 (합격자만 먼저 발송 가능)"
 type Message {
     id: ID!
     posting: Posting!
-    "보낸 운영진"
+    "발송을 누른 운영진. DRAFT면 마지막으로 저장한 운영진"
     sender: User!
     type: MessageType!
     target: MessageTarget!
     subject: String!
     "{이름} {포지션} {면접 기간} {활동 기간} 변수는 발송 시 지원자별로 치환"
     body: String!
+    "DRAFT -> SENDING -> SENT"
     status: MessageStatus!
-    "null = 작성 중"
+    "전달이 전부 처리된 시각. SENT일 때만 값이 있음"
     sentAt: DateTime
     deliveries: [MessageDelivery!]!
     createdAt: DateTime!
+    updatedAt: DateTime!
 }
 
 "지원자별 메일 발송 결과"
 type MessageDelivery {
     id: ID!
     application: Application!
-    "보낸 주소, 주소 수정 후 재발송하면 갱신"
+    "실제로 보낸 주소 (발송 시작 시점의 연락 이메일)"
     email: String!
+    "메일 기준. MOZIP 알림은 발송 시작 때 바로 만들어져 실패가 없음"
     status: MessageDeliveryStatus!
     failReason: String
     updatedAt: DateTime!
+}
+
+"결과 안내 화면 전체. 합격자 탭과 불합격자 탭"
+type ResultMessages {
+    posting: Posting!
+    pass: ResultMessagePanel!
+    fail: ResultMessagePanel!
+}
+
+"결과 안내 화면의 탭 하나"
+type ResultMessagePanel {
+    "PASS 또는 FAIL"
+    target: MessageTarget!
+    "저장된 초안 또는 발송한 메시지. null = 아직 열어 보지 않은 탭 (메시지 미확인)"
+    message: Message
+    "기본 문구. 탭을 처음 열 때와 초기화에 사용"
+    template: MessageTemplate!
+    "받는 사람 수. 0이면 발송 대상에 넣지 말 것"
+    recipientCount: Int!
+    "이메일 경고가 없어 실제로 발송되는 수"
+    sendableCount: Int!
+    "전달 내역 중 SUCCESS + FAILED. 발송 중 진행률의 분자 (분모는 sendableCount)"
+    processedCount: Int!
+    "전달 내역 중 SUCCESS"
+    deliveredCount: Int!
+    "전달 내역 중 FAILED"
+    failedCount: Int!
+    "받는 사람 전원, 이름순"
+    recipients: [Recipient!]!
+}
+
+"서버가 주는 기본 문구"
+type MessageTemplate {
+    subject: String!
+    "{이름} 변수가 들어 있음"
+    body: String!
+}
+
+"결과 안내를 받는 지원자 한 명"
+type Recipient {
+    application: Application!
+    "지원자의 현재 연락 이메일. 없으면 null"
+    email: String
+    "null = 정상. 값이 있으면 발송에서 빠짐"
+    emailWarning: EmailWarning
+    "SUSPICIOUS_DOMAIN일 때 맞을 것으로 보이는 도메인 (예: gmail.com)"
+    suggestedDomain: String
+    "null = 아직 보내지 않음 (발송 전이거나 이메일 경고로 빠짐)"
+    delivery: MessageDelivery
+}
+
+extend type Query {
+    """
+    결과 안내 화면 조회 (운영진). 합격자 패널과 불합격자 패널을 한 번에 반환함.
+    받는 사람은 제출된 지원서 중 서류 결과가 PASS 또는 FAIL인 지원자.
+    발송 중(SENDING)인 패널이 있으면 주기적으로 다시 조회해 진행률을 그림.
+    공고 단체의 운영진이 아니면 COMMON_403, 공고가 없으면 POSTING_404,
+    type이 DOC_RESULT가 아니면 COMMON_400(reason: UNSUPPORTED_TYPE),
+    서류 결과 확정 전이면 MESSAGE_409(reason: RESULT_NOT_CONFIRMED)
+    """
+    resultMessages(postingId: ID!, type: MessageType!): ResultMessages!
+}
+
+extend type Mutation {
+    """
+    안내 메시지 초안 저장 (운영진). (공고, type, target)마다 하나라 있으면 덮어쓰고 없으면 만듦.
+    {이름} {포지션} 변수는 치환하지 않고 그대로 저장함.
+    공고 단체의 운영진이 아니면 COMMON_403, 공고가 없으면 POSTING_404.
+    COMMON_400 reason: UNSUPPORTED_TYPE(type이 DOC_RESULT가 아님), INVALID_TARGET(target이 PASS/FAIL이 아님),
+    SUBJECT_REQUIRED, SUBJECT_TOO_LONG(제목 1~100자), BODY_REQUIRED, BODY_TOO_LONG(본문 1~1,000자).
+    MESSAGE_409 reason: RESULT_NOT_CONFIRMED(서류 결과 확정 전), ALREADY_SENT(이미 SENDING 또는 SENT),
+    CONCURRENT_SAVE(첫 저장이 동시에 들어옴, 다시 요청하면 됨)
+    """
+    saveMessage(postingId: ID!, type: MessageType!, target: MessageTarget!, subject: String!, body: String!): Message!
+    """
+    결과 안내 발송 시작 (운영진). 대상마다 메시지를 SENDING으로 바꾸고 이메일 경고가 없는 받는 사람마다 전달 내역(PENDING)을 만듦.
+    조건을 못 채운 대상이 하나라도 있으면 아무 대상도 발송하지 않음. 응답은 발송 시작 직후의 resultMessages와 같은 모양.
+    공고 단체의 운영진이 아니면 COMMON_403, 공고가 없으면 POSTING_404.
+    COMMON_400 reason: UNSUPPORTED_TYPE(type이 DOC_RESULT가 아님), TARGETS_REQUIRED(targets가 비어 있음),
+    DUPLICATE_TARGET(같은 대상이 두 번), INVALID_TARGET(ALL 포함).
+    MESSAGE_409 reason: RESULT_NOT_CONFIRMED(서류 결과 확정 전), ALREADY_SENT(그 대상이 이미 SENDING 또는 SENT).
+    MESSAGE_422 reason: MESSAGE_NOT_SAVED(초안 없음), EMPTY_MESSAGE(제목 또는 본문이 빈 값),
+    NO_RECIPIENTS(받는 사람 0명), NO_SENDABLE_RECIPIENTS(전원 이메일 경고)
+    """
+    sendMessages(postingId: ID!, type: MessageType!, targets: [MessageTarget!]!): ResultMessages!
 }

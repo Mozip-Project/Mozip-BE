@@ -32,8 +32,11 @@
 | `SubscriptionService.hasActivePlan(organizationId)` | A | A (`publishPosting`, #65) | 임시 구현 `TemporarySubscriptionService` (#65). 항상 true. 9단계(결제)에서 실제 구현으로 교체 |
 | `SubscriptionService.startFreeTrial(organizationId)` | A | B (단체 생성 직후) | 임시 구현 `TemporarySubscriptionService` (#65, 아무 것도 안 함). 9단계(결제)에서 A가 교체 |
 | 이용권 검사 (`ORG_402 SUBSCRIPTION_REQUIRED`) | A | B (유료 기능 호출 시) | 구현됨. `publishPosting`에서 사용 (#65) |
-| `MailSender`, `NotificationService` | A | B (결과 안내 발송) | 미정. B 결과 안내 순서 전에 A가 만들거나 B가 임시 구현 |
-| `User.contactEmail` | A | B (결과 안내 수신 주소) | 미정. A가 컬럼만 먼저 추가하거나 B가 지원서 `profile_snapshot`에서 임시로 꺼냄 |
+| `MailSender`, `NotificationService` | A | B (결과 안내 발송) | 미정. #95는 직접 부르지 않고 아래 `MessageNotifier`, `MessageMailQueue` 뒤에 둠 |
+| `MessageNotifier.notifyResult(message, applications)` | B | B (`sendMessages`에서 MOZIP 알림 생성, #95) | 임시 구현 `TemporaryMessageNotifier` (#95). 로그만 남김. A의 `NotificationService`(#48)가 들어오면 그걸 부르는 구현으로 교체 |
+| `MessageMailQueue.enqueue(message, deliveries)` | B | B (`sendMessages`에서 메일 작업 적재, #95) | 임시 구현 `TemporaryMessageMailQueue` (#95). 로그만 남김. B가 결과 안내 worker를 만들 때 실제 구현으로 교체. 그때까지 메시지는 SENDING, 전달 내역은 PENDING에서 안 바뀜 |
+| `User.contactEmail` | A | B (결과 안내 수신 주소) | 컬럼 존재. #95가 `resultMessages`와 `sendMessages`에서 현재 값을 읽음. 제출 시점 값으로 고정할지는 미정 |
+| `ApplicationRepository.findAllByPostingAndStatus(posting, status)` | A | B (결과 안내 받는 사람 조회, #95) | 구현됨 (#69). #95는 SUBMITTED를 읽어 서류 결과 PASS/FAIL만 메모리에서 거름 |
 | `PostingResultChecker.isDocResultConfirmed(postingId)` | B | A (`advancePostingStatus`의 DOC_REVIEW -> DOC_RESULT_NOTICE 조건, #66) | 임시 구현 `TemporaryPostingResultChecker` (#66). 항상 true. B가 서류 평가 결과 취합을 구현하면 실제 구현으로 교체 |
 | `PostingResultChecker.isFinalResultConfirmed(postingId)` | B | A (`advancePostingStatus`의 FINAL_RESULT 전환 조건, #66) | 임시 구현 `TemporaryPostingResultChecker` (#66). 항상 true. B가 최종 결과 확정을 구현하면 실제 구현으로 교체 |
 | `PostingService.getPostingStatus(postingId)` | A | B (평가·면접 화면을 열어도 되는 단계인지 확인) | 구현됨 (#66). B가 아직 안 씀 |
