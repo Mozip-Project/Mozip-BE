@@ -64,6 +64,29 @@ public class User extends BaseEntity {
 	@Column(nullable = false)
 	private LocalDateTime termsAgreedAt;
 
+	// 아래 프로필 필드는 전부 선택 입력이라 가입 시점엔 비어 있고, 프로필 수정 기능에서 채워짐
+	@Column(length = 500)
+	private String profileImageUrl;
+
+	@Column(length = 100)
+	private String department;
+
+	private Integer grade;
+
+	@Column(length = 100)
+	private String contactEmail;
+
+	// TODO: 알림 기능 구현 전까지는 항상 true로 생성됨. 실제 토글 뮤테이션이 생기면 UserService.toMe()의
+	// NotificationSettings.defaults()도 이 컬럼을 읽도록 같이 바꿔야 함 (지금은 두 값이 우연히 같을 뿐, 연결 안 돼 있음)
+	@Column(nullable = false)
+	private boolean notifyResult;
+
+	@Column(nullable = false)
+	private boolean notifyScrap;
+
+	@Column(nullable = false)
+	private boolean notifyOperator;
+
 	private User(String phone, String encodedPassword, String name, Authority authority, Role lastRole,
 		boolean marketingAgreed, LocalDateTime termsAgreedAt) {
 		this.phone = phone;
@@ -74,6 +97,9 @@ public class User extends BaseEntity {
 		this.lastRole = lastRole;
 		this.marketingAgreed = marketingAgreed;
 		this.termsAgreedAt = termsAgreedAt;
+		this.notifyResult = true;
+		this.notifyScrap = true;
+		this.notifyOperator = true;
 	}
 
 	// 일반 가입 (비밀번호는 암호화한 값으로 전달)
@@ -90,6 +116,11 @@ public class User extends BaseEntity {
 
 	public boolean isActive() {
 		return status == UserStatus.ACTIVE;
+	}
+
+	// 지원자/운영진 홈 전환
+	public void updateLastRole(Role lastRole) {
+		this.lastRole = lastRole;
 	}
 
 	// TODO(학교 인증 이슈): 실제 인증 흐름이 생기기 전까지 테스트·시드에서 학교 인증 상태를 만들 때 씀
