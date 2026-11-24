@@ -1,8 +1,7 @@
 -- 034_user_profile_org_logo.sql
--- 단체 로고(presigned URL), 회원 프로필/알림 컬럼과 활동경험(experiences) 테이블 추가
+-- 회원 프로필/알림 컬럼과 활동경험(experiences) 테이블 추가
+-- 단체 로고 컬럼(organizations.logo_url)은 038_organization_profile.sql이 만들어서 여기서는 뺌
 -- 컬럼은 dev/prod에 이미 있을 수 있어 if not exists로 추가
-
--- organizations.logo_url은 038_organization_profile.sql이 추가해서 여기서는 뺌
 
 alter table users add column if not exists profile_image_url varchar(500);
 alter table users add column if not exists department varchar(100);
