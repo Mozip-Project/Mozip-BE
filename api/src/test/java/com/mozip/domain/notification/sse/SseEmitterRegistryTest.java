@@ -3,7 +3,6 @@ package com.mozip.domain.notification.sse;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatCode;
 import static org.mockito.ArgumentMatchers.any;
-import static org.mockito.Mockito.doNothing;
 import static org.mockito.Mockito.doThrow;
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.times;
@@ -60,31 +59,15 @@ class SseEmitterRegistryTest {
 	}
 
 	@Test
-	@DisplayName("전송이 일시적으로 실패하면 재시도하고, 재시도 중 성공하면 연결을 유지한다")
-	void retriesTransientFailureAndKeepsConnection() throws IOException {
+	@DisplayName("전송이 실패하면 재시도 없이 바로 연결을 정리한다")
+	void removesConnectionOnFirstFailure() throws IOException {
 		SseEmitter mockEmitter = mock(SseEmitter.class);
-		doThrow(new IOException("일시적 실패"))
-			.doThrow(new IOException("일시적 실패"))
-			.doNothing()
-			.when(mockEmitter).send(any(SseEmitter.SseEventBuilder.class));
+		doThrow(new IOException("전송 실패")).when(mockEmitter).send(any(SseEmitter.SseEventBuilder.class));
 		putEmitter(1L, mockEmitter);
 
 		registry.push(1L, "{\"id\":1}");
 
-		verify(mockEmitter, times(3)).send(any(SseEmitter.SseEventBuilder.class));
-		assertThat(emitters(1L)).containsExactly(mockEmitter);
-	}
-
-	@Test
-	@DisplayName("전송이 재시도 횟수를 다 쓰고도 계속 실패하면 연결을 정리한다")
-	void removesConnectionAfterExhaustingRetries() throws IOException {
-		SseEmitter mockEmitter = mock(SseEmitter.class);
-		doThrow(new IOException("계속 실패")).when(mockEmitter).send(any(SseEmitter.SseEventBuilder.class));
-		putEmitter(1L, mockEmitter);
-
-		registry.push(1L, "{\"id\":1}");
-
-		verify(mockEmitter, times(3)).send(any(SseEmitter.SseEventBuilder.class));
+		verify(mockEmitter, times(1)).send(any(SseEmitter.SseEventBuilder.class));
 		assertThat(emitters(1L)).isNull();
 	}
 

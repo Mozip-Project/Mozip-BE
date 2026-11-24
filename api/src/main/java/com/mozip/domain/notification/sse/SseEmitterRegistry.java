@@ -20,10 +20,6 @@ import lombok.extern.slf4j.Slf4j;
 public class SseEmitterRegistry {
 
 	private static final String EVENT_NAME = "notification";
-	// IOException은 순간적인 버퍼/네트워크 문제일 수 있어 재시도. IllegalStateException(연결 이미 끝남)은 재시도해도
-	// 항상 똑같이 실패하므로 즉시 정리함
-	private static final int MAX_SEND_ATTEMPTS = 3;
-	private static final long RETRY_DELAY_MS = 100;
 	// access token 수명(30분)보다 짧게 잡아, 토큰이 만료/로그아웃된 뒤에도 연결이 살아남아 알림이 계속 나가는 걸 막음.
 	// 타임아웃으로 끊기면 프론트 EventSource가 재연결하면서 인증을 다시 탐
 	private static final long TIMEOUT_MS = Duration.ofMinutes(25).toMillis();
@@ -59,37 +55,20 @@ public class SseEmitterRegistry {
 			return;
 		}
 		for (SseEmitter emitter : emitters) {
-			if (!sendWithRetry(userId, emitter, payloadJson)) {
+			if (!send(userId, emitter, payloadJson)) {
 				remove(userId, emitter);
 			}
 		}
 	}
 
-	private boolean sendWithRetry(Long userId, SseEmitter emitter, String payloadJson) {
-		for (int attempt = 1; attempt <= MAX_SEND_ATTEMPTS; attempt++) {
-			try {
-				emitter.send(SseEmitter.event().name(EVENT_NAME).data(payloadJson));
-				return true;
-			} catch (IllegalStateException e) {
-				log.warn("SSE 연결이 이미 끝나 있어 정리함: userId={}, cause={}", userId, e.getClass().getSimpleName());
-				return false;
-			} catch (IOException e) {
-				log.warn("SSE 전송 실패 ({}/{}번째 시도): userId={}, cause={}", attempt, MAX_SEND_ATTEMPTS, userId,
-					e.getClass().getSimpleName());
-				if (attempt == MAX_SEND_ATTEMPTS) {
-					return false;
-				}
-				sleep(RETRY_DELAY_MS);
-			}
-		}
-		return false;
-	}
-
-	private void sleep(long millis) {
+	// 연결이 끊긴 뒤의 send는 재시도해도 같은 이유로 또 실패하므로, 복구는 프론트 EventSource의 재연결에 맡기고 바로 정리함
+	private boolean send(Long userId, SseEmitter emitter, String payloadJson) {
 		try {
-			Thread.sleep(millis);
-		} catch (InterruptedException e) {
-			Thread.currentThread().interrupt();
+			emitter.send(SseEmitter.event().name(EVENT_NAME).data(payloadJson));
+			return true;
+		} catch (IOException | IllegalStateException e) {
+			log.debug("SSE 전송 실패로 연결 정리: userId={}, cause={}", userId, e.getClass().getSimpleName());
+			return false;
 		}
 	}
 
