@@ -341,8 +341,10 @@ public class ApplicationService {
 		}
 		if (question.getType() == QuestionType.MULTI_CHOICE && !blank) {
 			List<String> selected = readStringList(answer.getContent());
-			if (selected == null || selected.isEmpty() || !selected.stream().allMatch(c -> isValidChoice(question, c))) {
+			if (selected == null || !selected.stream().allMatch(c -> isValidChoice(question, c))) {
 				fieldErrors.add(new FieldErrorResponse(field, "선택지에 없는 값입니다."));
+			} else if (selected.isEmpty() && question.isRequired()) {
+				fieldErrors.add(new FieldErrorResponse(field, "필수 문항입니다."));
 			}
 		}
 		if (question.getType() == QuestionType.TABLE && !blank) {
@@ -412,6 +414,9 @@ public class ApplicationService {
 		try {
 			raw = objectMapper.readValue(json, List.class);
 		} catch (RuntimeException e) {
+			return null;
+		}
+		if (raw == null) {
 			return null;
 		}
 		for (Object element : raw) {
