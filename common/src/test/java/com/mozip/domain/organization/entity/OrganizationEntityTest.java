@@ -75,6 +75,66 @@ class OrganizationEntityTest {
 		assertThat(Member.create(organization, user, team, MemberRole.OPERATOR).getTeam()).isEqualTo(team);
 	}
 
+	@Test
+	@DisplayName("심사 대기 중인 단체를 승인하면 APPROVED가 되고 미승인 사유는 비어 있다")
+	void approve() {
+		Organization organization = campus(false);
+
+		organization.approve();
+
+		assertThat(organization.getReviewStatus()).isEqualTo(ReviewStatus.APPROVED);
+		assertThat(organization.getRejectReason()).isNull();
+		assertThat(organization.isPending()).isFalse();
+	}
+
+	@Test
+	@DisplayName("심사 대기 중인 단체를 미승인하면 REJECTED가 되고 사유가 저장된다")
+	void reject() {
+		Organization organization = campus(false);
+
+		organization.reject("증빙 자료가 확인되지 않습니다.");
+
+		assertThat(organization.getReviewStatus()).isEqualTo(ReviewStatus.REJECTED);
+		assertThat(organization.getRejectReason()).isEqualTo("증빙 자료가 확인되지 않습니다.");
+	}
+
+	@Test
+	@DisplayName("미승인 사유가 비었거나 500자를 넘으면 거부하고 상태는 PENDING으로 남는다")
+	void rejectReasonRequired() {
+		Organization organization = campus(false);
+
+		assertThatThrownBy(() -> organization.reject(null)).isInstanceOf(IllegalArgumentException.class);
+		assertThatThrownBy(() -> organization.reject("  ")).isInstanceOf(IllegalArgumentException.class);
+		assertThatThrownBy(() -> organization.reject("가".repeat(Organization.REJECT_REASON_MAX_LENGTH + 1)))
+			.isInstanceOf(IllegalArgumentException.class);
+		assertThat(organization.getReviewStatus()).isEqualTo(ReviewStatus.PENDING);
+		assertThat(organization.getRejectReason()).isNull();
+	}
+
+	@Test
+	@DisplayName("이미 승인된 단체는 다시 승인하거나 미승인할 수 없다")
+	void reviewApprovedAgain() {
+		Organization organization = campus(false);
+		organization.approve();
+
+		assertThatThrownBy(organization::approve).isInstanceOf(IllegalArgumentException.class);
+		assertThatThrownBy(() -> organization.reject("사유")).isInstanceOf(IllegalArgumentException.class);
+		assertThat(organization.getReviewStatus()).isEqualTo(ReviewStatus.APPROVED);
+		assertThat(organization.getRejectReason()).isNull();
+	}
+
+	@Test
+	@DisplayName("이미 미승인된 단체는 승인하거나 사유를 바꿔 다시 미승인할 수 없다")
+	void reviewRejectedAgain() {
+		Organization organization = campus(false);
+		organization.reject("처음 사유");
+
+		assertThatThrownBy(organization::approve).isInstanceOf(IllegalArgumentException.class);
+		assertThatThrownBy(() -> organization.reject("다른 사유")).isInstanceOf(IllegalArgumentException.class);
+		assertThat(organization.getReviewStatus()).isEqualTo(ReviewStatus.REJECTED);
+		assertThat(organization.getRejectReason()).isEqualTo("처음 사유");
+	}
+
 	private Organization campus(boolean noTeam) {
 		return Organization.create("교내 동아리", OrganizationType.CLUB, null, OrganizationScope.CAMPUS, school, noTeam,
 			null, null);
