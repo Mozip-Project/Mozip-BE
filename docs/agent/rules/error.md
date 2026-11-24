@@ -58,3 +58,6 @@ throw new BusinessException(OrganizationErrorCode.ORGANIZATION_NOT_FOUND).addCon
 - GraphQL: `errors[].extensions`에 `code`, `traceId`, 있으면 `reason`, 검증 실패면 `fieldErrors`. `errorType`은 400/401/403/404만 그대로 가고 그 외 4xx는 `BAD_REQUEST`, 5xx는 `INTERNAL_ERROR`라 세부 구분은 `code`로 한다
 - `@Valid` 실패는 `COMMON_400`, `@PreAuthorize` 거부는 `COMMON_403`, 로그인 안 한 요청은 `COMMON_401` 또는 토큰 코드(`AUTH_002`, `AUTH_003`)로 자동 응답된다. 직접 던지지 않는다
 - 자원이 없을 때는 도메인 404(`ORG_404`)를 쓴다. `COMMON_404`는 도메인을 특정할 수 없을 때만
+- Bean Validation으로 표현하기 어려운 서비스 레벨 검증(예: 발행 전 필수 단계 누락)도 필드별로 알려야 하면
+  `BusinessException(errorCode).withFieldErrors(List<FieldErrorResponse>)`로 던진다. `addContext`와 달리
+  `fieldErrors`는 실제로 응답(`extensions.fieldErrors` 또는 REST의 `data`)에 포함된다

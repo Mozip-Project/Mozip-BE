@@ -38,7 +38,8 @@ public class GraphqlExceptionResolver extends DataFetcherExceptionResolverAdapte
 			} else {
 				log.warn("Business exception: code={}, context={}", errorCode.getCode(), e.getContext());
 			}
-			return toGraphqlError(errorCode, e.getReason(), e.getMessage(), env, null);
+			return toGraphqlError(errorCode, e.getReason(), e.getMessage(), env,
+				e.getFieldErrors().isEmpty() ? null : e.getFieldErrors());
 		}
 		// @PreAuthorize 거부 (인증 자체는 GraphqlAuthInstrumentation이 먼저 검사하므로 여기 오면 권한 부족)
 		if (ex instanceof AccessDeniedException) {

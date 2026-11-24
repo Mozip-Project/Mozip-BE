@@ -1,5 +1,9 @@
 # 로컬 개발 환경이며, compose.yaml 값과 맞춤
 spring:
+  docker:
+    compose:
+      # bootRun의 작업 디렉터리가 api/라 루트의 compose.yaml을 상대 경로로 못 찾음
+      file: ../compose.yaml
   datasource:
     url: jdbc:postgresql://localhost:5432/mozip
     username: mozip
