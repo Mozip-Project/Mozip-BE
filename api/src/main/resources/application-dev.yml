@@ -17,6 +17,7 @@ spring:
       host: ${REDIS_HOST}
       port: ${REDIS_PORT}
       password: ${REDIS_PASSWORD}
+      timeout: 2s
 
   graphql:
     graphiql:
