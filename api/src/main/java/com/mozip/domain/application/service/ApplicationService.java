@@ -351,6 +351,8 @@ public class ApplicationService {
 			List<List<String>> rows = readTable(answer.getContent());
 			if (rows == null) {
 				fieldErrors.add(new FieldErrorResponse(field, "표 형식이 올바르지 않습니다."));
+			} else if (rows.isEmpty() && question.isRequired()) {
+				fieldErrors.add(new FieldErrorResponse(field, "필수 문항입니다."));
 			} else if (question.getMaxRows() != null && rows.size() > question.getMaxRows()) {
 				fieldErrors.add(new FieldErrorResponse(field, "행 수 제한을 넘었습니다."));
 			} else if (question.getColumns() != null
