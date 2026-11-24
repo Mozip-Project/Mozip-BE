@@ -33,7 +33,7 @@ public record ApiResponse<T>(
 		return new ApiResponse<>(false, code, null, message, data, MDC.get(TraceIdFilter.TRACE_ID_KEY));
 	}
 
-	public static ApiResponse<Void> failWithReason(String code, String reason, String message) {
+	public static <T> ApiResponse<T> failWithReason(String code, String reason, String message) {
 		return new ApiResponse<>(false, code, reason, message, null, MDC.get(TraceIdFilter.TRACE_ID_KEY));
 	}
 

@@ -26,6 +26,10 @@ spec:
             - name: http
               containerPort: 8080
 
+          env:
+            - name: TZ
+              value: Asia/Seoul
+
           envFrom:
             - configMapRef:
                 name: mozip-config

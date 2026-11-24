@@ -35,7 +35,7 @@ public class Answer extends BaseEntity {
 	@JoinColumn(name = "question_id", nullable = false)
 	private Question question;
 
-	// TEXT 답변, CHOICE / TABLE은 JSON 문자열
+	// TEXT는 그대로, SINGLE_CHOICE는 선택지 문자열 그대로, MULTI_CHOICE와 TABLE은 JSON 배열 문자열
 	@Column(columnDefinition = "TEXT")
 	private String content;
 
