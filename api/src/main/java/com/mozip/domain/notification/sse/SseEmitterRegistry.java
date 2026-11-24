@@ -32,8 +32,11 @@ public class SseEmitterRegistry {
 
 	public SseEmitter register(Long userId) {
 		SseEmitter emitter = new SseEmitter(TIMEOUT_MS);
-		List<SseEmitter> emitters = emittersByUserId.computeIfAbsent(userId, key -> new CopyOnWriteArrayList<>());
-		emitters.add(emitter);
+		emittersByUserId.compute(userId, (key, emitters) -> {
+			List<SseEmitter> target = emitters != null ? emitters : new CopyOnWriteArrayList<>();
+			target.add(emitter);
+			return target;
+		});
 		emitter.onCompletion(() -> remove(userId, emitter));
 		emitter.onTimeout(() -> {
 			remove(userId, emitter);
