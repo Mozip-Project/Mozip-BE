@@ -38,7 +38,7 @@
 | `PostingResultChecker.isFinalResultConfirmed(postingId)` | B | A (`advancePostingStatus`의 FINAL_RESULT 전환 조건, #66) | 임시 구현 `TemporaryPostingResultChecker` (#66). 항상 true. B가 최종 결과 확정을 구현하면 실제 구현으로 교체 |
 | `PostingService.getPostingStatus(postingId)` | A | B (평가·면접 화면을 열어도 되는 단계인지 확인) | 구현됨 (#66). B가 아직 안 씀 |
 | `InterviewAvailabilityService.save(applicationId, availableTimes)` | B | A (`saveApplicationDraft`에서 면접 가능 시간 저장, #69) | 임시 구현 `TemporaryInterviewAvailabilityService` (#69). 로그만 남김. B가 면접 타임테이블 배정을 구현하면 실제 구현으로 교체 |
-| `ApplicationService.getSubmittedApplications(postingId)` | A | B (서류 평가 대상 조회, #69) | 구현됨 (#69). B가 아직 안 씀 |
+| `ApplicationService.getSubmittedApplications(postingId)` | A | B (서류 평가 대상 조회, #69) | 구현됨 (#69). 서류 평가 목록과 저장 응답의 남은 수 계산에서 씀 (#90) |
 
 ## 공유하는 엔티티
 
