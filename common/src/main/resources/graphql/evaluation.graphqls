@@ -45,7 +45,7 @@ enum DocEvaluationTab {
     EVALUATED
 }
 
-"지원서 목록 정렬. 지원자 관리, 서류 평가, 취합 목록이 같이 쓴다"
+"지원서 목록 정렬. 지원자 관리와 서류 평가 목록이 같이 쓴다. 취합 목록 정렬은 DocSummarySort"
 enum ApplicationSort {
     SUBMITTED_DESC
     SUBMITTED_ASC
@@ -186,4 +186,139 @@ type InterviewScore {
     customQuestion: String
     score: Int
     memo: String
+}
+
+# 서류 평가 취합, 결과 확정 (#91)
+
+"취합 화면 탭. ALL은 결과를 고르지 않은(PENDING) 지원자까지 포함"
+enum DocResultTab {
+    ALL
+    PASS
+    HOLD
+    FAIL
+}
+
+"취합 목록 정렬"
+enum DocSummarySort {
+    "평균 점수 높은 순, 점수가 없는 지원자는 뒤로"
+    SCORE_DESC
+    "평균 점수 낮은 순, 점수가 없는 지원자는 뒤로"
+    SCORE_ASC
+    NAME_ASC
+    NAME_DESC
+    "합격 의견 많은 순"
+    PASS_OPINION_DESC
+}
+
+"서류 평가 취합 목록 한 페이지 (10건)"
+type DocEvaluationSummaryPage {
+    rows: [DocEvaluationSummaryRow!]!
+    "탭, 포지션, 검색어를 모두 적용한 건수"
+    totalCount: Int!
+    "포지션과 검색어만 적용한 탭별 건수"
+    tabCounts: DocResultTabCounts!
+    "검색어만 적용한 포지션별 건수, 포지션 없는 모집이면 빈 배열"
+    positionCounts: [PositionCount!]!
+    "1부터 시작"
+    page: Int!
+    totalPages: Int!
+    "필터와 상관없이 공고 전체 기준"
+    summary: DocResultSummary!
+}
+
+"취합 목록의 지원자 한 줄"
+type DocEvaluationSummaryRow {
+    application: Application!
+    """
+    운영진이 지정한 서류 결과. 지원자에게 가려지는 application.docResult와 달리 공고 단계와 상관없이 실제 값
+    """
+    docResult: DocResult!
+    """
+    공고 전체에서의 순위 (탭, 필터, 검색, 정렬과 무관). 운영진 전원이 평가를 저장한 지원자끼리만 매기고 아니면 null.
+    평균 점수 높은 순, 같으면 합격 의견 많은 순, 그다음 먼저 제출한 순. 점수를 안 쓰는 공고는 합격 의견 수부터 비교
+    """
+    rank: Int
+    """
+    운영진별 문항 평균의 평균, 소수 둘째 자리까지 반올림. 저장된 평가만 계산.
+    posting.docScorePerQuestion = false이거나 저장된 점수가 없으면 null
+    """
+    averageScore: Float
+    opinionCounts: OpinionCounts!
+    "공고 단체 운영진 전원이 평가를 저장했는지. true여야 결과를 지정할 수 있음"
+    evaluationComplete: Boolean!
+}
+
+"저장된 평가의 의견별 운영진 수"
+type OpinionCounts {
+    pass: Int!
+    hold: Int!
+    fail: Int!
+    "아직 저장하지 않은 운영진 수"
+    notEvaluated: Int!
+}
+
+type DocResultTabCounts {
+    all: Int!
+    pass: Int!
+    hold: Int!
+    fail: Int!
+}
+
+"공고 전체 서류 결과 현황 (제출된 지원서 기준)"
+type DocResultSummary {
+    totalCount: Int!
+    "운영진 전원이 평가를 저장한 지원자 수"
+    evaluatedCount: Int!
+    allEvaluated: Boolean!
+    passCount: Int!
+    holdCount: Int!
+    failCount: Int!
+    "결과를 아직 고르지 않은 지원자 수"
+    pendingCount: Int!
+    "지원자가 1명 이상이고 전원 평가가 끝났으며 보류와 미선택이 없고 아직 확정 전이면 true"
+    canConfirm: Boolean!
+    "서류 결과 확정 시각, null = 미확정"
+    docResultConfirmedAt: DateTime
+}
+
+type SetDocResultPayload {
+    application: Application!
+    "방금 지정한 서류 결과 (application.docResult는 결과 발표 전까지 PENDING으로 가려짐)"
+    docResult: DocResult!
+    summary: DocResultSummary!
+}
+
+type ConfirmDocResultPayload {
+    posting: Posting!
+    summary: DocResultSummary!
+}
+
+extend type Query {
+    """
+    서류 평가 취합 목록. 공고 단체 운영진만 조회 가능하고 아니면 COMMON_403. 공고가 없으면 POSTING_404.
+    page가 1보다 작거나 positionIds에 이 공고의 포지션이 아닌 id가 있으면 COMMON_400.
+    sort를 비우면 점수를 쓰는 공고는 SCORE_DESC, 아니면 PASS_OPINION_DESC. keyword는 지원자 이름 검색
+    """
+    docEvaluationSummary(postingId: ID!, tab: DocResultTab = ALL, positionIds: [ID!], keyword: String, sort: DocSummarySort, page: Int = 1): DocEvaluationSummaryPage!
+    """
+    지원서 한 건에 운영진이 저장한 서류 평가 목록 (작성 중인 평가는 제외).
+    공고 단체 운영진만 조회 가능하고 아니면 COMMON_403. 지원서가 없거나 제출 전이면 EVALUATION_404
+    """
+    docEvaluations(applicationId: ID!): [DocEvaluation!]!
+}
+
+extend type Mutation {
+    """
+    지원자 한 명의 서류 결과 지정. 같은 값을 다시 보내도 성공.
+    운영진이 아니면 COMMON_403, 지원서가 없거나 제출 전이면 EVALUATION_404, result가 PENDING이면 COMMON_400,
+    결과 확정 후면 EVALUATION_423, 운영진 전원이 평가를 저장하기 전이면 EVALUATION_409(reason: NOT_ALL_SAVED)
+    """
+    setDocResult(applicationId: ID!, result: DocResult!): SetDocResultPayload!
+    """
+    서류 결과 확정. 확정 후에는 평가와 결과를 바꿀 수 없음.
+    운영진이 아니면 COMMON_403, 공고가 없으면 POSTING_404, 이미 확정했으면 EVALUATION_423.
+    조건이 안 되면 EVALUATION_422이고 reason은 NO_APPLICANTS(제출된 지원서 없음), NOT_ALL_EVALUATED(평가가 덜 끝남),
+    RESULT_NOT_SELECTED(결과를 안 고른 지원자가 남음), HOLD_REMAINING(보류가 남음) 순으로 먼저 걸리는 것
+    """
+    confirmDocResult(postingId: ID!): ConfirmDocResultPayload!
 }
