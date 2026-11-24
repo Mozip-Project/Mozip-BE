@@ -13,6 +13,7 @@
 | A | 파일 업로드, 메일과 알림 발송 | S3 presigned URL, `MailSender`, `NotificationService` |
 | A | `global`, `devtools`, 인프라 | 공통 설정, 인증 우회, k8s와 배포 |
 | B | `organization` | 단체 생성과 프로필, 운영진(`Member`), 팀, 초대, 대표자 인수 |
+| B | `discord` | 단체 생성 심사 요청 메시지, 디스코드 Interactions 콜백 (#70) |
 | B | `evaluation` | 서류 평가 작성, 취합, 결과 확정 |
 | B | `interview` | 면접 시간 선택, 타임테이블 생성과 배정, 면접 평가 |
 | B | `message` | 결과 안내 메시지 작성, 발송, 전달 상태 |
@@ -33,6 +34,7 @@
 | `SubscriptionService.startFreeTrial(organizationId)` | A | B (단체 생성 직후) | 임시 구현 `TemporarySubscriptionService` (#65, 아무 것도 안 함). 9단계(결제)에서 A가 교체 |
 | 이용권 검사 (`ORG_402 SUBSCRIPTION_REQUIRED`) | A | B (유료 기능 호출 시) | 구현됨. `publishPosting`에서 사용 (#65) |
 | `MailSender`, `NotificationService` | A | B (결과 안내 발송) | 미정. B 결과 안내 순서 전에 A가 만들거나 B가 임시 구현 |
+| `OrganizationReviewNotifier.notifyApproved(organizationId)`, `notifyRejected(organizationId, rejectReason)` | A | B (단체 심사 결과가 커밋된 뒤 대표자에게 알림, #70) | 임시 구현 `TemporaryOrganizationReviewNotifier` (#70). 로그만 남김. A가 알림 기능(#48)을 만들면 실제 구현으로 교체 |
 | `User.contactEmail` | A | B (결과 안내 수신 주소) | 미정. A가 컬럼만 먼저 추가하거나 B가 지원서 `profile_snapshot`에서 임시로 꺼냄 |
 | `PostingResultChecker.isDocResultConfirmed(postingId)` | B | A (`advancePostingStatus`의 DOC_REVIEW -> DOC_RESULT_NOTICE 조건, #66) | 임시 구현 `TemporaryPostingResultChecker` (#66). 항상 true. B가 서류 평가 결과 취합을 구현하면 실제 구현으로 교체 |
 | `PostingResultChecker.isFinalResultConfirmed(postingId)` | B | A (`advancePostingStatus`의 FINAL_RESULT 전환 조건, #66) | 임시 구현 `TemporaryPostingResultChecker` (#66). 항상 true. B가 최종 결과 확정을 구현하면 실제 구현으로 교체 |
