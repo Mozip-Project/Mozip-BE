@@ -131,7 +131,10 @@ public class ApplicationService {
 			throw new BusinessException(ApplicationErrorCode.CONFLICT, ApplicationConflictReason.ALREADY_SUBMITTED)
 				.addContext("applicationId", applicationId);
 		}
-		Posting posting = application.getPosting();
+		// 제출 도중에 공고가 다음 단계로 넘어가거나 서류 결과가 확정되지 않게 공고 행을 공유 잠금으로 읽음
+		Long postingId = application.getPosting().getId();
+		Posting posting = postingRepository.findByIdForShare(postingId)
+			.orElseThrow(() -> new BusinessException(PostingErrorCode.NOT_FOUND).addContext("postingId", postingId));
 		requireRecruiting(posting);
 
 		User user = application.getUser();

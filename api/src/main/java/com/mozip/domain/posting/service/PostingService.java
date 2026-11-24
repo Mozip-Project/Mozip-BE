@@ -88,7 +88,9 @@ public class PostingService {
 
 	@Transactional
 	public Posting advanceStatus(Long userId, Long postingId, PostingStatus to) {
-		Posting posting = findById(postingId);
+		// 진행 중인 지원서 제출(공유 잠금)이 끝난 뒤에 단계를 바꾸도록 공고 행을 잠그고 읽음
+		Posting posting = postingRepository.findByIdWithOrganizationForUpdate(postingId)
+			.orElseThrow(() -> new BusinessException(PostingErrorCode.NOT_FOUND).addContext("postingId", postingId));
 		requireOperator(userId, posting.getOrganization().getId());
 
 		PostingStatus next = nextStatus(posting);

@@ -48,9 +48,14 @@ public interface PostingRepository extends JpaRepository<Posting, Long>, JpaSpec
 		""")
 	int confirmDocResult(@Param("id") Long id, @Param("now") LocalDateTime now);
 
-	// 서류 결과 지정과 확정 (B). 두 요청이 엇갈리지 않게 공고 행을 잠그고 읽음
+	// 서류 결과 지정과 확정, 평가 저장 (B), 단계 전환 (A). 요청이 엇갈리지 않게 공고 행을 잠그고 읽음
 	@Lock(LockModeType.PESSIMISTIC_WRITE)
 	@Query("SELECT p FROM Posting p JOIN FETCH p.organization WHERE p.id = :id")
 	Optional<Posting> findByIdWithOrganizationForUpdate(@Param("id") Long id);
+
+	// 지원서 제출. 공유 잠금이라 제출끼리는 서로 안 막고, 단계 전환과 서류 결과 확정(행 잠금)하고만 순서가 잡힘
+	@Lock(LockModeType.PESSIMISTIC_READ)
+	@Query("SELECT p FROM Posting p WHERE p.id = :id")
+	Optional<Posting> findByIdForShare(@Param("id") Long id);
 
 }
