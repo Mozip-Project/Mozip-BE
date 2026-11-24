@@ -32,6 +32,8 @@ public class HttpSecurityDefaults {
 		"/auth/login",
 		"/auth/reissue",
 		"/auth/logout",
+		// 디스코드 Interactions 콜백 (로그인 대신 Ed25519 서명으로 검증)
+		"/api/discord/interactions",
 		// 엔드포인트가 하나라 URL로 막지 않고 GraphqlAuthInstrumentation이 필드별로 검사
 		"/graphql",
 		"/graphiql",
