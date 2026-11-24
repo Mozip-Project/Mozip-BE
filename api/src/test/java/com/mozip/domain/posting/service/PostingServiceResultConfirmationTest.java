@@ -38,8 +38,8 @@ import com.mozip.domain.user.entity.User;
 import com.mozip.domain.user.repository.UserRepository;
 import com.mozip.global.exception.BusinessException;
 
-// isDocResultConfirmed/isFinalResultConfirmed가 false인 경우(지금은 임시 구현이 항상 true라 실제로는 안 나지만
-// 목으로 뒤집어서 확인). PostingServicePlanRequiredTest와 같은 방식
+// isDocResultConfirmed/isFinalResultConfirmed가 false인 경우를 목으로 뒤집어서 확인 (최종 결과는 아직 항상 true라
+// 실제로는 안 남). PostingServicePlanRequiredTest와 같은 방식
 @Import(TestcontainersConfiguration.class)
 @SpringBootTest
 @Transactional

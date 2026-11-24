@@ -132,6 +132,8 @@ class ApplicationGraphqlControllerTest {
 			.execute()
 			.path("application.docResult").entity(String.class).isEqualTo("PENDING");
 
+		// 서류 결과를 확정해야 DOC_RESULT_NOTICE로 넘어감. 확정 흐름 자체는 평가 테스트에서 봄
+		jdbcTemplate.update("update postings set doc_result_confirmed_at = now() where id = ?", posting.getId());
 		postingService.advanceStatus(operator.getId(), posting.getId(), PostingStatus.DOC_RESULT_NOTICE);
 
 		asApplicant.document(query)

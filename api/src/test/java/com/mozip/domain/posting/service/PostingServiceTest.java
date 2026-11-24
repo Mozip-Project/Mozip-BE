@@ -645,6 +645,8 @@ class PostingServiceTest {
 
 		assertThat(postingService.advanceStatus(operator.getId(), posting.getId(), PostingStatus.DOC_REVIEW)
 			.getStatus()).isEqualTo(PostingStatus.DOC_REVIEW);
+		// 서류 결과를 확정해야 다음 단계로 넘어감
+		postingRepository.confirmDocResult(posting.getId(), LocalDateTime.now());
 		Posting docResultNotice = postingService.advanceStatus(operator.getId(), posting.getId(),
 			PostingStatus.DOC_RESULT_NOTICE);
 		assertThat(docResultNotice.getStatus()).isEqualTo(PostingStatus.DOC_RESULT_NOTICE);
@@ -665,6 +667,8 @@ class PostingServiceTest {
 			withInterview(true, InterviewMethod.ONLINE, 20, 5, AssignRule.ALL_MEMBERS, null, null, null));
 		postingService.publish(operator.getId(), posting.getId());
 		postingService.advanceStatus(operator.getId(), posting.getId(), PostingStatus.DOC_REVIEW);
+		// 서류 결과를 확정해야 다음 단계로 넘어감
+		postingRepository.confirmDocResult(posting.getId(), LocalDateTime.now());
 
 		Posting intoInterview = postingService.advanceStatus(operator.getId(), posting.getId(),
 			PostingStatus.DOC_RESULT_NOTICE);
