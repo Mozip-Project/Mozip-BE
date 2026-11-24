@@ -16,6 +16,7 @@ import com.mozip.domain.notification.exception.NotificationErrorCode;
 import com.mozip.domain.notification.repository.NotificationRepository;
 import com.mozip.domain.organization.entity.Organization;
 import com.mozip.domain.organization.repository.OrganizationRepository;
+import com.mozip.domain.user.dto.NotificationSettings;
 import com.mozip.domain.user.entity.Role;
 import com.mozip.domain.user.entity.User;
 import com.mozip.domain.user.exception.UserErrorCode;
@@ -107,11 +108,12 @@ public class NotificationService {
 	}
 
 	@Transactional
-	public User updateSettings(Long userId, boolean notifyResult, boolean notifyScrap, boolean notifyOperator) {
+	public NotificationSettings updateSettings(Long userId, boolean notifyResult, boolean notifyScrap,
+		boolean notifyOperator) {
 		User user = userRepository.findById(userId)
 			.orElseThrow(() -> new BusinessException(UserErrorCode.NOT_FOUND).addContext("userId", userId));
 		user.updateNotificationSettings(notifyResult, notifyScrap, notifyOperator);
-		return user;
+		return NotificationSettings.from(user);
 	}
 
 	// organizationId를 줬는데 찾을 수 없으면 호출한 쪽(B)이 잘못된/오래된 id를 넘겼을 가능성이 있어 로그로 남김

@@ -18,8 +18,8 @@ import com.mozip.domain.notification.entity.Notification;
 import com.mozip.domain.notification.service.NotificationService;
 import com.mozip.domain.organization.entity.Organization;
 import com.mozip.domain.organization.repository.OrganizationRepository;
+import com.mozip.domain.user.dto.NotificationSettings;
 import com.mozip.domain.user.entity.Role;
-import com.mozip.domain.user.entity.User;
 import com.mozip.global.security.AuthUser;
 
 import jakarta.validation.Valid;
@@ -45,7 +45,7 @@ public class NotificationGraphqlController {
 	}
 
 	@MutationMapping
-	public User updateNotificationSettings(@Argument @Valid UpdateNotificationSettingsInput input,
+	public NotificationSettings updateNotificationSettings(@Argument @Valid UpdateNotificationSettingsInput input,
 		@AuthenticationPrincipal AuthUser authUser) {
 		return notificationService.updateSettings(authUser.userId(), input.notifyResult(), input.notifyScrap(),
 			input.notifyOperator());

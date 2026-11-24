@@ -18,6 +18,7 @@ import com.mozip.TestcontainersConfiguration;
 import com.mozip.domain.notification.entity.Notification;
 import com.mozip.domain.notification.entity.NotificationType;
 import com.mozip.domain.notification.exception.NotificationErrorCode;
+import com.mozip.domain.user.dto.NotificationSettings;
 import com.mozip.domain.user.entity.Role;
 import com.mozip.domain.user.entity.User;
 import com.mozip.domain.user.repository.UserRepository;
@@ -183,13 +184,13 @@ class NotificationServiceTest {
 	}
 
 	@Test
-	@DisplayName("알림 설정을 변경하면 User에 반영된다")
+	@DisplayName("알림 설정을 변경하면 변경된 값을 반환한다")
 	void updatesSettings() {
-		User updated = notificationService.updateSettings(user.getId(), false, true, false);
+		NotificationSettings updated = notificationService.updateSettings(user.getId(), false, true, false);
 
-		assertThat(updated.isNotifyResult()).isFalse();
-		assertThat(updated.isNotifyScrap()).isTrue();
-		assertThat(updated.isNotifyOperator()).isFalse();
+		assertThat(updated.notifyResult()).isFalse();
+		assertThat(updated.notifyScrap()).isTrue();
+		assertThat(updated.notifyOperator()).isFalse();
 	}
 
 }

@@ -135,7 +135,6 @@ type Me {
     organizations: [Organization!]!
     "소속 단체 목록 (드롭다운 항목), organization / role / team"
     memberships: [Member!]!
-    "알림 기능 구현 전까지 기본값 반환"
     notificationSettings: NotificationSettings!
     "알림 기능 구현 전까지 0 반환"
     unreadNotificationCount: Int!
@@ -162,5 +161,5 @@ extend type Mutation {
     "요청한 id 중 내 알림이 아닌 게 있으면 NOTIFICATION_403"
     markNotificationsRead(ids: [ID!]!): Boolean!
     "알림 수신 설정 변경"
-    updateNotificationSettings(input: UpdateNotificationSettingsInput!): User!
+    updateNotificationSettings(input: UpdateNotificationSettingsInput!): NotificationSettings!
 }

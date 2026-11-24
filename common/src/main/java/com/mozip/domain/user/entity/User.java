@@ -77,8 +77,6 @@ public class User extends BaseEntity {
 	private String contactEmail;
 
 	// 지원 결과, 면접 일정 알림
-	// TODO: 알림 기능 구현 전까지는 항상 true로 생성됨. 실제 토글 뮤테이션이 생기면 UserService.toMe()의
-	// NotificationSettings.defaults()도 이 컬럼을 읽도록 같이 바꿔야 함 (지금은 두 값이 우연히 같을 뿐, 연결 안 돼 있음)
 	@Column(nullable = false)
 	private boolean notifyResult;
 
