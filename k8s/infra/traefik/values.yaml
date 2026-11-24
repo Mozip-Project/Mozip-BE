@@ -33,9 +33,3 @@ ports:
 ingressClass:
   enabled: true
   isDefaultClass: false
-
-# 기본값(180s)과 같지만, 차트 업그레이드로 기본값이 바뀌어도 알림 SSE(SseEmitterRegistry, 30초 하트비트)가
-# 끊기지 않도록 명시적으로 고정함. 하트비트 주기를 바꾸면 이 값도 같이 맞출 것
-additionalArguments:
-  - "--entryPoints.web.transport.respondingTimeouts.idleTimeout=180s"
-  - "--entryPoints.websecure.transport.respondingTimeouts.idleTimeout=180s"
