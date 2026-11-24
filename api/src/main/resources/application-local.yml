@@ -27,6 +27,11 @@ spring:
 jwt:
   secret: local-only-mozip-jwt-secret-key-change-me-0123456789
 
+aws:
+  s3:
+    bucket: mozip-local
+    cdn-domain: https://mozip-local.s3.ap-northeast-2.amazonaws.com
+
 auth:
   # 인증 우회 켜기: AUTH_BYPASS_ENABLED=true (설정은 application.yml)
   cookie:

@@ -18,6 +18,7 @@ import org.springframework.stereotype.Controller;
 
 import com.mozip.domain.organization.dto.CreateOrganizationInput;
 import com.mozip.domain.organization.dto.UpdateOrganizationInput;
+import com.mozip.domain.organization.dto.UpdateOrganizationLogoInput;
 import com.mozip.domain.organization.entity.Member;
 import com.mozip.domain.organization.entity.Organization;
 import com.mozip.domain.organization.entity.OrganizationField;
@@ -48,6 +49,12 @@ public class OrganizationGraphqlController {
 	private final OrganizationKeywordRepository keywordRepository;
 	private final OrganizationFieldTagRepository fieldTagRepository;
 	private final OrganizationLinkRepository linkRepository;
+
+	@MutationMapping
+	public Organization updateOrganizationLogo(@Argument UpdateOrganizationLogoInput input,
+		@AuthenticationPrincipal AuthUser authUser) {
+		return organizationService.updateLogo(input.organizationId(), input.fileKey(), authUser.userId());
+	}
 
 	@MutationMapping
 	public Organization createOrganization(@Argument @Valid CreateOrganizationInput input,

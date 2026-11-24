@@ -39,21 +39,6 @@ enum NotificationType {
     EVALUATION_DEADLINE
 }
 
-"로그인한 회원. 프로필, 학교 인증, 알림 설정 필드는 아직 없음"
-type Me {
-    id: ID!
-    name: String!
-    "APPLICANT / OPERATOR, 다음 로그인 때 어느 홈으로 갈지"
-    lastRole: Role!
-    "소속 단체 목록 (드롭다운 항목), organization / role / team"
-    memberships: [Member!]!
-}
-
-extend type Query {
-    "로그인한 회원 정보, 앱 진입 시 첫 호출"
-    me: Me!
-}
-
 type School {
     id: ID!
     name: String!
@@ -133,9 +118,44 @@ input UpdateNotificationSettingsInput {
     notifyOperator: Boolean!
 }
 
+"로그인한 회원이 보는 내 정보. User와 별개 타입으로 두어 본인에게만 필요한 필드(소속 단체 목록, 알림 요약)를 담음"
+type Me {
+    id: ID!
+    "로그인 ID (숫자만, 예: 01012345678)"
+    phone: String!
+    name: String!
+    authority: Authority!
+    status: UserStatus!
+    lastRole: Role!
+    "학교 인증 승인 시 채움, null = 미인증 (공고 열람만 가능)"
+    school: School
+    marketingAgreed: Boolean!
+    termsAgreedAt: DateTime!
+    "운영진으로 소속된 단체 목록 (단체 전환 선택 UI에 사용)"
+    organizations: [Organization!]!
+    "소속 단체 목록 (드롭다운 항목), organization / role / team"
+    memberships: [Member!]!
+    "알림 기능 구현 전까지 기본값 반환"
+    notificationSettings: NotificationSettings!
+    "알림 기능 구현 전까지 0 반환"
+    unreadNotificationCount: Int!
+    createdAt: DateTime!
+}
+
+type NotificationSettings {
+    "지원 결과, 면접 일정 알림"
+    notifyResult: Boolean!
+    "스크랩 공고 지원 시작 알림"
+    notifyScrap: Boolean!
+    "대표자 인수 요청, 평가 마감 알림"
+    notifyOperator: Boolean!
+}
+
 extend type Query {
     "내 알림 목록. role로 지원자/운영진 탭을 고르고 최신순으로 반환"
     notifications(role: Role!, page: Int = 0, size: Int = 20): [Notification!]!
+    "로그인한 회원 정보 (지원자/운영진 화면 분기에 사용)"
+    me: Me!
 }
 
 extend type Mutation {

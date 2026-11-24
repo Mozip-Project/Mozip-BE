@@ -36,6 +36,13 @@
 | `USER_001` | 409 | `DUPLICATE_PHONE` | 이미 가입된 휴대폰 번호 |
 | `USER_404` | 404 | `NOT_FOUND` | 회원 없음 (알림 설정 변경 시 사용, #48) |
 
+## 파일 (`FileErrorCode`)
+
+| 코드 | HTTP | 상수 | 언제 |
+|---|---|---|---|
+| `FILE_413` | 413 | `FILE_TOO_LARGE` | presigned URL 발급 시 신고한 size가 purpose별 허용 용량 초과 |
+| `FILE_415` | 415 | `UNSUPPORTED_FILE_TYPE` | presigned URL 발급 시 contentType이 purpose가 허용하지 않는 타입 |
+
 ## 단체 (`OrganizationErrorCode`, PR #40)
 
 | 코드 | HTTP | 상수 | 언제 |
