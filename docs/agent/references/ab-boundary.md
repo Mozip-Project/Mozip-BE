@@ -26,13 +26,14 @@
 
 | 인터페이스 | 소유 | 호출 | 상태 |
 |---|---|---|---|
-| `OrganizationAccessChecker.isOperatorOf(userId, organizationId)` | B | A (공고 게시 등 운영진 권한 검사) | 임시 구현 `TemporaryOrganizationAccessChecker` (#65). `Member` 테이블로만 판단. B가 단체 도메인을 구현하면 실제 구현으로 교체 |
-| `OrganizationAccessChecker.isRepresentativeOf(userId, organizationId)` | B | A, B | 아직 안 씀. #65는 isOperatorOf만 필요 |
-| `OrganizationAccessChecker.getOrganization(organizationId)` | B | A (없으면 `ORG_404`) | 임시 구현 `TemporaryOrganizationAccessChecker` (#65) |
+| `OrganizationAccessChecker.isOperatorOf(userId, organizationId)` | B | A (공고 게시 등 운영진 권한 검사) | 구현됨 (#36) |
+| `OrganizationAccessChecker.isRepresentativeOf(userId, organizationId)` | B | A, B | 구현됨 (#36) |
+| `OrganizationAccessChecker.getOrganization(organizationId)` | B | A (없으면 `ORG_404`) | 구현됨 (#36) |
 | `SubscriptionService.hasActivePlan(organizationId)` | A | A (`publishPosting`, #65) | 임시 구현 `TemporarySubscriptionService` (#65). 항상 true. 9단계(결제)에서 실제 구현으로 교체 |
 | `SubscriptionService.startFreeTrial(organizationId)` | A | B (단체 생성 직후) | 임시 구현 `TemporarySubscriptionService` (#65, 아무 것도 안 함). 9단계(결제)에서 A가 교체 |
 | 이용권 검사 (`ORG_402 SUBSCRIPTION_REQUIRED`) | A | B (유료 기능 호출 시) | 구현됨. `publishPosting`에서 사용 (#65) |
-| `MailSender`, `NotificationService` | A | B (결과 안내 발송) | 미정. B 결과 안내 순서 전에 A가 만들거나 B가 임시 구현 |
+| `NotificationService.send(userId, type, organizationId, title, linkUrl)` (messageId를 받는 오버로드 포함) | A | B (`inviteMember`→INVITATION, `assignReviewers`→EVALUATION_REQUEST, 결과 안내→DOC_RESULT/FINAL_RESULT) | 구현됨 (#48) |
+| `MailSender` | A | B (결과 안내 발송) | 미정. B 결과 안내 순서 전에 A가 만들거나 B가 임시 구현 |
 | `User.contactEmail` | A | B (결과 안내 수신 주소) | 미정. A가 컬럼만 먼저 추가하거나 B가 지원서 `profile_snapshot`에서 임시로 꺼냄 |
 | `PostingResultChecker.isDocResultConfirmed(postingId)` | B | A (`advancePostingStatus`의 DOC_REVIEW -> DOC_RESULT_NOTICE 조건, #66) | 임시 구현 `TemporaryPostingResultChecker` (#66). 항상 true. B가 서류 평가 결과 취합을 구현하면 실제 구현으로 교체 |
 | `PostingResultChecker.isFinalResultConfirmed(postingId)` | B | A (`advancePostingStatus`의 FINAL_RESULT 전환 조건, #66) | 임시 구현 `TemporaryPostingResultChecker` (#66). 항상 true. B가 최종 결과 확정을 구현하면 실제 구현으로 교체 |
@@ -52,6 +53,9 @@
 
 - 위 표에서 "제안", "미정"인 항목은 A와 합의되면 "결정"으로 바꾸고 날짜를 적는다
 - 운영 DB `ddl-auto`를 `validate`로 바꿀지 (`db/README.md`)
+- 결정 006의 "Redis 리스너는 worker"는 비동기 작업 기준이고, 알림 SSE용 Redis 구독(`NotificationRedisListener`, #48)은
+  연결이 각 api 파드에 로컬로 있어 api에 둠. worker로 옮길지, 이런 "파드 로컬 상태가 필요한 리스너"를 예외로 문서화할지
+  확인 필요
 - `postings` 필터의 `fields`(활동 분야)는 기준 데이터(Organization 쪽 분류)가 아직 없어서 인자는 받지만 적용하지 않음 (#65).
   B가 단체 쪽에 분야 데이터를 만들면 같이 연결 필요
 - `savePostingDraft`의 `PostingDraftInput`은 필드가 null이면 "그 값 유지"로 해석함 (명시적으로 비우는 것과 구분 안 됨).

@@ -34,6 +34,7 @@
 | 코드 | HTTP | 상수 | 언제 |
 |---|---|---|---|
 | `USER_001` | 409 | `DUPLICATE_PHONE` | 이미 가입된 휴대폰 번호 |
+| `USER_404` | 404 | `NOT_FOUND` | 회원 없음 (알림 설정 변경 시 사용, #48) |
 
 ## 파일 (`FileErrorCode`)
 
@@ -48,6 +49,12 @@
 |---|---|---|---|
 | `ORG_402` | 402 | `SUBSCRIPTION_REQUIRED` | 이용권 없는 단체의 유료 기능 호출 (A 이용권에서 사용, `publishPosting`에서도 사용, #65) |
 | `ORG_404` | 404 | `ORGANIZATION_NOT_FOUND` | 단체 없음. 심사 전이거나 반려된 단체를 소속이 아닌 사람이 상세 조회할 때도 같음 |
+
+## 알림 (`NotificationErrorCode`, #48)
+
+| 코드 | HTTP | 상수 | 언제 |
+|---|---|---|---|
+| `NOTIFICATION_403` | 403 | `FORBIDDEN` | `markNotificationsRead`에 본인 알림이 아닌 id가 섞여 있음 |
 
 ## 공고 (`PostingErrorCode`, #65)
 
