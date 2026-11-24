@@ -43,6 +43,12 @@ public class SseEmitterRegistry {
 			emitter.complete();
 		});
 		emitter.onError(e -> remove(userId, emitter));
+		// 등록만 하면 하트비트(최대 30초 뒤)까지 아무것도 안 보내 응답 헤더가 늦게 나감. 바로 한 줄 보내 헤더를 즉시 흘려보냄
+		try {
+			emitter.send(SseEmitter.event().comment("connected"));
+		} catch (IOException | IllegalStateException e) {
+			remove(userId, emitter);
+		}
 		return emitter;
 	}
 
