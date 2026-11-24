@@ -102,7 +102,7 @@ public class Posting extends BaseEntity {
 
 	private LocalDateTime finalResultAt;
 
-	// TODO(B 서류 평가): decideDocResult 메서드가 생기면 그쪽에서 채움. 지금은 컬럼만 둠
+	// 서류 결과를 확정한 시각, null = 미확정. PostingRepository.confirmDocResult(조건부 UPDATE)가 채움
 	private LocalDateTime docResultConfirmedAt;
 
 	// TODO(B 면접): decideFinalResult 메서드가 생기면 그쪽에서 채움. 지금은 컬럼만 둠
@@ -213,6 +213,10 @@ public class Posting extends BaseEntity {
 
 	public boolean isDraft() {
 		return status == PostingStatus.DRAFT;
+	}
+
+	public boolean isDocResultConfirmed() {
+		return docResultConfirmedAt != null;
 	}
 
 	// advancePostingStatus에서 씀. 순서·조건 검사는 호출하는 쪽(PostingService)에서 끝내고 넘어옴.

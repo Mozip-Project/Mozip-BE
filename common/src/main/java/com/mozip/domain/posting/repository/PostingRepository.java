@@ -5,6 +5,7 @@ import java.util.List;
 import java.util.Optional;
 
 import org.springframework.data.jpa.repository.JpaRepository;
+import org.springframework.data.jpa.repository.Lock;
 import org.springframework.data.jpa.repository.Modifying;
 import org.springframework.data.jpa.repository.Query;
 import org.springframework.data.jpa.repository.JpaSpecificationExecutor;
@@ -13,6 +14,8 @@ import org.springframework.data.repository.query.Param;
 import com.mozip.domain.organization.entity.Organization;
 import com.mozip.domain.posting.entity.Posting;
 import com.mozip.domain.posting.entity.PostingStatus;
+
+import jakarta.persistence.LockModeType;
 
 public interface PostingRepository extends JpaRepository<Posting, Long>, JpaSpecificationExecutor<Posting> {
 
@@ -36,5 +39,18 @@ public interface PostingRepository extends JpaRepository<Posting, Long>, JpaSpec
 			AND p.recruitEndAt <= :now
 		""")
 	int closeRecruitingScheduled(@Param("now") LocalDateTime now);
+
+	// 서류 결과 확정 (B). 조건부 UPDATE라 동시에 눌러도 한 번만 1을 돌려주고 나머지는 0
+	@Modifying(flushAutomatically = true, clearAutomatically = true)
+	@Query("""
+		UPDATE Posting p SET p.docResultConfirmedAt = :now
+		WHERE p.id = :id AND p.docResultConfirmedAt IS NULL
+		""")
+	int confirmDocResult(@Param("id") Long id, @Param("now") LocalDateTime now);
+
+	// 서류 결과 지정과 확정 (B). 두 요청이 엇갈리지 않게 공고 행을 잠그고 읽음
+	@Lock(LockModeType.PESSIMISTIC_WRITE)
+	@Query("SELECT p FROM Posting p JOIN FETCH p.organization WHERE p.id = :id")
+	Optional<Posting> findByIdWithOrganizationForUpdate(@Param("id") Long id);
 
 }

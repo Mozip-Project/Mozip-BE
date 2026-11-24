@@ -101,6 +101,17 @@ public class Application extends BaseEntity {
 		this.profileSnapshot = profileSnapshot;
 	}
 
+	// 운영진이 서류 결과를 지정. 제출 전 지원서에는 줄 수 없고 PENDING으로 되돌릴 수 없음
+	public void decideDocResult(DocResult docResult) {
+		if (isDraft()) {
+			throw new IllegalArgumentException("제출하지 않은 지원서에는 서류 결과를 지정할 수 없습니다.");
+		}
+		if (docResult == null || docResult == DocResult.PENDING) {
+			throw new IllegalArgumentException("서류 결과는 합격, 보류, 불합격 중 하나여야 합니다.");
+		}
+		this.docResult = docResult;
+	}
+
 	public boolean isDraft() {
 		return status == ApplicationStatus.DRAFT;
 	}
