@@ -29,13 +29,17 @@ import lombok.extern.slf4j.Slf4j;
 public class GlobalExceptionHandler extends ResponseEntityExceptionHandler {
 
 	@ExceptionHandler(BusinessException.class)
-	public ResponseEntity<ApiResponse<Void>> handleBusinessException(BusinessException e) {
+	public ResponseEntity<ApiResponse<Object>> handleBusinessException(BusinessException e) {
 		ErrorCode errorCode = e.getErrorCode();
 		// 4xx는 warn, 5xx는 장애 발생이므로 error
 		if (errorCode.getStatus().is5xxServerError()) {
 			log.error("Business exception: code={}, context={}", errorCode.getCode(), e.getContext(), e);
 		} else {
 			log.warn("Business exception: code={}, context={}", errorCode.getCode(), e.getContext());
+		}
+		if (!e.getFieldErrors().isEmpty()) {
+			return ResponseEntity.status(errorCode.getStatus())
+				.body(ApiResponse.fail(errorCode.getCode(), e.getMessage(), e.getFieldErrors()));
 		}
 		return ResponseEntity.status(errorCode.getStatus())
 			.body(ApiResponse.failWithReason(errorCode.getCode(), e.getReason(), e.getMessage()));

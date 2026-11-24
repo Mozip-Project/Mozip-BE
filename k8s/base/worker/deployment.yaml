@@ -23,6 +23,10 @@ spec:
         - name: mozip-worker
           image: ghcr.io/mozip-project/mozip-worker:initial
 
+          env:
+            - name: TZ
+              value: Asia/Seoul
+
           envFrom:
             - configMapRef:
                 name: mozip-config
