@@ -78,6 +78,13 @@ public class DocEvaluationFixtures {
 		return postingRepository.save(posting);
 	}
 
+	// 아직 모집 중(RECRUITING)인 공고
+	public Posting recruitingPosting(Organization organization) {
+		Posting posting = Posting.create(organization, "모집 중 테스트 공고 " + System.nanoTime());
+		posting.advanceStatus(PostingStatus.RECRUITING);
+		return postingRepository.save(posting);
+	}
+
 	public Position position(Posting posting, String name, int sortOrder) {
 		return positionRepository.save(Position.create(posting, null, name, null, sortOrder));
 	}

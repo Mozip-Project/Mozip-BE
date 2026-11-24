@@ -37,6 +37,7 @@ import com.mozip.domain.organization.repository.MemberRepository;
 import com.mozip.domain.organization.service.OrganizationAccessChecker;
 import com.mozip.domain.posting.entity.Position;
 import com.mozip.domain.posting.entity.Posting;
+import com.mozip.domain.posting.entity.PostingStatus;
 import com.mozip.domain.posting.exception.PostingErrorCode;
 import com.mozip.domain.posting.repository.PositionRepository;
 import com.mozip.domain.posting.repository.PostingRepository;
@@ -185,7 +186,7 @@ public class DocEvaluationSummaryService {
 		int pendingCount = countOf(rows, DocResult.PENDING);
 		boolean allEvaluated = evaluatedCount == totalCount;
 		boolean canConfirm = totalCount > 0 && allEvaluated && holdCount == 0 && pendingCount == 0
-			&& !posting.isDocResultConfirmed();
+			&& !posting.isDocResultConfirmed() && posting.getStatus() == PostingStatus.DOC_REVIEW;
 		return new DocResultSummary(totalCount, evaluatedCount, allEvaluated, passCount, holdCount, failCount,
 			pendingCount, canConfirm, posting.getDocResultConfirmedAt());
 	}

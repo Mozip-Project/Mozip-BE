@@ -16,6 +16,7 @@ import com.mozip.domain.evaluation.exception.DocResultConflictReason;
 import com.mozip.domain.evaluation.exception.EvaluationErrorCode;
 import com.mozip.domain.organization.service.OrganizationAccessChecker;
 import com.mozip.domain.posting.entity.Posting;
+import com.mozip.domain.posting.entity.PostingStatus;
 import com.mozip.domain.posting.exception.PostingErrorCode;
 import com.mozip.domain.posting.repository.PostingRepository;
 import com.mozip.global.config.graphql.LocalDateTimeScalar;
@@ -57,6 +58,12 @@ public class DocResultService {
 		if (posting.isDocResultConfirmed()) {
 			throw resultConfirmed(posting.getId());
 		}
+		if (posting.getStatus() != PostingStatus.DOC_REVIEW) {
+			throw new BusinessException(EvaluationErrorCode.RESULT_NOT_SELECTABLE,
+				DocResultConflictReason.NOT_DOC_REVIEW)
+				.addContext("applicationId", applicationId)
+				.addContext("postingStatus", posting.getStatus());
+		}
 		if (!docEvaluationSummaryService.isEvaluationComplete(posting, application)) {
 			throw new BusinessException(EvaluationErrorCode.RESULT_NOT_SELECTABLE,
 				DocResultConflictReason.NOT_ALL_SAVED)
@@ -77,6 +84,13 @@ public class DocResultService {
 		if (posting.isDocResultConfirmed()) {
 			throw resultConfirmed(postingId);
 		}
+		// 모집 중에 확정하면 그 뒤에 제출된 지원서가 평가도 결과도 없이 남으므로 서류 평가 단계에서만 받음
+		if (posting.getStatus() != PostingStatus.DOC_REVIEW) {
+			throw new BusinessException(EvaluationErrorCode.RESULT_NOT_CONFIRMABLE,
+				DocResultConfirmReason.NOT_DOC_REVIEW)
+				.addContext("postingId", postingId)
+				.addContext("postingStatus", posting.getStatus());
+		}
 		requireConfirmable(postingId, docEvaluationSummaryService.summarize(posting));
 
 		// 잠금으로 이미 한 번에 하나만 들어오지만, 확정이 두 번 기록되지 않는다는 보장은 UPDATE 조건에 둠
@@ -90,7 +104,7 @@ public class DocResultService {
 		return new ConfirmDocResultPayload(confirmed, docEvaluationSummaryService.summarize(confirmed));
 	}
 
-	// 여러 조건에 걸리면 DocResultConfirmReason에 적힌 순서대로 하나만 알려줌
+	// 여러 조건에 걸리면 DocResultConfirmReason에 적힌 순서대로 하나만 알려줌 (NOT_DOC_REVIEW는 호출 전에 검사)
 	private void requireConfirmable(Long postingId, DocResultSummary summary) {
 		DocResultConfirmReason reason = null;
 		if (summary.totalCount() == 0) {

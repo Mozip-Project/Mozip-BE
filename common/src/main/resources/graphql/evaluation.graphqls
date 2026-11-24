@@ -275,7 +275,7 @@ type DocResultSummary {
     failCount: Int!
     "결과를 아직 고르지 않은 지원자 수"
     pendingCount: Int!
-    "지원자가 1명 이상이고 전원 평가가 끝났으며 보류와 미선택이 없고 아직 확정 전이면 true"
+    "공고가 DOC_REVIEW이고 지원자가 1명 이상이며 전원 평가가 끝났고 보류와 미선택이 없으며 아직 확정 전이면 true"
     canConfirm: Boolean!
     "서류 결과 확정 시각, null = 미확정"
     docResultConfirmedAt: DateTime
@@ -311,14 +311,15 @@ extend type Mutation {
     """
     지원자 한 명의 서류 결과 지정. 같은 값을 다시 보내도 성공.
     운영진이 아니면 COMMON_403, 지원서가 없거나 제출 전이면 EVALUATION_404, result가 PENDING이면 COMMON_400,
-    결과 확정 후면 EVALUATION_423, 운영진 전원이 평가를 저장하기 전이면 EVALUATION_409(reason: NOT_ALL_SAVED)
+    결과 확정 후면 EVALUATION_423. EVALUATION_409의 reason은 NOT_DOC_REVIEW(공고가 서류 평가 단계가 아님),
+    NOT_ALL_SAVED(운영진 전원이 평가를 저장하기 전)
     """
     setDocResult(applicationId: ID!, result: DocResult!): SetDocResultPayload!
     """
     서류 결과 확정. 확정 후에는 평가와 결과를 바꿀 수 없음.
     운영진이 아니면 COMMON_403, 공고가 없으면 POSTING_404, 이미 확정했으면 EVALUATION_423.
-    조건이 안 되면 EVALUATION_422이고 reason은 NO_APPLICANTS(제출된 지원서 없음), NOT_ALL_EVALUATED(평가가 덜 끝남),
-    RESULT_NOT_SELECTED(결과를 안 고른 지원자가 남음), HOLD_REMAINING(보류가 남음) 순으로 먼저 걸리는 것
+    조건이 안 되면 EVALUATION_422이고 reason은 NOT_DOC_REVIEW(공고가 서류 평가 단계가 아님), NO_APPLICANTS(제출된 지원서 없음),
+    NOT_ALL_EVALUATED(평가가 덜 끝남), RESULT_NOT_SELECTED(결과를 안 고른 지원자가 남음), HOLD_REMAINING(보류가 남음) 순으로 먼저 걸리는 것
     """
     confirmDocResult(postingId: ID!): ConfirmDocResultPayload!
 }

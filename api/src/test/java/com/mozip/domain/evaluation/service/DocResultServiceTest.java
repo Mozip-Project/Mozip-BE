@@ -300,6 +300,26 @@ class DocResultServiceTest {
 	}
 
 	@Test
+	@DisplayName("모집 중인 공고는 조건을 다 채워도 결과 지정은 EVALUATION_409, 확정은 EVALUATION_422(NOT_DOC_REVIEW)를 던진다")
+	void rejectsSetAndConfirmWhileRecruiting() {
+		Posting recruiting = fixtures.recruitingPosting(posting.getOrganization());
+		Application application = fixtures.submitted(recruiting, null, "모집 중 지원자");
+		fixtures.saved(application, representative, Opinion.PASS, List.of());
+		fixtures.saved(application, staff, Opinion.PASS, List.of());
+		flushAndClear();
+
+		assertBusinessException(
+			() -> docResultService.setDocResult(operator.getId(), application.getId(), DocResult.PASS),
+			EvaluationErrorCode.RESULT_NOT_SELECTABLE, DocResultConflictReason.NOT_DOC_REVIEW);
+		assertBusinessException(() -> docResultService.confirmDocResult(operator.getId(), recruiting.getId()),
+			EvaluationErrorCode.RESULT_NOT_CONFIRMABLE, DocResultConfirmReason.NOT_DOC_REVIEW);
+
+		flushAndClear();
+		assertThat(docResultOf(application)).isEqualTo(DocResult.PENDING);
+		assertThat(postingResultChecker.isDocResultConfirmed(recruiting.getId())).isFalse();
+	}
+
+	@Test
 	@DisplayName("없는 공고를 확정하면 POSTING_404를 던진다")
 	void rejectsConfirmOfMissingPosting() {
 		assertBusinessException(() -> docResultService.confirmDocResult(operator.getId(), Long.MAX_VALUE),
