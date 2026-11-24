@@ -128,7 +128,10 @@ public class DocEvaluationService {
 	@Transactional
 	public SaveDocEvaluationPayload save(Long userId, SaveDocEvaluationInput input, boolean submit) {
 		Application application = getSubmittedApplication(input.applicationId());
-		Posting posting = application.getPosting();
+		// 확정(DocResultService)과 같은 공고 행을 잠가, 확정 검사가 끝난 뒤나 확정된 뒤에 평가가 바뀌지 않게 함
+		Posting posting = postingRepository.findByIdWithOrganizationForUpdate(application.getPosting().getId())
+			.orElseThrow(() -> new BusinessException(EvaluationErrorCode.APPLICATION_NOT_FOUND)
+				.addContext("applicationId", input.applicationId()));
 		Long organizationId = posting.getOrganization().getId();
 		requireOperator(userId, organizationId);
 		if (posting.getDocResultConfirmedAt() != null) {
