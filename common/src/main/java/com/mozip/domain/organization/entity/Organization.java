@@ -2,6 +2,7 @@ package com.mozip.domain.organization.entity;
 
 import com.mozip.domain.school.entity.School;
 import com.mozip.global.common.BaseEntity;
+import com.mozip.global.common.ReviewStatus;
 
 import jakarta.persistence.Column;
 import jakarta.persistence.Entity;

@@ -10,3 +10,13 @@ spring:
     # 스키마 변경은 api만 담당 (DDL 충돌 방지)
     hibernate:
       ddl-auto: none
+
+mail:
+  # ses면 SesMailSender, 그 외(기본값)는 LoggingMailSender. dev/prod만 ses로 켬
+  provider: ${MAIL_PROVIDER:logging}
+
+aws:
+  ses:
+    region: ${AWS_REGION:ap-northeast-2}
+    sender-address: ${MAIL_SENDER_ADDRESS:}
+    sender-name: ${MAIL_SENDER_NAME:모집}

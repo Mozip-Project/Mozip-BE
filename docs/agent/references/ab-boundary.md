@@ -33,13 +33,14 @@
 | `SubscriptionService.startFreeTrial(organizationId)` | A | B (단체 생성 직후) | 임시 구현 `TemporarySubscriptionService` (#65, 아무 것도 안 함). 9단계(결제)에서 A가 교체 |
 | 이용권 검사 (`ORG_402 SUBSCRIPTION_REQUIRED`) | A | B (유료 기능 호출 시) | 구현됨. `publishPosting`에서 사용 (#65) |
 | `NotificationService.send(userId, type, organizationId, title, linkUrl)` (messageId를 받는 오버로드 포함) | A | B (`inviteMember`→INVITATION, `assignReviewers`→EVALUATION_REQUEST, 결과 안내→DOC_RESULT/FINAL_RESULT) | 구현됨 (#48) |
-| `MailSender` | A | B (결과 안내 발송) | 미정. B 결과 안내 순서 전에 A가 만들거나 B가 임시 구현 |
+| `MailTaskPublisher.publishSendMail(to, subject, htmlBody, textBody)` | A | B (결과 안내 발송) | 구현됨 (#76). 실제 발송은 worker가 비동기로 함(결정 006), 이 메서드는 Redis에 작업을 올리기만 하고 성공 여부는 "worker에 전달됐는지"만 보장함. SES 자체 실패는 worker 로그로만 남고 호출자에게 안 돌아옴 |
 | `User.contactEmail` | A | B (결과 안내 수신 주소) | 미정. A가 컬럼만 먼저 추가하거나 B가 지원서 `profile_snapshot`에서 임시로 꺼냄 |
 | `PostingResultChecker.isDocResultConfirmed(postingId)` | B | A (`advancePostingStatus`의 DOC_REVIEW -> DOC_RESULT_NOTICE 조건, #66) | 임시 구현 `TemporaryPostingResultChecker` (#66). 항상 true. B가 서류 평가 결과 취합을 구현하면 실제 구현으로 교체 |
 | `PostingResultChecker.isFinalResultConfirmed(postingId)` | B | A (`advancePostingStatus`의 FINAL_RESULT 전환 조건, #66) | 임시 구현 `TemporaryPostingResultChecker` (#66). 항상 true. B가 최종 결과 확정을 구현하면 실제 구현으로 교체 |
 | `PostingService.getPostingStatus(postingId)` | A | B (평가·면접 화면을 열어도 되는 단계인지 확인) | 구현됨 (#66). B가 아직 안 씀 |
 | `InterviewAvailabilityService.save(applicationId, availableTimes)` | B | A (`saveApplicationDraft`에서 면접 가능 시간 저장, #69) | 임시 구현 `TemporaryInterviewAvailabilityService` (#69). 로그만 남김. B가 면접 타임테이블 배정을 구현하면 실제 구현으로 교체 |
 | `ApplicationService.getSubmittedApplications(postingId)` | A | B (서류 평가 대상 조회, #69) | 구현됨 (#69). B가 아직 안 씀 |
+| `User.isSchoolVerified()` | A | A (`ApplicationService.submit`에서 학교 인증 확인, #76) | 구현됨 (#76). school, application이 둘 다 A 영역이라 별도 인터페이스 없이 엔티티 메서드로 바로 씀 |
 
 ## 공유하는 엔티티
 
@@ -76,3 +77,12 @@
   - 지원 자격 검사는 학교 인증 여부만 함. 대학생·휴학생 허용 여부는 `User`에 재학 상태를 나타내는 필드가 없어서 검사 안 함
   - DRAFT 지원서를 지원자가 지우는 기능은 안 만듦 (할 일/API 목록에 없었음)
   - `Attachment.url`은 그냥 문자열로 저장만 함. #34(presigned URL)가 아직 안 머지돼서 실제 S3 발급/검증과는 연동 안 함
+- #76(학교 인증)에서 바꾼 것, B 확인 필요
+  - `ReviewStatus`(PENDING/APPROVED/REJECTED)를 `organization.entity`에서 `global.common`으로 옮김 (결정 009, proposed).
+    `organization` 패키지 파일 import가 바뀌었으니 B가 확인하고 합의되면 결정 상태를 accepted로
+  - B가 결과 안내 메일을 보낼 때는 `MailSender.send(...)`를 직접 부르지 않고 `MailTaskPublisher.publishSendMail(to, subject, htmlBody, textBody)`를 부른다.
+    실제 발송(`MailSender`/`SesMailSender`)은 worker에만 있고 api에서는 안 보임(결정 006)
+  - `mozip:worker:tasks` 채널로 보내는 메시지는 `{"type": "SEND_MAIL", "to", "subject", "htmlBody", "textBody"}` 형태의 JSON 문자열.
+    `type`이 늘어날 걸 대비해 `WorkerTaskType`(common)에 상수를 추가하고 worker의 `TaskMessageListener`에 분기를 추가하는 식으로 확장
+  - 재학증명서 인증(`submitEnrollmentCertificate`)은 `schoolId`만 받음. `SchoolVerification.schoolName`(목록에 없는 학교 직접 입력)은
+    이번 이슈 범위 밖이라 입력 경로가 없음(항상 null). 관리자 승인/반려 API도 범위 밖(별도 이슈)

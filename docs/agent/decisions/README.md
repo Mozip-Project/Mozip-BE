@@ -32,3 +32,4 @@
 | 006 | 모듈 분리 기준: 엔티티는 common, 로직은 api, 둘 다 쓸 때만 내림 | accepted |
 | 007 | 운영진의 현재 단체는 쿠키로 전달, 선택과 전환은 REST | superseded (008) |
 | 008 | 운영진의 현재 단체는 프론트 쿠키, 백엔드는 organizationId 인자와 소속 검사 | accepted |
+| 009 | 심사 상태 enum(ReviewStatus)을 organization에서 global로 옮김 | proposed |

@@ -6,6 +6,8 @@ import org.springframework.data.redis.connection.RedisConnectionFactory;
 import org.springframework.data.redis.listener.ChannelTopic;
 import org.springframework.data.redis.listener.RedisMessageListenerContainer;
 
+import com.mozip.global.redis.WorkerChannel;
+
 @Configuration
 public class RedisListenerConfig {
 
