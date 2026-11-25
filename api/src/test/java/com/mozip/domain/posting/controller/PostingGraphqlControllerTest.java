@@ -2,7 +2,9 @@ package com.mozip.domain.posting.controller;
 
 import static org.assertj.core.api.Assertions.assertThat;
 
+import java.time.LocalDate;
 import java.time.LocalDateTime;
+import java.time.LocalTime;
 import java.util.List;
 import java.util.Map;
 import java.util.concurrent.ThreadLocalRandom;
@@ -27,9 +29,12 @@ import com.mozip.domain.organization.entity.Team;
 import com.mozip.domain.organization.repository.MemberRepository;
 import com.mozip.domain.organization.repository.OrganizationRepository;
 import com.mozip.domain.organization.repository.TeamRepository;
+import com.mozip.domain.posting.dto.InterviewTimeRangeInput;
 import com.mozip.domain.posting.dto.PositionInput;
 import com.mozip.domain.posting.dto.PostingDraftInput;
 import com.mozip.domain.posting.dto.QuestionInput;
+import com.mozip.domain.posting.entity.AssignRule;
+import com.mozip.domain.posting.entity.InterviewMethod;
 import com.mozip.domain.posting.entity.Posting;
 import com.mozip.domain.posting.entity.QuestionType;
 import com.mozip.domain.posting.repository.PositionRepository;
@@ -177,6 +182,36 @@ class PostingGraphqlControllerTest {
 			.path("posting.questions[0].position.id").entity(String.class).isEqualTo(String.valueOf(positionId));
 	}
 
+	@Test
+	@DisplayName("closedSlots를 생략해서 저장해도 interviewTimeRanges 조회가 non-null 에러 없이 빈 배열을 돌려준다")
+	void closedSlotsDefaultsToEmptyListWhenOmitted() {
+		User operator = saveOperator();
+		Organization organization = saveOrganization(operator);
+
+		Posting posting = postingService.saveDraft(operator.getId(), organization.getId(), null,
+			basicInput("closedSlots 테스트 공고"));
+		postingService.saveDraft(operator.getId(), organization.getId(), posting.getId(),
+			withPositions(List.of(new PositionInput(null, "백엔드", 1, 0))));
+		postingService.saveDraft(operator.getId(), organization.getId(), posting.getId(),
+			withQuestions(List.of(new QuestionInput(null, QuestionType.TEXT, "자기소개", null, true, 500, null, 0))));
+		postingService.saveDraft(operator.getId(), organization.getId(), posting.getId(),
+			withInterview(true, InterviewMethod.ONLINE, 20, 5, AssignRule.SAME_TEAM, 1, 2,
+				List.of(new InterviewTimeRangeInput(null, LocalDate.now().plusDays(3), LocalTime.of(10, 0),
+					LocalTime.of(12, 0), null))));
+		postingService.publish(operator.getId(), posting.getId());
+
+		graphQlTester.document("""
+			query($id: ID!) {
+				posting(id: $id) {
+					interviewTimeRanges { closedSlots }
+				}
+			}
+			""")
+			.variable("id", posting.getId())
+			.execute()
+			.path("posting.interviewTimeRanges[0].closedSlots").entityList(String.class).isEqualTo(List.of());
+	}
+
 	private PostingDraftInput basicInput(String title) {
 		return new PostingDraftInput(title, "본문", "2026-2", "서울", "무료", true, false, null,
 			null, null, LocalDateTime.now(), LocalDateTime.now().plusDays(7), null,
@@ -201,6 +236,18 @@ class PostingGraphqlControllerTest {
 			null, null,
 			null, null, null, null, null, null, null, null,
 			true, questions,
+			null);
+	}
+
+	private PostingDraftInput withInterview(Boolean hasInterview, InterviewMethod interviewMethod,
+		Integer interviewMinutes, Integer breakMinutes, AssignRule assignRule, Integer maxApplicantsPerInterview,
+		Integer maxParallelInterviews, List<InterviewTimeRangeInput> interviewTimeRanges) {
+		return new PostingDraftInput(null, null, null, null, null, null, null, null,
+			null, null, null, null, null,
+			null, null,
+			hasInterview, interviewMethod, interviewMinutes, breakMinutes, assignRule, maxApplicantsPerInterview,
+			maxParallelInterviews, interviewTimeRanges,
+			null, null,
 			null);
 	}
 

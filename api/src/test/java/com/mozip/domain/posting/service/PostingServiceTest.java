@@ -380,6 +380,51 @@ class PostingServiceTest {
 	}
 
 	@Test
+	@DisplayName("closedSlots를 생략하면(null) 빈 리스트로 저장된다")
+	void closedSlotsDefaultsToEmptyListWhenNull() {
+		Posting posting = postingService.saveDraft(operator.getId(), organization.getId(), null, basicInput("제목"));
+
+		postingService.saveDraft(operator.getId(), organization.getId(), posting.getId(),
+			withInterview(true, InterviewMethod.ONLINE, 20, 5, AssignRule.SAME_TEAM, 1, 2,
+				List.of(new InterviewTimeRangeInput(null, LocalDate.now().plusDays(3), LocalTime.of(10, 0),
+					LocalTime.of(12, 0), null))));
+
+		List<InterviewTimeRange> ranges = interviewTimeRangeRepository
+			.findAllByPostingOrderByDateAscStartTimeAsc(posting);
+		assertThat(ranges.get(0).getClosedSlots()).isEmpty();
+	}
+
+	@Test
+	@DisplayName("면접 시간대의 종료가 시작보다 뒤가 아니면 COMMON_400을 던진다")
+	void rejectsInterviewTimeRangeWithEndNotAfterStart() {
+		Posting posting = postingService.saveDraft(operator.getId(), organization.getId(), null, basicInput("제목"));
+
+		assertThatThrownBy(() -> postingService.saveDraft(operator.getId(), organization.getId(), posting.getId(),
+			withInterview(true, InterviewMethod.ONLINE, 20, 5, AssignRule.SAME_TEAM, 1, 2,
+				List.of(new InterviewTimeRangeInput(null, LocalDate.now().plusDays(3), LocalTime.of(12, 0),
+					LocalTime.of(10, 0), null)))))
+			.isInstanceOf(BusinessException.class)
+			.extracting(e -> ((BusinessException)e).getErrorCode())
+			.isEqualTo(CommonErrorCode.INVALID_INPUT);
+	}
+
+	@Test
+	@DisplayName("같은 날짜에 겹치는 면접 시간대를 저장하면 COMMON_400을 던진다")
+	void rejectsOverlappingInterviewTimeRangesOnSameDate() {
+		Posting posting = postingService.saveDraft(operator.getId(), organization.getId(), null, basicInput("제목"));
+		LocalDate date = LocalDate.now().plusDays(3);
+
+		assertThatThrownBy(() -> postingService.saveDraft(operator.getId(), organization.getId(), posting.getId(),
+			withInterview(true, InterviewMethod.ONLINE, 20, 5, AssignRule.SAME_TEAM, 1, 2,
+				List.of(
+					new InterviewTimeRangeInput(null, date, LocalTime.of(10, 0), LocalTime.of(12, 0), null),
+					new InterviewTimeRangeInput(null, date, LocalTime.of(11, 0), LocalTime.of(13, 0), null)))))
+			.isInstanceOf(BusinessException.class)
+			.extracting(e -> ((BusinessException)e).getErrorCode())
+			.isEqualTo(CommonErrorCode.INVALID_INPUT);
+	}
+
+	@Test
 	@DisplayName("게시하면 즉시 RECRUITING이 되고 publishedAt/bumpedAt이 찍힌다")
 	void publishesImmediately() {
 		Posting posting = publishablePosting("게시용 공고");

@@ -2,7 +2,9 @@ package com.mozip.domain.posting.service;
 
 import java.time.LocalDate;
 import java.time.LocalDateTime;
+import java.time.LocalTime;
 import java.util.ArrayList;
+import java.util.Comparator;
 import java.util.List;
 import java.util.Map;
 import java.util.Objects;
@@ -369,6 +371,7 @@ public class PostingService {
 
 	private void replaceInterviewTimeRanges(Posting posting, List<InterviewTimeRangeInput> rangeInputs) {
 		interviewTimeRangeRepository.deleteAllByPosting(posting);
+		validateInterviewTimeRanges(rangeInputs);
 		Set<Long> positionIds = rangeInputs.stream()
 			.map(InterviewTimeRangeInput::positionId)
 			.filter(Objects::nonNull)
@@ -377,10 +380,33 @@ public class PostingService {
 		List<InterviewTimeRange> ranges = new ArrayList<>();
 		for (InterviewTimeRangeInput i : rangeInputs) {
 			Position position = i.positionId() == null ? null : positions.get(i.positionId());
+			List<LocalTime> closedSlots = i.closedSlots() == null ? List.of() : i.closedSlots();
 			ranges.add(InterviewTimeRange.create(posting, position, i.date(), i.startTime(), i.endTime(),
-				i.closedSlots()));
+				closedSlots));
 		}
 		interviewTimeRangeRepository.saveAll(ranges);
+	}
+
+	// startTime < endTime, 같은 날짜 안에서 구간이 겹치면 COMMON_400. 겹친 구간이 저장되면 B의 타임테이블 계산에서
+	// 같은 시각의 면접 칸이 두 번 생김(ab-boundary.md). 동시 진행은 maxParallelInterviews로 표현하므로 구간 자체는 겹칠 이유가 없음
+	private void validateInterviewTimeRanges(List<InterviewTimeRangeInput> rangeInputs) {
+		for (InterviewTimeRangeInput i : rangeInputs) {
+			if (!i.startTime().isBefore(i.endTime())) {
+				throw new BusinessException(CommonErrorCode.INVALID_INPUT).addContext("date", i.date());
+			}
+		}
+		Map<LocalDate, List<InterviewTimeRangeInput>> byDate = rangeInputs.stream()
+			.collect(Collectors.groupingBy(InterviewTimeRangeInput::date));
+		for (List<InterviewTimeRangeInput> sameDate : byDate.values()) {
+			List<InterviewTimeRangeInput> sorted = sameDate.stream()
+				.sorted(Comparator.comparing(InterviewTimeRangeInput::startTime))
+				.toList();
+			for (int i = 1; i < sorted.size(); i++) {
+				if (sorted.get(i).startTime().isBefore(sorted.get(i - 1).endTime())) {
+					throw new BusinessException(CommonErrorCode.INVALID_INPUT).addContext("date", sorted.get(i).date());
+				}
+			}
+		}
 	}
 
 	// teamId가 이 공고의 단체 소속인지 한 번에 확인. 다른 단체 팀 id나 없는 id면 COMMON_400
