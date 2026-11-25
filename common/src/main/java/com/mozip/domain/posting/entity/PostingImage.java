@@ -39,23 +39,15 @@ public class PostingImage extends BaseEntity {
 	@Column(nullable = false)
 	private int sortOrder;
 
-	private PostingImage(Posting posting, String url, int sortOrder) {
+	private PostingImage(Posting posting, String url, int sortOrder, boolean isRepresentative) {
 		this.posting = posting;
 		this.url = url;
-		this.isRepresentative = false;
+		this.isRepresentative = isRepresentative;
 		this.sortOrder = sortOrder;
 	}
 
-	public static PostingImage create(Posting posting, String url, int sortOrder) {
-		return new PostingImage(posting, url, sortOrder);
-	}
-
-	public void markRepresentative() {
-		this.isRepresentative = true;
-	}
-
-	public void unmarkRepresentative() {
-		this.isRepresentative = false;
+	public static PostingImage create(Posting posting, String url, int sortOrder, boolean isRepresentative) {
+		return new PostingImage(posting, url, sortOrder, isRepresentative);
 	}
 
 }

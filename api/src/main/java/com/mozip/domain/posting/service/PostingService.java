@@ -96,7 +96,6 @@ public class PostingService {
 		applyPositionsStep(posting, input);
 		applyInterviewStep(posting, input);
 		applyQuestionsStep(posting, input);
-		applyExposureStep(posting, input);
 
 		return posting;
 	}
@@ -301,38 +300,23 @@ public class PostingService {
 		}
 	}
 
-	private void applyExposureStep(Posting posting, PostingDraftInput input) {
-		if (!touchesExposureStep(input)) {
-			return;
-		}
-		posting.updateExposureStep();
-		if (input.representativeImageId() != null) {
-			markRepresentativeImage(posting, input.representativeImageId());
-		}
-	}
-
 	private void replaceImages(Posting posting, List<PostingImageInput> imageInputs) {
 		if (imageInputs.size() > MAX_IMAGES) {
 			throw new BusinessException(CommonErrorCode.INVALID_INPUT)
 				.addContext("imageCount", imageInputs.size());
 		}
-		// 이미지를 통째로 교체해도 대표 지정은 url로 맞춰서 유지함 (안 그러면 새 행은 전부 isRepresentative=false로 시작해 대표가 사라짐)
-		String representativeUrl = postingImageRepository.findAllByPostingOrderBySortOrder(posting).stream()
-			.filter(PostingImage::isRepresentative)
-			.map(PostingImage::getUrl)
-			.findFirst()
-			.orElse(null);
+		// 대표 지정은 이미지 목록과 같은 요청으로 들어오므로(isRepresentative), id로 따로 가리킬 때 생기던
+		// "다시 만들어서 id가 바뀐 이미지를 가리킨다" 문제가 없음. 여러 장에 true를 보내면 어느 것인지 알 수 없어 거부
+		long representativeCount = imageInputs.stream().filter(PostingImageInput::isRepresentative).count();
+		if (representativeCount > 1) {
+			throw new BusinessException(CommonErrorCode.INVALID_INPUT)
+				.addContext("reason", "대표 이미지는 한 장만 고를 수 있어요");
+		}
 		postingImageRepository.deleteAllByPosting(posting);
 		List<PostingImage> images = imageInputs.stream()
-			.map(i -> PostingImage.create(posting, i.url(), i.sortOrder()))
+			.map(i -> PostingImage.create(posting, i.url(), i.sortOrder(), i.isRepresentative()))
 			.toList();
 		postingImageRepository.saveAll(images);
-		if (representativeUrl != null) {
-			images.stream()
-				.filter(image -> image.getUrl().equals(representativeUrl))
-				.findFirst()
-				.ifPresent(PostingImage::markRepresentative);
-		}
 	}
 
 	private void replacePositions(Posting posting, List<PositionInput> positionInputs) {
@@ -437,18 +421,6 @@ public class PostingService {
 		return positions;
 	}
 
-	// 대표는 한 번에 하나만 있어야 하므로 고른 것 외엔 전부 내림
-	private void markRepresentativeImage(Posting posting, Long imageId) {
-		List<PostingImage> images = postingImageRepository.findAllByPostingOrderBySortOrder(posting);
-		for (PostingImage image : images) {
-			if (image.getId().equals(imageId)) {
-				image.markRepresentative();
-			} else {
-				image.unmarkRepresentative();
-			}
-		}
-	}
-
 	// 필수 단계 누락 검사. 문제 있는 단계를 fieldErrors에 전부 모아서 한 번에 알림
 	private void validateRequiredSteps(Posting posting) {
 		List<FieldErrorResponse> fieldErrors = new ArrayList<>();
@@ -512,10 +484,6 @@ public class PostingService {
 
 	private static boolean touchesQuestionsStep(PostingDraftInput input) {
 		return input.docScorePerQuestion() != null || input.questions() != null;
-	}
-
-	private static boolean touchesExposureStep(PostingDraftInput input) {
-		return input.representativeImageId() != null;
 	}
 
 	private static Specification<Posting> addIfPresent(Specification<Posting> spec, Specification<Posting> toAdd) {

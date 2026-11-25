@@ -123,8 +123,7 @@ class PostingServiceResultConfirmationTest {
 			null, null, LocalDateTime.now(), LocalDateTime.now().plusDays(7), null,
 			null, null,
 			null, null, null, null, null, null, null, null,
-			null, null,
-			null);
+			null, null);
 	}
 
 	private PostingDraftInput withPositions(List<PositionInput> positions) {
@@ -132,8 +131,7 @@ class PostingServiceResultConfirmationTest {
 			null, null, null, null, null,
 			false, positions,
 			null, null, null, null, null, null, null, null,
-			null, null,
-			null);
+			null, null);
 	}
 
 	private PostingDraftInput withQuestions(List<QuestionInput> questions) {
@@ -141,8 +139,7 @@ class PostingServiceResultConfirmationTest {
 			null, null, null, null, null,
 			null, null,
 			null, null, null, null, null, null, null, null,
-			true, questions,
-			null);
+			true, questions);
 	}
 
 }

@@ -180,8 +180,7 @@ class ApplicationGraphqlControllerTest {
 			null, null, LocalDateTime.now(), LocalDateTime.now().plusDays(7), null,
 			null, null,
 			null, null, null, null, null, null, null, null,
-			null, null,
-			null);
+			null, null);
 	}
 
 	private PostingDraftInput withNoPosition() {
@@ -189,8 +188,7 @@ class ApplicationGraphqlControllerTest {
 			null, null, null, null, null,
 			true, List.of(),
 			null, null, null, null, null, null, null, null,
-			null, null,
-			null);
+			null, null);
 	}
 
 	private PostingDraftInput withQuestions(List<QuestionInput> questions) {
@@ -198,8 +196,7 @@ class ApplicationGraphqlControllerTest {
 			null, null, null, null, null,
 			null, null,
 			null, null, null, null, null, null, null, null,
-			true, questions,
-			null);
+			true, questions);
 	}
 
 	private User saveUser(String name) {

@@ -89,8 +89,7 @@ class PostingServicePlanRequiredTest {
 			null, null, LocalDateTime.now(), LocalDateTime.now().plusDays(7), null,
 			null, null,
 			null, null, null, null, null, null, null, null,
-			null, null,
-			null);
+			null, null);
 	}
 
 	private PostingDraftInput withPositions(List<PositionInput> positions) {
@@ -98,8 +97,7 @@ class PostingServicePlanRequiredTest {
 			null, null, null, null, null,
 			false, positions,
 			null, null, null, null, null, null, null, null,
-			null, null,
-			null);
+			null, null);
 	}
 
 	private PostingDraftInput withQuestions(List<QuestionInput> questions) {
@@ -107,8 +105,7 @@ class PostingServicePlanRequiredTest {
 			null, null, null, null, null,
 			null, null,
 			null, null, null, null, null, null, null, null,
-			true, questions,
-			null);
+			true, questions);
 	}
 
 }

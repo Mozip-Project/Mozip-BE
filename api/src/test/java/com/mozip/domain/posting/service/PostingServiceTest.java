@@ -183,47 +183,52 @@ class PostingServiceTest {
 	}
 
 	@Test
-	@DisplayName("대표 이미지를 다시 고르면 이전 대표는 내려가고 새로 고른 것만 대표로 남는다")
-	void reMarkingRepresentativeImageMovesTheFlag() {
+	@DisplayName("isRepresentative를 true로 보낸 이미지만 대표로 저장된다")
+	void choosingRepresentativeImageMarksOnlyThatOne() {
 		Posting posting = postingService.saveDraft(operator.getId(), organization.getId(), null,
 			basicInput("제목"));
-		postingService.saveDraft(operator.getId(), organization.getId(), posting.getId(),
-			withImages(List.of(new PostingImageInput("https://img/a.png", 0),
-				new PostingImageInput("https://img/b.png", 1))));
-		List<PostingImage> images = postingImageRepository.findAllByPostingOrderBySortOrder(posting);
-		Long firstId = images.get(0).getId();
-		Long secondId = images.get(1).getId();
 
 		postingService.saveDraft(operator.getId(), organization.getId(), posting.getId(),
-			withRepresentativeImage(firstId));
-		postingService.saveDraft(operator.getId(), organization.getId(), posting.getId(),
-			withRepresentativeImage(secondId));
-
-		List<PostingImage> updated = postingImageRepository.findAllByPostingOrderBySortOrder(posting);
-		assertThat(updated).filteredOn(PostingImage::isRepresentative)
-			.extracting(PostingImage::getId)
-			.containsExactly(secondId);
-	}
-
-	@Test
-	@DisplayName("1단계 이미지를 다시 저장해도 같은 url의 대표 지정은 유지된다")
-	void resavingImagesPreservesRepresentativeByUrl() {
-		Posting posting = postingService.saveDraft(operator.getId(), organization.getId(), null,
-			basicInput("제목"));
-		postingService.saveDraft(operator.getId(), organization.getId(), posting.getId(),
-			withImages(List.of(new PostingImageInput("https://img/a.png", 0))));
-		Long imageId = postingImageRepository.findAllByPostingOrderBySortOrder(posting).get(0).getId();
-		postingService.saveDraft(operator.getId(), organization.getId(), posting.getId(),
-			withRepresentativeImage(imageId));
-
-		postingService.saveDraft(operator.getId(), organization.getId(), posting.getId(),
-			withImages(List.of(new PostingImageInput("https://img/a.png", 0),
-				new PostingImageInput("https://img/c.png", 1))));
+			withImages(List.of(new PostingImageInput("https://img/a.png", 0, false),
+				new PostingImageInput("https://img/b.png", 1, true))));
 
 		List<PostingImage> images = postingImageRepository.findAllByPostingOrderBySortOrder(posting);
 		assertThat(images).filteredOn(PostingImage::isRepresentative)
 			.extracting(PostingImage::getUrl)
-			.containsExactly("https://img/a.png");
+			.containsExactly("https://img/b.png");
+	}
+
+	@Test
+	@DisplayName("이미지를 다시 저장하면서 다른 사진에 isRepresentative를 보내면 이전 대표는 내려가고 새로 고른 것만 대표로 남는다")
+	void reSavingImagesWithDifferentRepresentativeMovesTheFlag() {
+		Posting posting = postingService.saveDraft(operator.getId(), organization.getId(), null,
+			basicInput("제목"));
+		postingService.saveDraft(operator.getId(), organization.getId(), posting.getId(),
+			withImages(List.of(new PostingImageInput("https://img/a.png", 0, true),
+				new PostingImageInput("https://img/b.png", 1, false))));
+
+		postingService.saveDraft(operator.getId(), organization.getId(), posting.getId(),
+			withImages(List.of(new PostingImageInput("https://img/a.png", 0, false),
+				new PostingImageInput("https://img/b.png", 1, true))));
+
+		List<PostingImage> updated = postingImageRepository.findAllByPostingOrderBySortOrder(posting);
+		assertThat(updated).filteredOn(PostingImage::isRepresentative)
+			.extracting(PostingImage::getUrl)
+			.containsExactly("https://img/b.png");
+	}
+
+	@Test
+	@DisplayName("여러 이미지에 isRepresentative를 true로 보내면 COMMON_400을 던진다")
+	void rejectsMultipleRepresentativeImages() {
+		Posting posting = postingService.saveDraft(operator.getId(), organization.getId(), null,
+			basicInput("제목"));
+
+		assertThatThrownBy(() -> postingService.saveDraft(operator.getId(), organization.getId(), posting.getId(),
+			withImages(List.of(new PostingImageInput("https://img/a.png", 0, true),
+				new PostingImageInput("https://img/b.png", 1, true)))))
+			.isInstanceOf(BusinessException.class)
+			.extracting(e -> ((BusinessException)e).getErrorCode())
+			.isEqualTo(CommonErrorCode.INVALID_INPUT);
 	}
 
 	@Test
@@ -775,7 +780,7 @@ class PostingServiceTest {
 		Posting posting = postingService.saveDraft(operator.getId(), organization.getId(), null,
 			basicInput("이미지 테스트"));
 		List<PostingImageInput> images = IntStream.range(0, 6)
-			.mapToObj(i -> new PostingImageInput("https://img/" + i + ".png", i))
+			.mapToObj(i -> new PostingImageInput("https://img/" + i + ".png", i, false))
 			.toList();
 
 		assertThatThrownBy(() -> postingService.saveDraft(operator.getId(), organization.getId(), posting.getId(),
@@ -817,7 +822,7 @@ class PostingServiceTest {
 	// 9 activityStartedOn, 10 activityEndedOn, 11 recruitStartAt, 12 recruitEndAt, 13 images,
 	// 14 noPosition, 15 positions, 16 hasInterview, 17 interviewMethod, 18 interviewMinutes, 19 breakMinutes,
 	// 20 assignRule, 21 maxApplicantsPerInterview, 22 maxParallelInterviews, 23 interviewTimeRanges,
-	// 24 docScorePerQuestion, 25 questions, 26 representativeImageId
+	// 24 docScorePerQuestion, 25 questions
 	private PostingDraftInput basicInput(String title) {
 		return basicInput(title, LocalDateTime.now().plusDays(7));
 	}
@@ -827,8 +832,7 @@ class PostingServiceTest {
 			null, null, LocalDateTime.now(), recruitEndAt, null,
 			null, null,
 			null, null, null, null, null, null, null, null,
-			null, null,
-			null);
+			null, null);
 	}
 
 	private PostingDraftInput basicInput(String title, LocalDate activityStartedOn, LocalDate activityEndedOn,
@@ -837,8 +841,7 @@ class PostingServiceTest {
 			activityStartedOn, activityEndedOn, recruitStartAt, recruitEndAt, null,
 			null, null,
 			null, null, null, null, null, null, null, null,
-			null, null,
-			null);
+			null, null);
 	}
 
 	private PostingDraftInput withPositions(List<PositionInput> positions) {
@@ -846,8 +849,7 @@ class PostingServiceTest {
 			null, null, null, null, null,
 			false, positions,
 			null, null, null, null, null, null, null, null,
-			null, null,
-			null);
+			null, null);
 	}
 
 	private PostingDraftInput withNoPosition(boolean noPosition) {
@@ -855,8 +857,7 @@ class PostingServiceTest {
 			null, null, null, null, null,
 			noPosition, null,
 			null, null, null, null, null, null, null, null,
-			null, null,
-			null);
+			null, null);
 	}
 
 	private PostingDraftInput withQuestions(List<QuestionInput> questions) {
@@ -864,8 +865,7 @@ class PostingServiceTest {
 			null, null, null, null, null,
 			null, null,
 			null, null, null, null, null, null, null, null,
-			true, questions,
-			null);
+			true, questions);
 	}
 
 	private PostingDraftInput withImages(List<PostingImageInput> images) {
@@ -873,17 +873,7 @@ class PostingServiceTest {
 			null, null, null, null, images,
 			null, null,
 			null, null, null, null, null, null, null, null,
-			null, null,
-			null);
-	}
-
-	private PostingDraftInput withRepresentativeImage(Long imageId) {
-		return new PostingDraftInput(null, null, null, null, null, null, null, null,
-			null, null, null, null, null,
-			null, null,
-			null, null, null, null, null, null, null, null,
-			null, null,
-			imageId);
+			null, null);
 	}
 
 	private PostingDraftInput withInterview(Boolean hasInterview, InterviewMethod interviewMethod,
@@ -894,8 +884,7 @@ class PostingServiceTest {
 			null, null,
 			hasInterview, interviewMethod, interviewMinutes, breakMinutes, assignRule, maxApplicantsPerInterview,
 			maxParallelInterviews, interviewTimeRanges,
-			null, null,
-			null);
+			null, null);
 	}
 
 	@Test

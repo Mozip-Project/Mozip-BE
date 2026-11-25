@@ -217,8 +217,7 @@ class PostingGraphqlControllerTest {
 			null, null, LocalDateTime.now(), LocalDateTime.now().plusDays(7), null,
 			null, null,
 			null, null, null, null, null, null, null, null,
-			null, null,
-			null);
+			null, null);
 	}
 
 	private PostingDraftInput withPositions(List<PositionInput> positions) {
@@ -226,8 +225,7 @@ class PostingGraphqlControllerTest {
 			null, null, null, null, null,
 			false, positions,
 			null, null, null, null, null, null, null, null,
-			null, null,
-			null);
+			null, null);
 	}
 
 	private PostingDraftInput withQuestions(List<QuestionInput> questions) {
@@ -235,8 +233,7 @@ class PostingGraphqlControllerTest {
 			null, null, null, null, null,
 			null, null,
 			null, null, null, null, null, null, null, null,
-			true, questions,
-			null);
+			true, questions);
 	}
 
 	private PostingDraftInput withInterview(Boolean hasInterview, InterviewMethod interviewMethod,
@@ -247,8 +244,7 @@ class PostingGraphqlControllerTest {
 			null, null,
 			hasInterview, interviewMethod, interviewMinutes, breakMinutes, assignRule, maxApplicantsPerInterview,
 			maxParallelInterviews, interviewTimeRanges,
-			null, null,
-			null);
+			null, null);
 	}
 
 }

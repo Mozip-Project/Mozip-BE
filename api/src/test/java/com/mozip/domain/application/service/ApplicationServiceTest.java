@@ -952,8 +952,7 @@ class ApplicationServiceTest {
 			null, null,
 			hasInterview, interviewMethod, interviewMinutes, breakMinutes, assignRule, maxApplicantsPerInterview,
 			maxParallelInterviews, interviewTimeRanges,
-			null, null,
-			null);
+			null, null);
 	}
 
 	private Position onlyPosition(Posting posting) {
@@ -973,8 +972,7 @@ class ApplicationServiceTest {
 			null, null, LocalDateTime.now(), recruitEndAt, null,
 			null, null,
 			null, null, null, null, null, null, null, null,
-			null, null,
-			null);
+			null, null);
 	}
 
 	private PostingDraftInput basicInputWithWindow(String title, LocalDateTime recruitStartAt,
@@ -983,8 +981,7 @@ class ApplicationServiceTest {
 			null, null, recruitStartAt, recruitEndAt, null,
 			null, null,
 			null, null, null, null, null, null, null, null,
-			null, null,
-			null);
+			null, null);
 	}
 
 	private PostingDraftInput withPositions(List<PositionInput> positions) {
@@ -992,8 +989,7 @@ class ApplicationServiceTest {
 			null, null, null, null, null,
 			false, positions,
 			null, null, null, null, null, null, null, null,
-			null, null,
-			null);
+			null, null);
 	}
 
 	private PostingDraftInput withQuestions(List<QuestionInput> questions) {
@@ -1001,8 +997,7 @@ class ApplicationServiceTest {
 			null, null, null, null, null,
 			null, null,
 			null, null, null, null, null, null, null, null,
-			true, questions,
-			null);
+			true, questions);
 	}
 
 }

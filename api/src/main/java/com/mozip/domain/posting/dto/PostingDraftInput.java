@@ -12,7 +12,7 @@ import jakarta.validation.constraints.Positive;
 import jakarta.validation.constraints.PositiveOrZero;
 import jakarta.validation.constraints.Size;
 
-// 5단계 입력을 한 타입에 전부 모아두고, 단계별로 그 단계에 해당하는 필드만 채워서 보냄 (나머지는 null = 기존 값 유지)
+// 4단계 입력을 한 타입에 전부 모아두고, 단계별로 그 단계에 해당하는 필드만 채워서 보냄 (나머지는 null = 기존 값 유지)
 // 단계별 부분 저장과 같이 쓰므로 null은 통과하는 @Size/@Positive만 쓰고 @NotBlank/@NotNull은 붙이지 않음
 public record PostingDraftInput(
 	// 1단계 basic
@@ -46,9 +46,6 @@ public record PostingDraftInput(
 
 	// 4단계 questions
 	Boolean docScorePerQuestion,
-	List<@Valid QuestionInput> questions,
-
-	// 5단계 exposure
-	Long representativeImageId
+	List<@Valid QuestionInput> questions
 ) {
 }

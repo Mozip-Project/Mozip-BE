@@ -51,7 +51,7 @@ type Posting {
     "모집 안내 (HTML)"
     content: String
     status: PostingStatus!
-    "작성 중 단계 1~5"
+    "작성 중 단계 1~4"
     draftStep: Int
     hasInterview: Boolean!
     "비면접이면 null"
@@ -227,6 +227,8 @@ input PostingImageInput {
     "최대 500자"
     url: String!
     sortOrder: Int!
+    "대표 이미지(전체 공고 카드 썸네일)로 지정. 여러 장에 true를 보내면 COMMON_400, 하나도 없으면 안 고른 것으로 처리(안 고르면 첫 번째 사진)"
+    isRepresentative: Boolean = false
 }
 
 input PositionInput {
@@ -272,7 +274,7 @@ input InterviewTimeRangeInput {
     closedSlots: [LocalTime!]
 }
 
-"5단계 입력을 한 타입에 모아두고, 단계별로 그 단계에 해당하는 필드만 채워서 보냄 (나머지는 null = 기존 값 유지)"
+"4단계 입력을 한 타입에 모아두고, 단계별로 그 단계에 해당하는 필드만 채워서 보냄 (나머지는 null = 기존 값 유지)"
 input PostingDraftInput {
     "1단계 basic. 최대 100자"
     title: String
@@ -315,9 +317,6 @@ input PostingDraftInput {
     "4단계 questions"
     docScorePerQuestion: Boolean
     questions: [QuestionInput!]
-
-    "5단계 exposure"
-    representativeImageId: ID
 }
 
 extend type Query {
