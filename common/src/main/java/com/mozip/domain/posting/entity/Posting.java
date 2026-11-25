@@ -56,7 +56,7 @@ public class Posting extends BaseEntity {
 	@Column(nullable = false, length = 30)
 	private PostingStatus status;
 
-	// 작성 중 단계 1~5. DRAFT가 아니면 더 안 바뀜
+	// 작성 중 단계 1~4. DRAFT가 아니면 더 안 바뀜
 	private Integer draftStep;
 
 	@Column(nullable = false)
@@ -198,11 +198,6 @@ public class Posting extends BaseEntity {
 	public void updateQuestionsStep(boolean docScorePerQuestion) {
 		this.docScorePerQuestion = docScorePerQuestion;
 		advanceDraftStep(4);
-	}
-
-	// 5단계: 노출 (대표 이미지는 PostingImage 쪽에서 처리)
-	public void updateExposureStep() {
-		advanceDraftStep(5);
 	}
 
 	public void publishNow() {
