@@ -3,7 +3,6 @@ package com.mozip.domain.organization.service;
 import java.security.SecureRandom;
 import java.time.LocalDateTime;
 import java.util.Base64;
-import java.util.Map;
 import java.util.Optional;
 import java.util.regex.Pattern;
 
@@ -52,6 +51,7 @@ public class InvitationService {
 	private final UserRepository userRepository;
 	private final OrganizationService organizationService;
 	private final NotificationService notificationService;
+	private final InviteProperties inviteProperties;
 
 	// 운영진만 초대 가능. 가입자(휴대폰 일치)면 invitee를 채우고 알림, 미가입자면 연락처만 저장
 	@Transactional
@@ -81,8 +81,9 @@ public class InvitationService {
 		Invitation invitation = invitationRepository.save(Invitation.create(organization, inviter, invitee,
 			normalizedContact, team, newToken(), now));
 		if (invitee != null) {
-			notificationService.send(invitee.getId(), NotificationType.INVITATION, Map.of(
-				"organizationId", organizationId, "invitationId", invitation.getId(), "code", invitation.getCode()));
+			// 단체명은 50자까지라 제목이 알림 제목 한도(200자)를 넘지 않음. 링크는 초대 수락 화면
+			notificationService.send(invitee.getId(), NotificationType.INVITATION, organizationId,
+				organization.getName() + " 운영진 초대가 도착했어요", inviteProperties.linkUrl(invitation.getCode()));
 		}
 		return invitation;
 	}

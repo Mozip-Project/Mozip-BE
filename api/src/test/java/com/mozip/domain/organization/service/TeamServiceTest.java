@@ -119,8 +119,8 @@ class TeamServiceTest {
 	@Test
 	@DisplayName("공고 포지션이 쓰는 팀은 목록에서 빼면 TEAM_409다")
 	void teamUsedByPosition() {
-		Posting posting = postingRepository.save(Posting.create(organization, "모집 공고", false, false));
-		positionRepository.save(Position.create(posting, design, "디자이너", null));
+		Posting posting = postingRepository.save(Posting.create(organization, "모집 공고"));
+		positionRepository.save(Position.create(posting, design, "디자이너", null, 0));
 
 		assertThatThrownBy(() -> teamService.saveTeams(representative.getId(), organization.getId(),
 			List.of(new TeamInput(planning.getId(), "기획팀"))))

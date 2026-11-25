@@ -11,7 +11,8 @@ import lombok.RequiredArgsConstructor;
 @RequiredArgsConstructor
 public enum UserErrorCode implements ErrorCode {
 
-	DUPLICATE_PHONE(HttpStatus.CONFLICT, "USER_001", "이미 가입된 휴대폰 번호입니다.");
+	DUPLICATE_PHONE(HttpStatus.CONFLICT, "USER_001", "이미 가입된 휴대폰 번호입니다."),
+	NOT_FOUND(HttpStatus.NOT_FOUND, "USER_404", "회원을 찾을 수 없습니다.");
 
 	private final HttpStatus status;
 	private final String code;

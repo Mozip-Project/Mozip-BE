@@ -49,7 +49,7 @@ type Application {
 type Answer {
     id: ID!
     question: Question!
-    "TEXT 답변, CHOICE / TABLE은 JSON 문자열"
+    "TEXT는 그대로, SINGLE_CHOICE는 선택지 문자열 그대로, MULTI_CHOICE는 선택값 JSON 배열 문자열(예: [\"a\",\"b\"]), TABLE은 행 단위 JSON 중첩 배열 문자열(예: [[\"a\",\"b\"],[\"c\",\"d\"]])"
     content: String
     attachments: [Attachment!]!
 }
@@ -60,4 +60,49 @@ type Attachment {
     type: AttachmentType!
     url: String!
     fileName: String
+}
+
+input AttachmentInput {
+    type: AttachmentType!
+    "FILE = presigned URL(purpose=APPLICATION_ATTACHMENT)로 올린 파일의 키/URL, LINK = 지원자가 입력한 링크"
+    url: String!
+    fileName: String
+}
+
+input AnswerInput {
+    questionId: ID!
+    "TEXT는 그대로, SINGLE_CHOICE는 선택지 문자열 그대로, MULTI_CHOICE는 선택값 JSON 배열 문자열(예: [\"a\",\"b\"]), TABLE은 행 단위 JSON 중첩 배열 문자열(예: [[\"a\",\"b\"],[\"c\",\"d\"]])"
+    content: String
+    "FILE_LINK 문항만"
+    attachments: [AttachmentInput!]
+}
+
+input ApplicationInput {
+    "null = 포지션 없는 모집"
+    positionId: ID
+    answers: [AnswerInput!]
+    "면접 가능 시간 블록의 시작 시각 목록. 면접 없는 공고면 무시"
+    availableTimes: [DateTime!]
+}
+
+extend type Query {
+    "지원서 상세. 지원자 본인 또는 그 공고 단체 운영진(제출된 지원서만) 조회 가능. 없으면 APPLICATION_404"
+    application(id: ID!): Application!
+    "내 작성 중·제출 지원서 목록"
+    myApplications(status: ApplicationStatus): [Application!]!
+}
+
+extend type Mutation {
+    """
+    지원서 임시 저장. 없으면 DRAFT를 만들고, 있으면 포지션과 답변을 덮어씀.
+    모집 기간이 아니면 POSTING_409(reason: NOT_RECRUITING), 이미 제출했으면 APPLICATION_409(reason: ALREADY_SUBMITTED)
+    """
+    saveApplicationDraft(postingId: ID!, input: ApplicationInput!): Application!
+    """
+    지원서 제출. 이후 수정·철회 불가.
+    필수 문항 누락·글자 수·선택지·첨부 개수 위반이거나 면접 공고인데 availableTimes를 안 골랐으면 APPLICATION_400(fieldErrors),
+    지원 자격(학교 인증) 미충족이면 APPLICATION_403(reason: SCHOOL_NOT_VERIFIED),
+    모집 마감이면 POSTING_409(reason: NOT_RECRUITING), 이미 제출했으면 APPLICATION_409(reason: ALREADY_SUBMITTED)
+    """
+    submitApplication(id: ID!): Application!
 }
