@@ -44,6 +44,7 @@ import com.mozip.domain.school.entity.School;
 import com.mozip.domain.school.repository.SchoolRepository;
 import com.mozip.domain.user.entity.User;
 import com.mozip.domain.user.repository.UserRepository;
+import com.mozip.global.config.S3Properties;
 import com.mozip.global.exception.BusinessException;
 import com.mozip.global.exception.CommonErrorCode;
 
@@ -75,6 +76,9 @@ class OrganizationServiceTest {
 
 	@Autowired
 	private JdbcTemplate jdbcTemplate;
+
+	@Autowired
+	private S3Properties s3Properties;
 
 	private User user;
 	private User other;
@@ -279,6 +283,47 @@ class OrganizationServiceTest {
 		assertThat(organizationService.getKeywordSuggestions("%")).isEmpty();
 		assertThat(organizationService.getKeywordSuggestions("  ")).isEmpty();
 		assertThat(organizationService.getKeywordSuggestions("개".repeat(21))).isEmpty();
+	}
+
+	@Test
+	@DisplayName("ORG_LOGO 용도로 발급받지 않은 fileKey면 COMMON_400을 던진다")
+	void wrongPurposeFileKey() {
+		assertThatThrownBy(() -> organizationService.updateLogo(1L, "posting-image/2026/01/a.png", user.getId()))
+			.isInstanceOfSatisfying(BusinessException.class,
+				e -> assertThat(e.getErrorCode()).isEqualTo(CommonErrorCode.INVALID_INPUT));
+	}
+
+	@Test
+	@DisplayName("로고를 바꿀 단체가 없으면 ORG_404를 던진다")
+	void updateLogoOrganizationNotFound() {
+		assertThatThrownBy(
+			() -> organizationService.updateLogo(Long.MAX_VALUE, "org-logo/2026/01/a.png", user.getId()))
+			.isInstanceOfSatisfying(BusinessException.class,
+				e -> assertThat(e.getErrorCode()).isEqualTo(OrganizationErrorCode.ORGANIZATION_NOT_FOUND));
+	}
+
+	@Test
+	@DisplayName("그 단체의 운영진이 아니면 COMMON_403을 던진다")
+	void notMember() {
+		Organization organization = organizationService.createOrganization(user.getId(),
+			SeedFixtures.createOrganizationInput());
+
+		assertThatThrownBy(
+			() -> organizationService.updateLogo(organization.getId(), "org-logo/2026/01/a.png", other.getId()))
+			.isInstanceOfSatisfying(BusinessException.class,
+				e -> assertThat(e.getErrorCode()).isEqualTo(CommonErrorCode.FORBIDDEN));
+	}
+
+	@Test
+	@DisplayName("운영진이면 cdnDomain과 fileKey를 합쳐 logoUrl을 갱신한다")
+	void updatesLogo() {
+		Organization organization = organizationService.createOrganization(user.getId(),
+			SeedFixtures.createOrganizationInput());
+
+		Organization result = organizationService.updateLogo(organization.getId(), "org-logo/2026/01/a.png",
+			user.getId());
+
+		assertThat(result.getLogoUrl()).isEqualTo(s3Properties.cdnDomain() + "/org-logo/2026/01/a.png");
 	}
 
 	private static UpdateOrganizationInput profileInput(List<OrganizationField> fields, List<String> keywords,

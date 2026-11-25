@@ -1,0 +1,69 @@
+package com.mozip.domain.posting.repository;
+
+import java.time.LocalDateTime;
+import java.util.List;
+
+import org.springframework.data.jpa.domain.Specification;
+
+import com.mozip.domain.organization.entity.Organization;
+import com.mozip.domain.organization.entity.OrganizationType;
+import com.mozip.domain.posting.entity.Posting;
+import com.mozip.domain.posting.entity.PostingStatus;
+
+import jakarta.persistence.criteria.Join;
+
+// postings(목록 조회) 필터를 조건별로 조합. null을 반환하면 PostingService에서 그 조건은 안 걸음
+public final class PostingSpecifications {
+
+	private PostingSpecifications() {
+	}
+
+	public static Specification<Posting> statusIn(PostingStatus... statuses) {
+		return (root, query, builder) -> root.get("status").in(List.of(statuses));
+	}
+
+	public static Specification<Posting> keyword(String keyword) {
+		if (keyword == null || keyword.isBlank()) {
+			return null;
+		}
+		return (root, query, builder) -> builder.like(root.get("title"), "%" + keyword + "%");
+	}
+
+	public static Specification<Posting> schoolId(Long schoolId) {
+		if (schoolId == null) {
+			return null;
+		}
+		return (root, query, builder) -> {
+			Join<Posting, Organization> organization = root.join("organization");
+			return builder.equal(organization.get("school").get("id"), schoolId);
+		};
+	}
+
+	public static Specification<Posting> organizationTypes(List<OrganizationType> organizationTypes) {
+		if (organizationTypes == null || organizationTypes.isEmpty()) {
+			return null;
+		}
+		return (root, query, builder) -> {
+			Join<Posting, Organization> organization = root.join("organization");
+			return organization.get("type").in(organizationTypes);
+		};
+	}
+
+	public static Specification<Posting> hasInterview(Boolean hasInterview) {
+		if (hasInterview == null) {
+			return null;
+		}
+		return (root, query, builder) -> builder.equal(root.get("hasInterview"), hasInterview);
+	}
+
+	// 마감 3일 이내 (recruitEndAt이 now부터 72시간 이내면서 아직 지나지 않음)
+	// recruitEndAt은 api의 LocalDateTimeScalar가 서울 시각으로 저장한 값이라, now도 서울 시각 기준으로 호출하는 쪽(PostingService)에서 넘겨받음.
+	// common은 api의 ZoneId를 참조할 수 없고, 여기서 LocalDateTime.now()를 직접 부르면 JVM 기본 시간대(운영은 UTC)를 따라 어긋남
+	public static Specification<Posting> closingSoon(Boolean closingSoon, LocalDateTime now) {
+		if (closingSoon == null || !closingSoon) {
+			return null;
+		}
+		return (root, query, builder) -> builder.between(root.get("recruitEndAt"), now, now.plusDays(3));
+	}
+
+}

@@ -104,6 +104,18 @@ type Organization {
     createdAt: DateTime!
 }
 
+"공고 카드 등에서 쓰는 단체 요약 정보"
+type OrganizationSummary {
+    id: ID!
+    name: String!
+    logoUrl: String
+    "연합이면 null"
+    school: School
+    type: OrganizationType!
+    "학생회가 아니면 null"
+    councilLevel: CouncilLevel
+}
+
 type OrganizationLink {
     id: ID!
     type: OrganizationLinkType!
@@ -160,6 +172,11 @@ type RepresentativeTransfer {
     createdAt: DateTime!
 }
 
+input UpdateOrganizationLogoInput {
+    organizationId: ID!
+    fileKey: String!
+}
+
 input CreateOrganizationInput {
     name: String!
     type: OrganizationType!
@@ -200,6 +217,8 @@ extend type Query {
 }
 
 extend type Mutation {
+    "단체 로고를 변경합니다. fileKey는 파일 업로드 URL 발급(POST /api/files/presigned-url, purpose=ORG_LOGO)으로 받아 S3에 업로드를 마친 값입니다."
+    updateOrganizationLogo(input: UpdateOrganizationLogoInput!): Organization!
     "단체를 만들고 호출자를 대표자로 등록, 심사 상태는 PENDING"
     createOrganization(input: CreateOrganizationInput!): Organization!
     "단체 프로필 수정, 그 단체의 운영진만 가능 (아니면 COMMON_403). 없으면 ORG_404"

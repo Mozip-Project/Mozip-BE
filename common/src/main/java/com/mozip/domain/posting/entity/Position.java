@@ -41,15 +41,19 @@ public class Position extends BaseEntity {
 	// null = 모집 인원 미정
 	private Integer headcount;
 
-	private Position(Posting posting, Team team, String name, Integer headcount) {
+	@Column(nullable = false)
+	private int sortOrder;
+
+	private Position(Posting posting, Team team, String name, Integer headcount, int sortOrder) {
 		this.posting = posting;
 		this.team = team;
 		this.name = name;
 		this.headcount = headcount;
+		this.sortOrder = sortOrder;
 	}
 
-	public static Position create(Posting posting, Team team, String name, Integer headcount) {
-		return new Position(posting, team, name, headcount);
+	public static Position create(Posting posting, Team team, String name, Integer headcount, int sortOrder) {
+		return new Position(posting, team, name, headcount, sortOrder);
 	}
 
 }
