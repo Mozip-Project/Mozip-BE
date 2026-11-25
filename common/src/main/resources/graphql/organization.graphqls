@@ -104,6 +104,18 @@ type Organization {
     createdAt: DateTime!
 }
 
+"공고 카드 등에서 쓰는 단체 요약 정보"
+type OrganizationSummary {
+    id: ID!
+    name: String!
+    logoUrl: String
+    "연합이면 null"
+    school: School
+    type: OrganizationType!
+    "학생회가 아니면 null"
+    councilLevel: CouncilLevel
+}
+
 type OrganizationLink {
     id: ID!
     type: OrganizationLinkType!
