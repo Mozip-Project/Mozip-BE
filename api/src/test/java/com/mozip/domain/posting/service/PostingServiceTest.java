@@ -7,6 +7,7 @@ import java.time.LocalDate;
 import java.time.LocalDateTime;
 import java.time.LocalTime;
 import java.util.List;
+import java.util.TimeZone;
 import java.util.stream.IntStream;
 
 import org.junit.jupiter.api.BeforeEach;
@@ -15,6 +16,7 @@ import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.context.SpringBootTest;
 import org.springframework.context.annotation.Import;
+import org.springframework.graphql.data.ArgumentValue;
 import org.springframework.transaction.annotation.Transactional;
 
 import com.mozip.TestcontainersConfiguration;
@@ -24,10 +26,13 @@ import com.mozip.domain.organization.entity.MemberRole;
 import com.mozip.domain.organization.entity.Organization;
 import com.mozip.domain.organization.entity.OrganizationScope;
 import com.mozip.domain.organization.entity.OrganizationType;
+import com.mozip.domain.organization.entity.Team;
 import com.mozip.domain.organization.repository.MemberRepository;
 import com.mozip.domain.organization.repository.OrganizationRepository;
+import com.mozip.domain.organization.repository.TeamRepository;
 import com.mozip.domain.posting.dto.InterviewTimeRangeInput;
 import com.mozip.domain.posting.dto.PositionInput;
+import com.mozip.domain.posting.dto.PostingCard;
 import com.mozip.domain.posting.dto.PostingDraftInput;
 import com.mozip.domain.posting.dto.PostingFilter;
 import com.mozip.domain.posting.dto.PostingImageInput;
@@ -56,6 +61,7 @@ import com.mozip.global.config.graphql.LocalDateTimeScalar;
 import com.mozip.domain.school.repository.SchoolRepository;
 import com.mozip.domain.user.entity.User;
 import com.mozip.domain.user.repository.UserRepository;
+import com.mozip.global.common.response.FieldErrorResponse;
 import com.mozip.global.exception.BusinessException;
 import com.mozip.global.exception.CommonErrorCode;
 
@@ -80,6 +86,9 @@ class PostingServiceTest {
 
 	@Autowired
 	private MemberRepository memberRepository;
+
+	@Autowired
+	private TeamRepository teamRepository;
 
 	@Autowired
 	private PositionRepository positionRepository;
@@ -140,6 +149,31 @@ class PostingServiceTest {
 	}
 
 	@Test
+	@DisplayName("선택 항목에 null을 명시해서 보내면 지워지고, 필드를 안 보내면(생략) 기존 값이 유지된다")
+	void explicitNullClearsOptionalFieldButOmittingKeepsIt() {
+		Posting posting = postingService.saveDraft(operator.getId(), organization.getId(), null,
+			basicInput("제목"));
+		postingService.saveDraft(operator.getId(), organization.getId(), posting.getId(),
+			withEligibilityNote(ArgumentValue.ofNullable("1~3학년")));
+		assertThat(postingRepository.findById(posting.getId()).orElseThrow().getEligibilityNote())
+			.isEqualTo("1~3학년");
+
+		// eligibilityNote를 안 건드리는 저장(예: positions 단계)은 기존 값을 그대로 둬야 함
+		postingService.saveDraft(operator.getId(), organization.getId(), posting.getId(),
+			withPositions(List.of(new PositionInput(null, "백엔드", 1, 0))));
+		assertThat(postingRepository.findById(posting.getId()).orElseThrow().getEligibilityNote())
+			.isEqualTo("1~3학년");
+
+		Posting cleared = postingService.saveDraft(operator.getId(), organization.getId(), posting.getId(),
+			withEligibilityNote(ArgumentValue.ofNullable(null)));
+
+		assertThat(cleared.getEligibilityNote()).isNull();
+		// region/fee는 건드리지 않았으니 basicInput에서 저장한 값이 그대로 남아야 함
+		assertThat(cleared.getRegion()).isEqualTo("서울");
+		assertThat(cleared.getFee()).isEqualTo("무료");
+	}
+
+	@Test
 	@DisplayName("문항이 참조하는 포지션을 다시 저장해도 FK 에러 없이 그 문항은 공통 문항으로 떨어진다")
 	void reSavingPositionsNullsOutQuestionReferenceInsteadOfFailing() {
 		// 실제로는 단계마다 별도 요청(별도 트랜잭션/영속성 컨텍스트)이라 flush+clear로 그 경계를 흉내냄
@@ -176,47 +210,52 @@ class PostingServiceTest {
 	}
 
 	@Test
-	@DisplayName("대표 이미지를 다시 고르면 이전 대표는 내려가고 새로 고른 것만 대표로 남는다")
-	void reMarkingRepresentativeImageMovesTheFlag() {
+	@DisplayName("isRepresentative를 true로 보낸 이미지만 대표로 저장된다")
+	void choosingRepresentativeImageMarksOnlyThatOne() {
 		Posting posting = postingService.saveDraft(operator.getId(), organization.getId(), null,
 			basicInput("제목"));
-		postingService.saveDraft(operator.getId(), organization.getId(), posting.getId(),
-			withImages(List.of(new PostingImageInput("https://img/a.png", 0),
-				new PostingImageInput("https://img/b.png", 1))));
-		List<PostingImage> images = postingImageRepository.findAllByPostingOrderBySortOrder(posting);
-		Long firstId = images.get(0).getId();
-		Long secondId = images.get(1).getId();
 
 		postingService.saveDraft(operator.getId(), organization.getId(), posting.getId(),
-			withRepresentativeImage(firstId));
-		postingService.saveDraft(operator.getId(), organization.getId(), posting.getId(),
-			withRepresentativeImage(secondId));
-
-		List<PostingImage> updated = postingImageRepository.findAllByPostingOrderBySortOrder(posting);
-		assertThat(updated).filteredOn(PostingImage::isRepresentative)
-			.extracting(PostingImage::getId)
-			.containsExactly(secondId);
-	}
-
-	@Test
-	@DisplayName("1단계 이미지를 다시 저장해도 같은 url의 대표 지정은 유지된다")
-	void resavingImagesPreservesRepresentativeByUrl() {
-		Posting posting = postingService.saveDraft(operator.getId(), organization.getId(), null,
-			basicInput("제목"));
-		postingService.saveDraft(operator.getId(), organization.getId(), posting.getId(),
-			withImages(List.of(new PostingImageInput("https://img/a.png", 0))));
-		Long imageId = postingImageRepository.findAllByPostingOrderBySortOrder(posting).get(0).getId();
-		postingService.saveDraft(operator.getId(), organization.getId(), posting.getId(),
-			withRepresentativeImage(imageId));
-
-		postingService.saveDraft(operator.getId(), organization.getId(), posting.getId(),
-			withImages(List.of(new PostingImageInput("https://img/a.png", 0),
-				new PostingImageInput("https://img/c.png", 1))));
+			withImages(List.of(new PostingImageInput("https://img/a.png", 0, false),
+				new PostingImageInput("https://img/b.png", 1, true))));
 
 		List<PostingImage> images = postingImageRepository.findAllByPostingOrderBySortOrder(posting);
 		assertThat(images).filteredOn(PostingImage::isRepresentative)
 			.extracting(PostingImage::getUrl)
-			.containsExactly("https://img/a.png");
+			.containsExactly("https://img/b.png");
+	}
+
+	@Test
+	@DisplayName("이미지를 다시 저장하면서 다른 사진에 isRepresentative를 보내면 이전 대표는 내려가고 새로 고른 것만 대표로 남는다")
+	void reSavingImagesWithDifferentRepresentativeMovesTheFlag() {
+		Posting posting = postingService.saveDraft(operator.getId(), organization.getId(), null,
+			basicInput("제목"));
+		postingService.saveDraft(operator.getId(), organization.getId(), posting.getId(),
+			withImages(List.of(new PostingImageInput("https://img/a.png", 0, true),
+				new PostingImageInput("https://img/b.png", 1, false))));
+
+		postingService.saveDraft(operator.getId(), organization.getId(), posting.getId(),
+			withImages(List.of(new PostingImageInput("https://img/a.png", 0, false),
+				new PostingImageInput("https://img/b.png", 1, true))));
+
+		List<PostingImage> updated = postingImageRepository.findAllByPostingOrderBySortOrder(posting);
+		assertThat(updated).filteredOn(PostingImage::isRepresentative)
+			.extracting(PostingImage::getUrl)
+			.containsExactly("https://img/b.png");
+	}
+
+	@Test
+	@DisplayName("여러 이미지에 isRepresentative를 true로 보내면 COMMON_400을 던진다")
+	void rejectsMultipleRepresentativeImages() {
+		Posting posting = postingService.saveDraft(operator.getId(), organization.getId(), null,
+			basicInput("제목"));
+
+		assertThatThrownBy(() -> postingService.saveDraft(operator.getId(), organization.getId(), posting.getId(),
+			withImages(List.of(new PostingImageInput("https://img/a.png", 0, true),
+				new PostingImageInput("https://img/b.png", 1, true)))))
+			.isInstanceOf(BusinessException.class)
+			.extracting(e -> ((BusinessException)e).getErrorCode())
+			.isEqualTo(CommonErrorCode.INVALID_INPUT);
 	}
 
 	@Test
@@ -255,6 +294,40 @@ class PostingServiceTest {
 	}
 
 	@Test
+	@DisplayName("hasInterview 없이 interviewMinutes만 보내도 반영된다")
+	void touchingOnlyInterviewMinutesStillUpdatesIt() {
+		Posting posting = postingService.saveDraft(operator.getId(), organization.getId(), null, basicInput("제목"));
+		posting = postingService.saveDraft(operator.getId(), organization.getId(), posting.getId(),
+			withInterview(true, InterviewMethod.ONLINE, 30, 5, AssignRule.SAME_TEAM, 1, 2, null));
+
+		Posting updated = postingService.saveDraft(operator.getId(), organization.getId(), posting.getId(),
+			withInterview(null, null, 20, null, null, null, null, null));
+
+		assertThat(updated.getInterviewMinutes()).isEqualTo(20);
+		// hasInterview를 안 보냈으니 기존 값과 다른 면접 설정은 그대로 유지됨
+		assertThat(updated.isHasInterview()).isTrue();
+		assertThat(updated.getInterviewMethod()).isEqualTo(InterviewMethod.ONLINE);
+		assertThat(updated.getBreakMinutes()).isEqualTo(5);
+	}
+
+	@Test
+	@DisplayName("hasInterview 없이 interviewTimeRanges만 보내도 반영된다")
+	void touchingOnlyInterviewTimeRangesStillUpdatesThem() {
+		Posting posting = postingService.saveDraft(operator.getId(), organization.getId(), null, basicInput("제목"));
+		posting = postingService.saveDraft(operator.getId(), organization.getId(), posting.getId(),
+			withInterview(true, InterviewMethod.ONLINE, 30, 5, AssignRule.SAME_TEAM, 1, 2, null));
+		LocalDate date = LocalDate.now().plusDays(3);
+
+		postingService.saveDraft(operator.getId(), organization.getId(), posting.getId(),
+			withInterview(null, null, null, null, null, null, null,
+				List.of(new InterviewTimeRangeInput(null, date, LocalTime.of(10, 0), LocalTime.of(12, 0), null))));
+
+		List<InterviewTimeRange> ranges = interviewTimeRangeRepository
+			.findAllByPostingOrderByDateAscStartTimeAsc(posting);
+		assertThat(ranges).hasSize(1);
+	}
+
+	@Test
 	@DisplayName("DRAFT가 아닌 공고를 수정하면 POSTING_409를 던진다")
 	void rejectsEditingNonDraft() {
 		Posting posting = publishablePosting("게시용 공고");
@@ -263,8 +336,11 @@ class PostingServiceTest {
 		assertThatThrownBy(() -> postingService.saveDraft(operator.getId(), organization.getId(), posting.getId(),
 			basicInput("수정")))
 			.isInstanceOf(BusinessException.class)
-			.extracting(e -> ((BusinessException)e).getErrorCode())
-			.isEqualTo(PostingErrorCode.CONFLICT);
+			.satisfies(e -> {
+				BusinessException ex = (BusinessException)e;
+				assertThat(ex.getErrorCode()).isEqualTo(PostingErrorCode.CONFLICT);
+				assertThat(ex.getReason()).isEqualTo(PostingConflictReason.NOT_DRAFT.name());
+			});
 	}
 
 	@Test
@@ -275,6 +351,146 @@ class PostingServiceTest {
 			.isInstanceOf(BusinessException.class)
 			.extracting(e -> ((BusinessException)e).getErrorCode())
 			.isEqualTo(CommonErrorCode.FORBIDDEN);
+	}
+
+	@Test
+	@DisplayName("다른 단체 소속 DRAFT를 자기 단체 id로 수정하려 하면 POSTING_404를 던지고 원본은 바뀌지 않는다")
+	void rejectsEditingDraftOfAnotherOrganization() {
+		User otherOperator = userRepository.save(
+			User.create("01033330003", "encoded", "다른 단체 운영진", false, LocalDateTime.now()));
+		Organization otherOrganization = organizationRepository.save(
+			Organization.create("다른 단체", OrganizationType.CLUB, null, OrganizationScope.CAMPUS, null, true, null,
+				null));
+		memberRepository.save(Member.create(otherOrganization, otherOperator, null, MemberRole.REPRESENTATIVE));
+		Posting othersDraft = postingService.saveDraft(otherOperator.getId(), otherOrganization.getId(), null,
+			basicInput("남의 단체 공고"));
+
+		assertThatThrownBy(() -> postingService.saveDraft(operator.getId(), organization.getId(),
+			othersDraft.getId(), basicInput("가로채기 시도")))
+			.isInstanceOf(BusinessException.class)
+			.extracting(e -> ((BusinessException)e).getErrorCode())
+			.isEqualTo(PostingErrorCode.NOT_FOUND);
+
+		assertThat(postingRepository.findById(othersDraft.getId()).orElseThrow().getTitle())
+			.isEqualTo("남의 단체 공고");
+	}
+
+	@Test
+	@DisplayName("존재하지 않는 teamId로 포지션을 저장하면 COMMON_400을 던진다")
+	void rejectsUnknownTeamId() {
+		Posting posting = postingService.saveDraft(operator.getId(), organization.getId(), null, basicInput("제목"));
+
+		assertThatThrownBy(() -> postingService.saveDraft(operator.getId(), organization.getId(), posting.getId(),
+			withPositions(List.of(new PositionInput(999_999L, "백엔드", 1, 0)))))
+			.isInstanceOf(BusinessException.class)
+			.extracting(e -> ((BusinessException)e).getErrorCode())
+			.isEqualTo(CommonErrorCode.INVALID_INPUT);
+	}
+
+	@Test
+	@DisplayName("다른 단체의 teamId로 포지션을 저장하면 COMMON_400을 던진다")
+	void rejectsTeamFromAnotherOrganization() {
+		Organization otherOrganization = organizationRepository.save(
+			Organization.create("다른 단체", OrganizationType.CLUB, null, OrganizationScope.CAMPUS, null, true, null,
+				null));
+		Team othersTeam = teamRepository.save(Team.create(otherOrganization, "남의 팀"));
+		Posting posting = postingService.saveDraft(operator.getId(), organization.getId(), null, basicInput("제목"));
+
+		assertThatThrownBy(() -> postingService.saveDraft(operator.getId(), organization.getId(), posting.getId(),
+			withPositions(List.of(new PositionInput(othersTeam.getId(), "백엔드", 1, 0)))))
+			.isInstanceOf(BusinessException.class)
+			.extracting(e -> ((BusinessException)e).getErrorCode())
+			.isEqualTo(CommonErrorCode.INVALID_INPUT);
+	}
+
+	@Test
+	@DisplayName("존재하지 않는 positionId로 문항을 저장하면 COMMON_400을 던진다")
+	void rejectsUnknownPositionIdInQuestion() {
+		Posting posting = postingService.saveDraft(operator.getId(), organization.getId(), null, basicInput("제목"));
+
+		assertThatThrownBy(() -> postingService.saveDraft(operator.getId(), organization.getId(), posting.getId(),
+			withQuestions(List.of(
+				new QuestionInput(999_999L, QuestionType.TEXT, "자기소개", null, true, 500, null, 0)))))
+			.isInstanceOf(BusinessException.class)
+			.extracting(e -> ((BusinessException)e).getErrorCode())
+			.isEqualTo(CommonErrorCode.INVALID_INPUT);
+	}
+
+	@Test
+	@DisplayName("다른 공고의 positionId로 문항을 저장하면 COMMON_400을 던진다")
+	void rejectsPositionFromAnotherPostingInQuestion() {
+		Posting otherPosting = postingService.saveDraft(operator.getId(), organization.getId(), null,
+			basicInput("남의 공고"));
+		postingService.saveDraft(operator.getId(), organization.getId(), otherPosting.getId(),
+			withPositions(List.of(new PositionInput(null, "남의 포지션", 1, 0))));
+		Long othersPositionId = positionRepository.findAllByPostingOrderBySortOrder(otherPosting).get(0).getId();
+		Posting posting = postingService.saveDraft(operator.getId(), organization.getId(), null, basicInput("제목"));
+
+		assertThatThrownBy(() -> postingService.saveDraft(operator.getId(), organization.getId(), posting.getId(),
+			withQuestions(List.of(
+				new QuestionInput(othersPositionId, QuestionType.TEXT, "자기소개", null, true, 500, null, 0)))))
+			.isInstanceOf(BusinessException.class)
+			.extracting(e -> ((BusinessException)e).getErrorCode())
+			.isEqualTo(CommonErrorCode.INVALID_INPUT);
+	}
+
+	@Test
+	@DisplayName("존재하지 않는 positionId로 면접 시간대를 저장하면 COMMON_400을 던진다")
+	void rejectsUnknownPositionIdInInterviewTimeRange() {
+		Posting posting = postingService.saveDraft(operator.getId(), organization.getId(), null, basicInput("제목"));
+
+		assertThatThrownBy(() -> postingService.saveDraft(operator.getId(), organization.getId(), posting.getId(),
+			withInterview(true, InterviewMethod.ONLINE, 20, 5, AssignRule.SAME_TEAM, 1, 2,
+				List.of(new InterviewTimeRangeInput(999_999L, LocalDate.now().plusDays(3), LocalTime.of(10, 0),
+					LocalTime.of(12, 0), null)))))
+			.isInstanceOf(BusinessException.class)
+			.extracting(e -> ((BusinessException)e).getErrorCode())
+			.isEqualTo(CommonErrorCode.INVALID_INPUT);
+	}
+
+	@Test
+	@DisplayName("closedSlots를 생략하면(null) 빈 리스트로 저장된다")
+	void closedSlotsDefaultsToEmptyListWhenNull() {
+		Posting posting = postingService.saveDraft(operator.getId(), organization.getId(), null, basicInput("제목"));
+
+		postingService.saveDraft(operator.getId(), organization.getId(), posting.getId(),
+			withInterview(true, InterviewMethod.ONLINE, 20, 5, AssignRule.SAME_TEAM, 1, 2,
+				List.of(new InterviewTimeRangeInput(null, LocalDate.now().plusDays(3), LocalTime.of(10, 0),
+					LocalTime.of(12, 0), null))));
+
+		List<InterviewTimeRange> ranges = interviewTimeRangeRepository
+			.findAllByPostingOrderByDateAscStartTimeAsc(posting);
+		assertThat(ranges.get(0).getClosedSlots()).isEmpty();
+	}
+
+	@Test
+	@DisplayName("면접 시간대의 종료가 시작보다 뒤가 아니면 COMMON_400을 던진다")
+	void rejectsInterviewTimeRangeWithEndNotAfterStart() {
+		Posting posting = postingService.saveDraft(operator.getId(), organization.getId(), null, basicInput("제목"));
+
+		assertThatThrownBy(() -> postingService.saveDraft(operator.getId(), organization.getId(), posting.getId(),
+			withInterview(true, InterviewMethod.ONLINE, 20, 5, AssignRule.SAME_TEAM, 1, 2,
+				List.of(new InterviewTimeRangeInput(null, LocalDate.now().plusDays(3), LocalTime.of(12, 0),
+					LocalTime.of(10, 0), null)))))
+			.isInstanceOf(BusinessException.class)
+			.extracting(e -> ((BusinessException)e).getErrorCode())
+			.isEqualTo(CommonErrorCode.INVALID_INPUT);
+	}
+
+	@Test
+	@DisplayName("같은 날짜에 겹치는 면접 시간대를 저장하면 COMMON_400을 던진다")
+	void rejectsOverlappingInterviewTimeRangesOnSameDate() {
+		Posting posting = postingService.saveDraft(operator.getId(), organization.getId(), null, basicInput("제목"));
+		LocalDate date = LocalDate.now().plusDays(3);
+
+		assertThatThrownBy(() -> postingService.saveDraft(operator.getId(), organization.getId(), posting.getId(),
+			withInterview(true, InterviewMethod.ONLINE, 20, 5, AssignRule.SAME_TEAM, 1, 2,
+				List.of(
+					new InterviewTimeRangeInput(null, date, LocalTime.of(10, 0), LocalTime.of(12, 0), null),
+					new InterviewTimeRangeInput(null, date, LocalTime.of(11, 0), LocalTime.of(13, 0), null)))))
+			.isInstanceOf(BusinessException.class)
+			.extracting(e -> ((BusinessException)e).getErrorCode())
+			.isEqualTo(CommonErrorCode.INVALID_INPUT);
 	}
 
 	@Test
@@ -302,6 +518,71 @@ class PostingServiceTest {
 	}
 
 	@Test
+	@DisplayName("모집 기간이 비어 있으면 POSTING_400을 던진다")
+	void rejectsPublishingWithoutRecruitPeriod() {
+		Posting posting = publishableDraft(null, null, null, null);
+
+		assertThatThrownBy(() -> postingService.publish(operator.getId(), posting.getId()))
+			.isInstanceOf(BusinessException.class)
+			.satisfies(e -> {
+				BusinessException ex = (BusinessException)e;
+				assertThat(ex.getErrorCode()).isEqualTo(PostingErrorCode.INVALID_INPUT);
+				assertThat(ex.getFieldErrors()).extracting(FieldErrorResponse::message)
+					.contains("모집 기간을 입력해주세요.");
+			});
+	}
+
+	@Test
+	@DisplayName("모집 종료가 시작보다 뒤가 아니면 POSTING_400을 던진다")
+	void rejectsPublishingWhenRecruitEndNotAfterStart() {
+		LocalDateTime seoulNow = LocalDateTime.now(LocalDateTimeScalar.ZONE);
+		LocalDateTime sameInstant = seoulNow.plusDays(5);
+		Posting posting = publishableDraft(null, null, sameInstant, sameInstant);
+
+		assertThatThrownBy(() -> postingService.publish(operator.getId(), posting.getId()))
+			.isInstanceOf(BusinessException.class)
+			.satisfies(e -> {
+				BusinessException ex = (BusinessException)e;
+				assertThat(ex.getErrorCode()).isEqualTo(PostingErrorCode.INVALID_INPUT);
+				assertThat(ex.getFieldErrors()).extracting(FieldErrorResponse::message)
+					.contains("모집 종료는 시작보다 뒤여야 해요.");
+			});
+	}
+
+	@Test
+	@DisplayName("모집 종료가 이미 지났으면 POSTING_400을 던진다")
+	void rejectsPublishingWhenRecruitEndAlreadyPassed() {
+		LocalDateTime seoulNow = LocalDateTime.now(LocalDateTimeScalar.ZONE);
+		Posting posting = publishableDraft(null, null, seoulNow.minusDays(10), seoulNow.minusDays(2));
+
+		assertThatThrownBy(() -> postingService.publish(operator.getId(), posting.getId()))
+			.isInstanceOf(BusinessException.class)
+			.satisfies(e -> {
+				BusinessException ex = (BusinessException)e;
+				assertThat(ex.getErrorCode()).isEqualTo(PostingErrorCode.INVALID_INPUT);
+				assertThat(ex.getFieldErrors()).extracting(FieldErrorResponse::message)
+					.contains("모집 종료가 이미 지났어요.");
+			});
+	}
+
+	@Test
+	@DisplayName("활동 종료가 시작보다 뒤가 아니면 POSTING_400을 던진다")
+	void rejectsPublishingWhenActivityPeriodReversed() {
+		LocalDateTime seoulNow = LocalDateTime.now(LocalDateTimeScalar.ZONE);
+		Posting posting = publishableDraft(LocalDate.now().plusMonths(2), LocalDate.now().plusMonths(1),
+			seoulNow.plusDays(1), seoulNow.plusDays(5));
+
+		assertThatThrownBy(() -> postingService.publish(operator.getId(), posting.getId()))
+			.isInstanceOf(BusinessException.class)
+			.satisfies(e -> {
+				BusinessException ex = (BusinessException)e;
+				assertThat(ex.getErrorCode()).isEqualTo(PostingErrorCode.INVALID_INPUT);
+				assertThat(ex.getFieldErrors()).extracting(FieldErrorResponse::message)
+					.contains("활동 종료는 시작보다 뒤여야 해요.");
+			});
+	}
+
+	@Test
 	@DisplayName("이미 게시된 공고를 다시 게시하면 POSTING_409를 던진다")
 	void rejectsPublishingAlreadyPublished() {
 		Posting posting = publishablePosting("게시용 공고");
@@ -309,8 +590,11 @@ class PostingServiceTest {
 
 		assertThatThrownBy(() -> postingService.publish(operator.getId(), posting.getId()))
 			.isInstanceOf(BusinessException.class)
-			.extracting(e -> ((BusinessException)e).getErrorCode())
-			.isEqualTo(PostingErrorCode.CONFLICT);
+			.satisfies(e -> {
+				BusinessException ex = (BusinessException)e;
+				assertThat(ex.getErrorCode()).isEqualTo(PostingErrorCode.CONFLICT);
+				assertThat(ex.getReason()).isEqualTo(PostingConflictReason.ALREADY_PUBLISHED.name());
+			});
 	}
 
 	@Test
@@ -344,20 +628,35 @@ class PostingServiceTest {
 		postingService.saveDraft(operator.getId(), organization.getId(), null, basicInput("아직 비공개"));
 
 		PostingFilter filter = new PostingFilter("백엔드", null, null, null, null);
-		PostingPage page = postingService.findList(filter, PostingSort.LATEST, 0, 10);
+		PostingPage page = postingService.findList(filter, PostingSort.LATEST, 0, 10, null);
 
-		assertThat(page.items()).extracting(Posting::getTitle).containsExactly("백엔드 모집");
+		assertThat(page.items()).extracting(PostingCard::title).containsExactly("백엔드 모집");
 		assertThat(page.totalCount()).isEqualTo(1);
 		assertThat(page.hasNext()).isFalse();
 	}
 
 	@Test
-	@DisplayName("postings의 size가 범위를 벗어나면 COMMON_400을 던진다")
+	@DisplayName("postings의 page가 음수거나 size가 범위를 벗어나면 COMMON_400을 던진다")
 	void rejectsInvalidPageSize() {
-		assertThatThrownBy(() -> postingService.findList(null, PostingSort.LATEST, 0, 0))
+		assertThatThrownBy(() -> postingService.findList(null, PostingSort.LATEST, 0, 0, null))
 			.isInstanceOf(BusinessException.class)
 			.extracting(e -> ((BusinessException)e).getErrorCode())
 			.isEqualTo(CommonErrorCode.INVALID_INPUT);
+		assertThatThrownBy(() -> postingService.findList(null, PostingSort.LATEST, -1, 10, null))
+			.isInstanceOf(BusinessException.class)
+			.extracting(e -> ((BusinessException)e).getErrorCode())
+			.isEqualTo(CommonErrorCode.INVALID_INPUT);
+		assertThatThrownBy(() -> postingService.findList(null, PostingSort.LATEST, 0, 51, null))
+			.isInstanceOf(BusinessException.class)
+			.extracting(e -> ((BusinessException)e).getErrorCode())
+			.isEqualTo(CommonErrorCode.INVALID_INPUT);
+	}
+
+	@Test
+	@DisplayName("postings는 page=0, size=1과 size=50(최대치) 경계값을 정상 처리한다")
+	void acceptsBoundaryPageSize() {
+		assertThat(postingService.findList(null, PostingSort.LATEST, 0, 1, null)).isNotNull();
+		assertThat(postingService.findList(null, PostingSort.LATEST, 0, 50, null)).isNotNull();
 	}
 
 	@Test
@@ -394,12 +693,13 @@ class PostingServiceTest {
 			publishablePosting(councilElsewhere, "타교 학생회 모집", LocalDateTime.now().plusDays(7)).getId());
 
 		PostingPage bySchool = postingService.findList(new PostingFilter(null, schoolA.getId(), null, null, null),
-			PostingSort.LATEST, 0, 10);
-		assertThat(bySchool.items()).extracting(Posting::getTitle).containsExactly("A동아리 모집");
+			PostingSort.LATEST, 0, 10, null);
+		assertThat(bySchool.items()).extracting(PostingCard::title).containsExactly("A동아리 모집");
 
 		PostingPage byType = postingService.findList(
-			new PostingFilter(null, null, OrganizationType.STUDENT_COUNCIL, null, null), PostingSort.LATEST, 0, 10);
-		assertThat(byType.items()).extracting(Posting::getTitle).containsExactly("타교 학생회 모집");
+			new PostingFilter(null, null, List.of(OrganizationType.STUDENT_COUNCIL), null, null), PostingSort.LATEST,
+			0, 10, null);
+		assertThat(byType.items()).extracting(PostingCard::title).containsExactly("타교 학생회 모집");
 	}
 
 	@Test
@@ -412,9 +712,9 @@ class PostingServiceTest {
 		postingService.publish(operator.getId(), publishablePosting("면접 없는 모집").getId());
 
 		PostingPage page = postingService.findList(new PostingFilter(null, null, null, true, null),
-			PostingSort.LATEST, 0, 10);
+			PostingSort.LATEST, 0, 10, null);
 
-		assertThat(page.items()).extracting(Posting::getTitle).containsExactly("면접 있는 모집");
+		assertThat(page.items()).extracting(PostingCard::title).containsExactly("면접 있는 모집");
 	}
 
 	@Test
@@ -428,11 +728,39 @@ class PostingServiceTest {
 			publishablePosting("마감 여유", seoulNow.plusDays(10)).getId());
 
 		PostingPage closingSoonOnly = postingService.findList(new PostingFilter(null, null, null, null, true),
-			PostingSort.LATEST, 0, 10);
-		assertThat(closingSoonOnly.items()).extracting(Posting::getTitle).containsExactly("마감 임박");
+			PostingSort.LATEST, 0, 10, null);
+		assertThat(closingSoonOnly.items()).extracting(PostingCard::title).containsExactly("마감 임박");
 
-		PostingPage sorted = postingService.findList(null, PostingSort.CLOSING_SOON, 0, 10);
-		assertThat(sorted.items()).extracting(Posting::getTitle).containsExactly("마감 임박", "마감 여유");
+		PostingPage sorted = postingService.findList(null, PostingSort.CLOSING_SOON, 0, 10, null);
+		assertThat(sorted.items()).extracting(PostingCard::title).containsExactly("마감 임박", "마감 여유");
+	}
+
+	@Test
+	@DisplayName("JVM 기본 시간대가 서울이 아니어도 closingSoon은 서울 시각 기준으로 판단한다")
+	void closingSoonJudgesInSeoulTimeRegardlessOfJvmDefaultZone() {
+		TimeZone originalDefault = TimeZone.getDefault();
+		try {
+			TimeZone.setDefault(TimeZone.getTimeZone("UTC"));
+			LocalDateTime seoulNow = LocalDateTime.now(LocalDateTimeScalar.ZONE);
+
+			// 실제로는 마감 지난 공고를 publish할 수 없으니, 게시 후 시간이 지난 상황을 엔티티 직접 수정으로 흉내냄
+			Posting expired = publishablePosting("마감 5시간 지남", seoulNow.plusHours(1));
+			postingService.publish(operator.getId(), expired.getId());
+			expired.updateBasicStep(expired.getTitle(), expired.getContent(), expired.getSemester(),
+				expired.getRegion(), expired.getFee(), expired.isAllowEnrolled(), expired.isAllowOnLeave(),
+				expired.getEligibilityNote(), expired.getActivityStartedOn(), expired.getActivityEndedOn(),
+				expired.getRecruitStartAt(), seoulNow.minusHours(5));
+
+			Posting stillSoon = publishablePosting("마감 1시간 남음", seoulNow.plusHours(1));
+			postingService.publish(operator.getId(), stillSoon.getId());
+
+			// 버그가 있다면 now가 UTC 기준 LocalDateTime.now()(서울보다 9시간 느림)라서 5시간 전에 마감한 공고도 범위에 걸림
+			PostingPage closingSoonOnly = postingService.findList(new PostingFilter(null, null, null, null, true),
+				PostingSort.LATEST, 0, 10, null);
+			assertThat(closingSoonOnly.items()).extracting(PostingCard::title).containsExactly("마감 1시간 남음");
+		} finally {
+			TimeZone.setDefault(originalDefault);
+		}
 	}
 
 	@Test
@@ -449,9 +777,9 @@ class PostingServiceTest {
 			.executeUpdate();
 		flushAndClear();
 
-		PostingPage page = postingService.findList(null, PostingSort.POPULAR, 0, 10);
+		PostingPage page = postingService.findList(null, PostingSort.POPULAR, 0, 10, null);
 
-		assertThat(page.items()).extracting(Posting::getTitle)
+		assertThat(page.items()).extracting(PostingCard::title)
 			.containsExactly("더 인기있는 모집", "덜 인기있는 모집");
 	}
 
@@ -462,7 +790,7 @@ class PostingServiceTest {
 		postingService.publish(operator.getId(), publishablePosting("모집2").getId());
 		postingService.publish(operator.getId(), publishablePosting("모집3").getId());
 
-		PostingPage page = postingService.findList(null, PostingSort.LATEST, 0, 2);
+		PostingPage page = postingService.findList(null, PostingSort.LATEST, 0, 2, null);
 
 		assertThat(page.items()).hasSize(2);
 		assertThat(page.totalCount()).isEqualTo(3);
@@ -535,7 +863,7 @@ class PostingServiceTest {
 		Posting posting = postingService.saveDraft(operator.getId(), organization.getId(), null,
 			basicInput("이미지 테스트"));
 		List<PostingImageInput> images = IntStream.range(0, 6)
-			.mapToObj(i -> new PostingImageInput("https://img/" + i + ".png", i))
+			.mapToObj(i -> new PostingImageInput("https://img/" + i + ".png", i, false))
 			.toList();
 
 		assertThatThrownBy(() -> postingService.saveDraft(operator.getId(), organization.getId(), posting.getId(),
@@ -562,22 +890,44 @@ class PostingServiceTest {
 			withQuestions(List.of(new QuestionInput(null, QuestionType.TEXT, "자기소개", null, true, 500, null, 0))));
 	}
 
+	// 모집 기간/활동 기간 검증 테스트용. 포지션·문항은 채워서 그 단계는 걸리지 않게 함
+	private Posting publishableDraft(LocalDate activityStartedOn, LocalDate activityEndedOn,
+		LocalDateTime recruitStartAt, LocalDateTime recruitEndAt) {
+		Posting posting = postingService.saveDraft(operator.getId(), organization.getId(), null,
+			basicInput("기간 검증용", activityStartedOn, activityEndedOn, recruitStartAt, recruitEndAt));
+		postingService.saveDraft(operator.getId(), organization.getId(), posting.getId(),
+			withPositions(List.of(new PositionInput(null, "백엔드", 1, 0))));
+		return postingService.saveDraft(operator.getId(), organization.getId(), posting.getId(),
+			withQuestions(List.of(new QuestionInput(null, QuestionType.TEXT, "자기소개", null, true, 500, null, 0))));
+	}
+
 	// 1 title, 2 content, 3 semester, 4 region, 5 fee, 6 allowEnrolled, 7 allowOnLeave, 8 eligibilityNote,
 	// 9 activityStartedOn, 10 activityEndedOn, 11 recruitStartAt, 12 recruitEndAt, 13 images,
 	// 14 noPosition, 15 positions, 16 hasInterview, 17 interviewMethod, 18 interviewMinutes, 19 breakMinutes,
 	// 20 assignRule, 21 maxApplicantsPerInterview, 22 maxParallelInterviews, 23 interviewTimeRanges,
-	// 24 docScorePerQuestion, 25 questions, 26 representativeImageId
+	// 24 docScorePerQuestion, 25 questions
 	private PostingDraftInput basicInput(String title) {
 		return basicInput(title, LocalDateTime.now().plusDays(7));
 	}
 
 	private PostingDraftInput basicInput(String title, LocalDateTime recruitEndAt) {
-		return new PostingDraftInput(title, "본문", "2026-2", "서울", "무료", true, false, null,
+		return new PostingDraftInput(title, "본문", ArgumentValue.ofNullable("2026-2"),
+			ArgumentValue.ofNullable("서울"), ArgumentValue.ofNullable("무료"), true, false, null,
 			null, null, LocalDateTime.now(), recruitEndAt, null,
 			null, null,
 			null, null, null, null, null, null, null, null,
+			null, null);
+	}
+
+	private PostingDraftInput basicInput(String title, LocalDate activityStartedOn, LocalDate activityEndedOn,
+		LocalDateTime recruitStartAt, LocalDateTime recruitEndAt) {
+		return new PostingDraftInput(title, "본문", ArgumentValue.ofNullable("2026-2"),
+			ArgumentValue.ofNullable("서울"), ArgumentValue.ofNullable("무료"), true, false, null,
+			ArgumentValue.ofNullable(activityStartedOn), ArgumentValue.ofNullable(activityEndedOn), recruitStartAt,
+			recruitEndAt, null,
 			null, null,
-			null);
+			null, null, null, null, null, null, null, null,
+			null, null);
 	}
 
 	private PostingDraftInput withPositions(List<PositionInput> positions) {
@@ -585,8 +935,15 @@ class PostingServiceTest {
 			null, null, null, null, null,
 			false, positions,
 			null, null, null, null, null, null, null, null,
+			null, null);
+	}
+
+	private PostingDraftInput withEligibilityNote(ArgumentValue<String> eligibilityNote) {
+		return new PostingDraftInput(null, null, null, null, null, null, null, eligibilityNote,
+			null, null, null, null, null,
 			null, null,
-			null);
+			null, null, null, null, null, null, null, null,
+			null, null);
 	}
 
 	private PostingDraftInput withNoPosition(boolean noPosition) {
@@ -594,8 +951,7 @@ class PostingServiceTest {
 			null, null, null, null, null,
 			noPosition, null,
 			null, null, null, null, null, null, null, null,
-			null, null,
-			null);
+			null, null);
 	}
 
 	private PostingDraftInput withQuestions(List<QuestionInput> questions) {
@@ -603,8 +959,7 @@ class PostingServiceTest {
 			null, null, null, null, null,
 			null, null,
 			null, null, null, null, null, null, null, null,
-			true, questions,
-			null);
+			true, questions);
 	}
 
 	private PostingDraftInput withImages(List<PostingImageInput> images) {
@@ -612,17 +967,7 @@ class PostingServiceTest {
 			null, null, null, null, images,
 			null, null,
 			null, null, null, null, null, null, null, null,
-			null, null,
-			null);
-	}
-
-	private PostingDraftInput withRepresentativeImage(Long imageId) {
-		return new PostingDraftInput(null, null, null, null, null, null, null, null,
-			null, null, null, null, null,
-			null, null,
-			null, null, null, null, null, null, null, null,
-			null, null,
-			imageId);
+			null, null);
 	}
 
 	private PostingDraftInput withInterview(Boolean hasInterview, InterviewMethod interviewMethod,
@@ -633,8 +978,7 @@ class PostingServiceTest {
 			null, null,
 			hasInterview, interviewMethod, interviewMinutes, breakMinutes, assignRule, maxApplicantsPerInterview,
 			maxParallelInterviews, interviewTimeRanges,
-			null, null,
-			null);
+			null, null);
 	}
 
 	@Test
