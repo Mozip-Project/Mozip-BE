@@ -25,11 +25,13 @@ public interface MemberRepository extends JpaRepository<Member, Long> {
 		SELECT m FROM Member m
 		JOIN FETCH m.organization o
 		LEFT JOIN FETCH o.school
-		WHERE m.user.id = :userId
+		WHERE m.user.id = :userId AND m.leftAt IS NULL
 		""")
 	List<Member> findByUserId(@Param("userId") Long userId);
 
-	boolean existsByOrganizationIdAndUserIdAndRole(Long organizationId, Long userId, MemberRole role);
+	// 소속 중인 운영진의 단체 id (단체 행을 잠그기 전에 어느 단체인지 알아내는 용도)
+	@Query("select m.organization.id from Member m where m.id = :id and m.leftAt is null")
+	Optional<Long> findOrganizationIdByActiveId(@Param("id") Long id);
 
 	List<Member> findAllByUserIdAndLeftAtIsNull(Long userId);
 
@@ -56,8 +58,12 @@ public interface MemberRepository extends JpaRepository<Member, Long> {
 	List<Long> findOrganizationIdsByUserIdAndOrganizationIn(@Param("userId") Long userId,
 		@Param("organizations") Collection<Organization> organizations);
 
-	// 운영진 관리 표: 대표자 먼저, 그 뒤 합류일 오름차순
-	@Query("select m from Member m join fetch m.user left join fetch m.team where m.organization.id = :organizationId and m.leftAt is null order by case when m.role = com.mozip.domain.organization.entity.MemberRole.REPRESENTATIVE then 0 else 1 end, m.createdAt, m.id")
+	// 운영진 관리 표: 대표자 먼저, 그 뒤 합류일 오름차순. 하위 필드가 읽는 회원, 단체, 팀, 학교를 함께 조회
+	@Query("select m from Member m join fetch m.user u left join fetch u.school join fetch m.organization o "
+		+ "left join fetch o.school left join fetch m.team t left join fetch t.organization "
+		+ "where m.organization.id = :organizationId and m.leftAt is null "
+		+ "order by case when m.role = com.mozip.domain.organization.entity.MemberRole.REPRESENTATIVE then 0 else 1 end, "
+		+ "m.createdAt, m.id")
 	List<Member> findAllActiveWithUserAndTeamByOrganizationId(@Param("organizationId") Long organizationId);
 
 }

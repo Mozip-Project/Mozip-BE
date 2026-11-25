@@ -54,7 +54,7 @@
 
 | 코드 | HTTP | 상수 | 언제 |
 |---|---|---|---|
-| `MEMBER_404` | 404 | `MEMBER_NOT_FOUND` | 운영진 없음, 이미 내보낸 운영진 |
+| `MEMBER_404` | 404 | `MEMBER_NOT_FOUND` | 운영진 없음, 이미 내보낸 운영진. 그 단체 소속이 아닌 사람이 `removeMember`를 부르면 있어도 같음 |
 | `MEMBER_409` | 409 | `MEMBER_CONFLICT` | 지금 운영진 상태로는 처리할 수 없음 (`MemberReason`으로 구분) |
 
 ## 알림 (`NotificationErrorCode`, #48)

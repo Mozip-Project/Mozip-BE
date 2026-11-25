@@ -223,6 +223,6 @@ extend type Mutation {
     createOrganization(input: CreateOrganizationInput!): Organization!
     "단체 프로필 수정, 그 단체의 운영진만 가능 (아니면 COMMON_403). 없으면 ORG_404"
     updateOrganization(id: ID!, input: UpdateOrganizationInput!): Organization!
-    "운영진 내보내기, 대표자만 가능 (아니면 COMMON_403). 대표자 행은 못 내보냄 (MEMBER_409, reason REPRESENTATIVE), 없거나 이미 나간 운영진이면 MEMBER_404. 행은 남기고 leftAt을 찍으며 남은 소속이 없으면 그 회원의 lastRole을 APPLICANT로 돌림"
+    "운영진 내보내기, 대표자만 가능 (아니면 COMMON_403). 대표자 행은 못 내보냄 (MEMBER_409, reason REPRESENTATIVE), 없거나 이미 나간 운영진이면 MEMBER_404, 그 단체 소속이 아닌 사람이 부르면 운영진이 있어도 MEMBER_404. 행은 남기고 leftAt을 찍으며 남은 소속이 없으면 그 회원의 lastRole을 APPLICANT로 돌림"
     removeMember(memberId: ID!): Boolean!
 }
