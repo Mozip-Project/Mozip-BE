@@ -267,6 +267,40 @@ class PostingServiceTest {
 	}
 
 	@Test
+	@DisplayName("hasInterview 없이 interviewMinutes만 보내도 반영된다")
+	void touchingOnlyInterviewMinutesStillUpdatesIt() {
+		Posting posting = postingService.saveDraft(operator.getId(), organization.getId(), null, basicInput("제목"));
+		posting = postingService.saveDraft(operator.getId(), organization.getId(), posting.getId(),
+			withInterview(true, InterviewMethod.ONLINE, 30, 5, AssignRule.SAME_TEAM, 1, 2, null));
+
+		Posting updated = postingService.saveDraft(operator.getId(), organization.getId(), posting.getId(),
+			withInterview(null, null, 20, null, null, null, null, null));
+
+		assertThat(updated.getInterviewMinutes()).isEqualTo(20);
+		// hasInterview를 안 보냈으니 기존 값과 다른 면접 설정은 그대로 유지됨
+		assertThat(updated.isHasInterview()).isTrue();
+		assertThat(updated.getInterviewMethod()).isEqualTo(InterviewMethod.ONLINE);
+		assertThat(updated.getBreakMinutes()).isEqualTo(5);
+	}
+
+	@Test
+	@DisplayName("hasInterview 없이 interviewTimeRanges만 보내도 반영된다")
+	void touchingOnlyInterviewTimeRangesStillUpdatesThem() {
+		Posting posting = postingService.saveDraft(operator.getId(), organization.getId(), null, basicInput("제목"));
+		posting = postingService.saveDraft(operator.getId(), organization.getId(), posting.getId(),
+			withInterview(true, InterviewMethod.ONLINE, 30, 5, AssignRule.SAME_TEAM, 1, 2, null));
+		LocalDate date = LocalDate.now().plusDays(3);
+
+		postingService.saveDraft(operator.getId(), organization.getId(), posting.getId(),
+			withInterview(null, null, null, null, null, null, null,
+				List.of(new InterviewTimeRangeInput(null, date, LocalTime.of(10, 0), LocalTime.of(12, 0), null))));
+
+		List<InterviewTimeRange> ranges = interviewTimeRangeRepository
+			.findAllByPostingOrderByDateAscStartTimeAsc(posting);
+		assertThat(ranges).hasSize(1);
+	}
+
+	@Test
 	@DisplayName("DRAFT가 아닌 공고를 수정하면 POSTING_409를 던진다")
 	void rejectsEditingNonDraft() {
 		Posting posting = publishablePosting("게시용 공고");

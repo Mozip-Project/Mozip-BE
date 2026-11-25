@@ -12,6 +12,7 @@ import java.util.Set;
 import java.util.function.Function;
 import java.util.stream.Collectors;
 
+import org.springframework.data.domain.Page;
 import org.springframework.data.domain.PageRequest;
 import org.springframework.data.domain.Pageable;
 import org.springframework.data.jpa.domain.Specification;
@@ -210,10 +211,8 @@ public class PostingService {
 		PostingSort effectiveSort = sort != null ? sort : PostingSort.LATEST;
 		Pageable pageable = PageRequest.of(page, size, effectiveSort.toJpaSort());
 
-		long totalCount = postingRepository.count(spec);
-		List<Posting> items = postingRepository.findAll(spec, pageable).getContent();
-		boolean hasNext = (long)(page + 1) * size < totalCount;
-		return new PostingPage(items, totalCount, hasNext);
+		Page<Posting> result = postingRepository.findAll(spec, pageable);
+		return new PostingPage(result.getContent(), result.getTotalElements(), result.hasNext());
 	}
 
 	public List<Posting> findOrganizationPostings(Long userId, Long organizationId, List<PostingStatus> statuses) {
@@ -271,11 +270,12 @@ public class PostingService {
 	}
 
 	private void applyInterviewStep(Posting posting, PostingDraftInput input) {
-		if (input.hasInterview() == null) {
+		if (!touchesInterviewStep(input)) {
 			return;
 		}
+		boolean hasInterview = orElse(input.hasInterview(), posting.isHasInterview());
 		posting.updateInterviewStep(
-			input.hasInterview(),
+			hasInterview,
 			orElse(input.interviewMethod(), posting.getInterviewMethod()),
 			orElse(input.interviewMinutes(), posting.getInterviewMinutes()),
 			orElse(input.breakMinutes(), posting.getBreakMinutes()),
@@ -284,8 +284,8 @@ public class PostingService {
 			orElse(input.maxParallelInterviews(), posting.getMaxParallelInterviews()));
 		if (input.interviewTimeRanges() != null) {
 			replaceInterviewTimeRanges(posting, input.interviewTimeRanges());
-		} else if (!input.hasInterview()) {
-			// 면접 없음으로 바꾸면서 interviewTimeRanges를 안 보내도 이전에 저장된 시간대는 지워야 함
+		} else if (!hasInterview) {
+			// 면접 없음으로 바뀌면서 interviewTimeRanges를 안 보내도 이전에 저장된 시간대는 지워야 함
 			replaceInterviewTimeRanges(posting, List.of());
 		}
 	}
@@ -480,6 +480,13 @@ public class PostingService {
 
 	private static boolean touchesPositionsStep(PostingDraftInput input) {
 		return input.noPosition() != null || input.positions() != null;
+	}
+
+	private static boolean touchesInterviewStep(PostingDraftInput input) {
+		return input.hasInterview() != null || input.interviewMethod() != null
+			|| input.interviewMinutes() != null || input.breakMinutes() != null
+			|| input.assignRule() != null || input.maxApplicantsPerInterview() != null
+			|| input.maxParallelInterviews() != null || input.interviewTimeRanges() != null;
 	}
 
 	private static boolean touchesQuestionsStep(PostingDraftInput input) {
