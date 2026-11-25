@@ -11,6 +11,7 @@ import org.assertj.core.api.ThrowableAssert.ThrowingCallable;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
+import org.springframework.graphql.data.ArgumentValue;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.context.SpringBootTest;
 import org.springframework.context.annotation.Import;
@@ -448,12 +449,11 @@ class MessageServiceTest {
 	}
 
 	private PostingDraftInput basicInput(String title) {
-		return new PostingDraftInput(title, "본문", "2026-2", "서울", "무료", true, false, null,
+		return new PostingDraftInput(title, "본문", ArgumentValue.ofNullable("2026-2"), ArgumentValue.ofNullable("서울"), ArgumentValue.ofNullable("무료"), true, false, null,
 			null, null, LocalDateTime.now(), LocalDateTime.now().plusDays(7), null,
 			null, null,
 			null, null, null, null, null, null, null, null,
-			null, null,
-			null);
+			null, null);
 	}
 
 	private PostingDraftInput withNoPosition() {
@@ -461,8 +461,7 @@ class MessageServiceTest {
 			null, null, null, null, null,
 			true, List.of(),
 			null, null, null, null, null, null, null, null,
-			null, null,
-			null);
+			null, null);
 	}
 
 	private PostingDraftInput withQuestions(List<QuestionInput> questions) {
@@ -470,8 +469,7 @@ class MessageServiceTest {
 			null, null, null, null, null,
 			null, null,
 			null, null, null, null, null, null, null, null,
-			true, questions,
-			null);
+			true, questions);
 	}
 
 }
