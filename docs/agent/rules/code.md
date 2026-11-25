@@ -24,7 +24,8 @@ domain/{도메인}/
 ├── repository   Spring Data 리포지토리
 ├── entity       엔티티와 enum
 ├── dto          요청 입력, 응답 record
-└── exception    {도메인}ErrorCode, reason enum
+├── exception    {도메인}ErrorCode, reason enum
+└── config       그 도메인에서만 쓰는 설정 클래스(@ConfigurationProperties, @Configuration). 필요한 도메인만 둔다
 ```
 
 - 모든 도메인이 같이 쓰는 코드만 `com.mozip.global`에 둔다. 한 도메인에서만 쓰면 그 도메인 패키지에 둔다

@@ -25,7 +25,7 @@
 | 번호 | 제목 | 상태 |
 |---|---|---|
 | 001 | 도메인별 계층 패키지, 헥사고날 안 씀 | accepted |
-| 002 | 프론트 API는 GraphQL, REST는 인증과 헬스만 | accepted |
+| 002 | 프론트 API는 GraphQL, REST는 인증과 헬스, 외부 서비스 콜백만 | accepted |
 | 003 | 에러 코드는 도메인_HTTP상태 하나, 상황은 reason으로 | accepted |
 | 004 | DDL은 db/ddl SQL 파일로 수동 관리, Flyway 안 씀 | proposed |
 | 005 | 다른 담당 기능은 쓰는 쪽이 인터페이스와 임시 구현을 먼저 넣음 | proposed |
