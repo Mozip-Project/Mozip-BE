@@ -34,6 +34,7 @@
 | 코드 | HTTP | 상수 | 언제 |
 |---|---|---|---|
 | `USER_001` | 409 | `DUPLICATE_PHONE` | 이미 가입된 휴대폰 번호 |
+| `USER_404` | 404 | `NOT_FOUND` | 회원 없음 (알림 설정 변경 시 사용, #48) |
 
 ## 파일 (`FileErrorCode`)
 
@@ -55,6 +56,12 @@
 | 코드 | HTTP | 상수 | 언제 |
 |---|---|---|---|
 | `DISCORD_401` | 401 | `INVALID_SIGNATURE` | `POST /api/discord/interactions`의 Ed25519 서명 헤더가 없거나 body와 맞지 않음. 공개 키 설정이 비어 있을 때도 같음 |
+
+## 알림 (`NotificationErrorCode`, #48)
+
+| 코드 | HTTP | 상수 | 언제 |
+|---|---|---|---|
+| `NOTIFICATION_403` | 403 | `FORBIDDEN` | `markNotificationsRead`에 본인 알림이 아닌 id가 섞여 있음 |
 
 ## 공고 (`PostingErrorCode`, #65)
 

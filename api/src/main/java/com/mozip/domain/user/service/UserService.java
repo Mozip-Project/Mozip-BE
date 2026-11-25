@@ -57,7 +57,7 @@ public class UserService {
 			user.isMarketingAgreed(),
 			user.getTermsAgreedAt(),
 			organizations,
-			NotificationSettings.defaults(),
+			NotificationSettings.from(user),
 			0,
 			user.getCreatedAt()
 		);

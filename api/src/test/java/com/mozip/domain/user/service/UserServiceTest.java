@@ -67,17 +67,20 @@ class UserServiceTest {
 	}
 
 	@Test
-	@DisplayName("me는 소속 단체 목록과 알림 기본값을 담아 반환한다")
+	@DisplayName("me는 소속 단체 목록과 알림 설정을 담아 반환한다")
 	void me() {
 		Organization organization = organization();
 		Member member = Member.create(organization, user, null, MemberRole.OPERATOR);
 		when(memberRepository.findByUserId(1L)).thenReturn(List.of(member));
+		user.updateNotificationSettings(false, true, false);
 
 		Me me = userService.me(1L);
 
 		assertThat(me.id()).isEqualTo(1L);
 		assertThat(me.organizations()).containsExactly(organization);
-		assertThat(me.notificationSettings().notifyResult()).isTrue();
+		assertThat(me.notificationSettings().notifyResult()).isFalse();
+		assertThat(me.notificationSettings().notifyScrap()).isTrue();
+		assertThat(me.notificationSettings().notifyOperator()).isFalse();
 		assertThat(me.unreadNotificationCount()).isZero();
 	}
 
