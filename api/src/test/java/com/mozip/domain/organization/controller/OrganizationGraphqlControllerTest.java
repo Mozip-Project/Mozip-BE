@@ -98,7 +98,8 @@ class OrganizationGraphqlControllerTest {
 	private static final String MEMBERS = """
 		query($organizationId: ID!) {
 			members(organizationId: $organizationId) {
-				id role user { id name } team { id } createdAt
+				id role user { id name school { name } } team { id organization { name } } createdAt
+				organization { name school { name } }
 			}
 		}
 		""";
@@ -326,7 +327,8 @@ class OrganizationGraphqlControllerTest {
 			.path("members[0].role").entity(String.class).isEqualTo("REPRESENTATIVE")
 			.path("members[0].user.id").entity(String.class).isEqualTo(representative.getId().toString())
 			.path("members[1].id").entity(String.class).isEqualTo(operatorMember.getId().toString())
-			.path("members[1].team").valueIsNull();
+			.path("members[1].team").valueIsNull()
+			.path("members[1].organization.name").entity(String.class).isEqualTo("모집 동아리");
 
 		asUser(saveUser()).document(MEMBERS)
 			.variable("organizationId", organizationId)
@@ -489,7 +491,7 @@ class OrganizationGraphqlControllerTest {
 				""")
 			.variable("organizationId", organizationId)
 			.execute()
-			.path("createInviteLink.url").entity(String.class).isEqualTo("https://mozip.kr/invite/" + token);
+			.path("createInviteLink.url").entity(String.class).isEqualTo("https://mo-zip.com/invite/" + token);
 	}
 
 	@Test

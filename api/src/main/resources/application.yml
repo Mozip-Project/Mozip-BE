@@ -31,6 +31,14 @@ graphql:
   # introspection(__schema, __type) 허용 여부, GraphiQL 자동완성과 프론트 codegen이 사용 (운영에서는 false)
   introspection-enabled: true
 
+aws:
+  s3:
+    # 환경별로 버킷을 분리 (dev/prod가 서로 다른 S3_BUCKET, CDN_DOMAIN을 주입)
+    bucket: ${S3_BUCKET}
+    region: ${AWS_REGION:ap-northeast-2}
+    presigned-url-expiration: 10m
+    cdn-domain: ${CDN_DOMAIN}
+
 auth:
   # 개발용 인증 우회 (true면 URL 인증, @PreAuthorize 검사 해제)
   # 켤 때: 환경변수 AUTH_BYPASS_ENABLED=true
@@ -51,7 +59,7 @@ auth:
 mozip:
   invite:
     # 공용 초대 링크 주소 앞부분 (프론트 주소)
-    base-url: ${INVITE_BASE_URL:https://mozip.kr/invite/}
+    base-url: ${INVITE_BASE_URL:https://mo-zip.com/invite/}
 
 management:
   endpoints:

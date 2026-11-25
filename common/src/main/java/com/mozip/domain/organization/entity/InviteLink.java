@@ -17,7 +17,7 @@ import lombok.AccessLevel;
 import lombok.Getter;
 import lombok.NoArgsConstructor;
 
-// 공용 초대 링크 (mozip.kr/invite/{token}), 토큰으로 누구나 합류하고 7일 뒤 만료
+// 공용 초대 링크 (mo-zip.com/invite/{token}), 토큰으로 누구나 합류하고 7일 뒤 만료
 @Getter
 @Entity
 @Table(name = "invite_links")

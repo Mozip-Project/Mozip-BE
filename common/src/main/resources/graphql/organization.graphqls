@@ -104,6 +104,18 @@ type Organization {
     createdAt: DateTime!
 }
 
+"공고 카드 등에서 쓰는 단체 요약 정보"
+type OrganizationSummary {
+    id: ID!
+    name: String!
+    logoUrl: String
+    "연합이면 null"
+    school: School
+    type: OrganizationType!
+    "학생회가 아니면 null"
+    councilLevel: CouncilLevel
+}
+
 type OrganizationLink {
     id: ID!
     type: OrganizationLinkType!
@@ -132,7 +144,7 @@ type Invitation {
     id: ID!
     organization: Organization!
     inviter: User!
-    "가입자면 바로 채움, 미가입이면 가입 시 contact로 찾아 채움"
+    "가입자면 바로 채움, 미가입이면 수락 시 로그인 회원과 연락처를 비교해 채움"
     invitee: User
     "휴대폰 번호(숫자만) 또는 이메일(소문자)"
     inviteeContact: String!
@@ -146,7 +158,7 @@ type Invitation {
     createdAt: DateTime!
 }
 
-"초대 링크 (mozip.kr/invite/{token})"
+"초대 링크 (mo-zip.com/invite/{token})"
 type InviteLink {
     id: ID!
     organization: Organization!
@@ -169,6 +181,11 @@ type RepresentativeTransfer {
     status: TransferStatus!
     respondedAt: DateTime
     createdAt: DateTime!
+}
+
+input UpdateOrganizationLogoInput {
+    organizationId: ID!
+    fileKey: String!
 }
 
 input CreateOrganizationInput {
@@ -218,17 +235,19 @@ extend type Query {
 }
 
 extend type Mutation {
+    "단체 로고를 변경합니다. fileKey는 파일 업로드 URL 발급(POST /api/files/presigned-url, purpose=ORG_LOGO)으로 받아 S3에 업로드를 마친 값입니다."
+    updateOrganizationLogo(input: UpdateOrganizationLogoInput!): Organization!
     "단체를 만들고 호출자를 대표자로 등록, 심사 상태는 PENDING"
     createOrganization(input: CreateOrganizationInput!): Organization!
     "단체 프로필 수정, 그 단체의 운영진만 가능 (아니면 COMMON_403). 없으면 ORG_404"
     updateOrganization(id: ID!, input: UpdateOrganizationInput!): Organization!
-    "운영진 내보내기, 대표자만 가능 (아니면 COMMON_403). 대표자 행은 못 내보냄 (MEMBER_409, reason REPRESENTATIVE), 없거나 이미 나간 운영진이면 MEMBER_404. 행은 남기고 leftAt을 찍으며 남은 소속이 없으면 그 회원의 lastRole을 APPLICANT로 돌림"
+    "운영진 내보내기, 대표자만 가능 (아니면 COMMON_403). 대표자 행은 못 내보냄 (MEMBER_409, reason REPRESENTATIVE), 없거나 이미 나간 운영진이면 MEMBER_404, 그 단체 소속이 아닌 사람이 부르면 운영진이 있어도 MEMBER_404. 행은 남기고 leftAt을 찍으며 남은 소속이 없으면 그 회원의 lastRole을 APPLICANT로 돌림"
     removeMember(memberId: ID!): Boolean!
     "운영진 개인 초대, 그 단체 운영진만 (아니면 COMMON_403). contact는 휴대폰 번호(하이픈 허용) 또는 이메일, 형식이 틀리면 COMMON_400 (reason CONTACT_INVALID). 가입자면 invitee를 채우고 INVITATION 알림. 7일 뒤 만료. 이미 운영진이면 MEMBER_409 (reason ALREADY_MEMBER), 대기 중 초대가 있으면 MEMBER_409 (reason ALREADY_INVITED). teamId는 그 단체 팀만 (reason TEAM_NOT_FOUND), 팀 없는 단체면 reason NO_TEAM_ORGANIZATION"
     inviteMember(organizationId: ID!, contact: String!, teamId: ID): Invitation!
     "공용 초대 링크 발급, 그 단체 운영진만. 유효한 링크가 있으면 그 링크를 돌려주고 없으면 7일짜리 새 링크"
     createInviteLink(organizationId: ID!): InviteLink!
-    "개인 초대 코드 또는 공용 링크 토큰으로 합류해 OPERATOR가 됨. 없는 코드 MEMBER_404, 만료 MEMBER_410, 처리된 초대 MEMBER_409 (reason ALREADY_HANDLED), 이미 운영진 MEMBER_409 (reason ALREADY_MEMBER). 개인 초대는 초대받은 회원(휴대폰 일치)만 수락 가능 (아니면 COMMON_403)"
+    "개인 초대 코드 또는 공용 링크 토큰으로 합류해 OPERATOR가 됨. 없는 코드 MEMBER_404, 만료 MEMBER_410, 처리된 초대 MEMBER_409 (reason ALREADY_HANDLED), 이미 운영진 MEMBER_409 (reason ALREADY_MEMBER). 개인 초대는 초대받은 회원(휴대폰 일치)만 수락 가능 (아니면 COMMON_403). 합류하면 그 단체에서 같은 회원에게 걸려 있던 다른 대기 초대는 CANCELED가 됨"
     acceptInvitation(code: String!): Member!
     "팀 목록 전체 교체, 그 단체 운영진만. 배열 순서가 sortOrder. 목록에서 빠진 팀은 삭제하고 소속 운영진은 팀 미지정으로. 팀 없는 단체면 COMMON_400 (reason NO_TEAM_ORGANIZATION), 공고 포지션이 쓰는 팀을 빼면 TEAM_409. 이름 규칙 위반 reason TEAM_NAME_INVALID / TEAM_DUPLICATED, 다른 단체 팀 id는 TEAM_NOT_FOUND"
     saveTeams(organizationId: ID!, teams: [TeamInput!]!): [Team!]!

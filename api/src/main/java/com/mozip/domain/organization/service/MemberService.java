@@ -15,6 +15,7 @@ import com.mozip.domain.organization.exception.MemberReason;
 import com.mozip.domain.organization.repository.InviteLinkRepository;
 import com.mozip.domain.organization.repository.MemberRepository;
 import com.mozip.domain.organization.repository.RepresentativeTransferRepository;
+import com.mozip.domain.organization.repository.OrganizationRepository;
 import com.mozip.global.exception.BusinessException;
 import com.mozip.global.exception.CommonErrorCode;
 
@@ -28,6 +29,7 @@ public class MemberService {
 
 	private final MemberRepository memberRepository;
 	private final InviteLinkRepository inviteLinkRepository;
+	private final OrganizationRepository organizationRepository;
 	private final OrganizationService organizationService;
 	private final RepresentativeTransferRepository representativeTransferRepository;
 
@@ -41,15 +43,19 @@ public class MemberService {
 	}
 
 	// 대표자만 내보낼 수 있고 대표자 본인은 내보낼 수 없음
+	// 그 단체 소속이 아닌 사람에게는 운영진이 있어도 MEMBER_404로 응답해 memberId가 있는지 알 수 없게 함
+	// 단체 행을 잠가 같은 단체의 수정, 내보내기가 차례로 처리되게 하고 운영진과 대표자 여부는 잠근 뒤에 읽음
 	// 행은 남기고 leftAt을 찍으며, 남은 소속이 없으면 그 회원의 lastRole을 APPLICANT로
 	@Transactional
 	public void removeMember(Long userId, Long memberId) {
-		Long organizationId = memberRepository.findOrganizationIdById(memberId)
-			.orElseThrow(() -> memberNotFound(memberId));
-		// 단체 행을 먼저 잠그고 운영진을 읽음 (대표자 인수 수락과 차례로 처리)
-		organizationService.getOrganizationForUpdate(organizationId);
+		Long organizationId = memberRepository.findOrganizationIdByActiveId(memberId)
+			.orElseThrow(() -> notFound(memberId));
+		if (!memberRepository.existsByOrganizationIdAndUserIdAndLeftAtIsNull(organizationId, userId)) {
+			throw notFound(memberId);
+		}
+		organizationRepository.lockById(organizationId);
 		Member member = memberRepository.findActiveWithOrganizationAndUserById(memberId)
-			.orElseThrow(() -> memberNotFound(memberId));
+			.orElseThrow(() -> notFound(memberId));
 		if (!memberRepository.existsByOrganizationIdAndUserIdAndRoleAndLeftAtIsNull(organizationId, userId,
 			MemberRole.REPRESENTATIVE)) {
 			throw forbidden(organizationId, userId);
@@ -71,7 +77,7 @@ public class MemberService {
 		member.getUser().leaveOrganization(stillOperator);
 	}
 
-	private static BusinessException memberNotFound(Long memberId) {
+	private static BusinessException notFound(Long memberId) {
 		return new BusinessException(MemberErrorCode.MEMBER_NOT_FOUND).addContext("memberId", memberId);
 	}
 

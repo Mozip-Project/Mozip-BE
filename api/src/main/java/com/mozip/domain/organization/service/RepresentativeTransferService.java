@@ -1,7 +1,6 @@
 package com.mozip.domain.organization.service;
 
 import java.time.LocalDateTime;
-import java.util.Map;
 
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
@@ -55,8 +54,9 @@ public class RepresentativeTransferService {
 		}
 
 		Long transferId = transferRepository.saveAndFlush(RepresentativeTransfer.create(representative, target)).getId();
-		notificationService.send(target.getUser().getId(), NotificationType.TRANSFER_REQUEST, Map.of(
-			"organizationId", organizationId, "transferId", transferId));
+		// 이동할 화면 주소가 정해지지 않아 링크는 비워 둠. 단체명은 50자까지라 제목 한도(200자)를 넘지 않음
+		notificationService.send(target.getUser().getId(), NotificationType.TRANSFER_REQUEST, organizationId,
+			target.getOrganization().getName() + " 대표자 인수 요청이 도착했어요", null);
 		// 응답에 필요한 회원, 팀을 함께 다시 조회
 		return transferRepository.findWithMembersById(transferId).orElseThrow();
 	}
@@ -106,8 +106,9 @@ public class RepresentativeTransferService {
 	}
 
 	private void notifyRequester(RepresentativeTransfer transfer, NotificationType type) {
-		notificationService.send(transfer.getFromMember().getUser().getId(), type, Map.of(
-			"organizationId", transfer.getOrganization().getId(), "transferId", transfer.getId()));
+		String result = type == NotificationType.TRANSFER_APPROVED ? "수락됐어요" : "거절됐어요";
+		notificationService.send(transfer.getFromMember().getUser().getId(), type, transfer.getOrganization().getId(),
+			transfer.getOrganization().getName() + " 대표자 인수 요청이 " + result, null);
 	}
 
 }

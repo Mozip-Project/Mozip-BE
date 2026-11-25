@@ -22,6 +22,7 @@ import com.mozip.domain.organization.dto.TeamInput;
 import com.mozip.domain.organization.dto.UpdateOrganizationInput;
 import com.mozip.domain.organization.entity.Invitation;
 import com.mozip.domain.organization.entity.InviteLink;
+import com.mozip.domain.organization.dto.UpdateOrganizationLogoInput;
 import com.mozip.domain.organization.entity.Member;
 import com.mozip.domain.organization.entity.RepresentativeTransfer;
 import com.mozip.domain.organization.entity.Organization;
@@ -63,6 +64,12 @@ public class OrganizationGraphqlController {
 	private final OrganizationKeywordRepository keywordRepository;
 	private final OrganizationFieldTagRepository fieldTagRepository;
 	private final OrganizationLinkRepository linkRepository;
+
+	@MutationMapping
+	public Organization updateOrganizationLogo(@Argument UpdateOrganizationLogoInput input,
+		@AuthenticationPrincipal AuthUser authUser) {
+		return organizationService.updateLogo(input.organizationId(), input.fileKey(), authUser.userId());
+	}
 
 	@MutationMapping
 	public Organization createOrganization(@Argument @Valid CreateOrganizationInput input,

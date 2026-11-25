@@ -66,6 +66,7 @@ class RepresentativeTransferConcurrencyTest {
 	@AfterEach
 	void tearDown() {
 		Long organizationId = organization.getId();
+		jdbcTemplate.update("delete from notifications where organization_id = ?", organizationId);
 		jdbcTemplate.update("delete from representative_transfers where organization_id = ?", organizationId);
 		jdbcTemplate.update("delete from members where organization_id = ?", organizationId);
 		jdbcTemplate.update("delete from users where id in (?, ?)", representative.getId(), operator.getId());

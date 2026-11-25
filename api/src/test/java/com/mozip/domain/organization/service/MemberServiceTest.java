@@ -144,14 +144,14 @@ class MemberServiceTest {
 	}
 
 	@Test
-	@DisplayName("대표자가 아니면 내보낼 수 없다 (COMMON_403)")
+	@DisplayName("대표자가 아닌 운영진은 내보낼 수 없고(COMMON_403), 소속이 아닌 사람에게는 운영진이 있어도 MEMBER_404다")
 	void removeMemberForbidden() {
 		assertThatThrownBy(() -> memberService.removeMember(operator.getId(), representativeMember.getId()))
 			.isInstanceOfSatisfying(BusinessException.class,
 				e -> assertThat(e.getErrorCode()).isEqualTo(CommonErrorCode.FORBIDDEN));
 		assertThatThrownBy(() -> memberService.removeMember(outsider.getId(), operatorMember.getId()))
 			.isInstanceOfSatisfying(BusinessException.class,
-				e -> assertThat(e.getErrorCode()).isEqualTo(CommonErrorCode.FORBIDDEN));
+				e -> assertThat(e.getErrorCode()).isEqualTo(MemberErrorCode.MEMBER_NOT_FOUND));
 		assertThat(operatorMember.getLeftAt()).isNull();
 	}
 

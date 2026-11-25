@@ -202,6 +202,25 @@ class InvitationServiceTest {
 	}
 
 	@Test
+	@DisplayName("개인 초대를 받은 회원이 공용 링크로 먼저 합류하면 그 초대는 CANCELED가 되어 내보낸 뒤 다시 쓸 수 없다")
+	void joinByLinkCancelsPendingInvitation() {
+		Invitation invitation = invitationService.inviteMember(representative.getId(), organization.getId(),
+			INVITEE_PHONE, null);
+		InviteLink link = invitationService.createInviteLink(representative.getId(), organization.getId());
+
+		Member member = invitationService.acceptInvitation(invitee.getId(), link.getToken());
+
+		assertThat(invitation.getStatus()).isEqualTo(InvitationStatus.CANCELED);
+		assertThat(invitation.getRespondedAt()).isNotNull();
+
+		memberService.removeMember(representative.getId(), member.getId());
+		memberRepository.flush();
+
+		assertConflict(() -> invitationService.acceptInvitation(invitee.getId(), invitation.getCode()),
+			MemberReason.ALREADY_HANDLED);
+	}
+
+	@Test
 	@DisplayName("공용 링크는 유효한 동안 같은 링크를 돌려주고, 누구나 토큰으로 팀 없이 합류한다")
 	void inviteLink() {
 		InviteLink link = invitationService.createInviteLink(representative.getId(), organization.getId());

@@ -21,6 +21,13 @@ public interface InvitationRepository extends JpaRepository<Invitation, Long> {
 	List<Invitation> findAllByOrganizationIdAndInviteeContactAndStatus(Long organizationId, String inviteeContact,
 		InvitationStatus status);
 
+	// 그 단체에서 이 회원에게 걸린 대기 초대. 가입자 초대는 invitee로, 미가입 때 받은 초대는 휴대폰 번호로 찾음
+	@Query("select i from Invitation i where i.organization.id = :organizationId "
+		+ "and i.status = com.mozip.domain.organization.entity.InvitationStatus.PENDING "
+		+ "and (i.invitee.id = :userId or i.inviteeContact = :phone)")
+	List<Invitation> findAllPendingByOrganizationIdAndInvitee(@Param("organizationId") Long organizationId,
+		@Param("userId") Long userId, @Param("phone") String phone);
+
 	List<Invitation> findAllByTeamIn(Collection<Team> teams);
 
 }

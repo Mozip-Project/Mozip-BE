@@ -3,7 +3,6 @@ package com.mozip.domain.organization.service;
 import java.security.SecureRandom;
 import java.time.LocalDateTime;
 import java.util.Base64;
-import java.util.Map;
 import java.util.Optional;
 import java.util.regex.Pattern;
 
@@ -52,6 +51,7 @@ public class InvitationService {
 	private final UserRepository userRepository;
 	private final OrganizationService organizationService;
 	private final NotificationService notificationService;
+	private final InviteProperties inviteProperties;
 
 	// 운영진만 초대 가능. 가입자(휴대폰 일치)면 invitee를 채우고 알림, 미가입자면 연락처만 저장
 	@Transactional
@@ -81,8 +81,9 @@ public class InvitationService {
 		Invitation invitation = invitationRepository.save(Invitation.create(organization, inviter, invitee,
 			normalizedContact, team, newToken(), now));
 		if (invitee != null) {
-			notificationService.send(invitee.getId(), NotificationType.INVITATION, Map.of(
-				"organizationId", organizationId, "invitationId", invitation.getId(), "code", invitation.getCode()));
+			// 단체명은 50자까지라 제목이 알림 제목 한도(200자)를 넘지 않음. 링크는 초대 수락 화면
+			notificationService.send(invitee.getId(), NotificationType.INVITATION, organizationId,
+				organization.getName() + " 운영진 초대가 도착했어요", inviteProperties.linkUrl(invitation.getCode()));
 		}
 		return invitation;
 	}
@@ -113,7 +114,9 @@ public class InvitationService {
 		if (link.isExpired(now)) {
 			throw new BusinessException(MemberErrorCode.INVITATION_EXPIRED).addContext("inviteLinkId", link.getId());
 		}
-		return join(link.getOrganization(), user, null);
+		Member member = join(link.getOrganization(), user, null);
+		cancelPendingInvitations(link.getOrganization(), user, now);
+		return member;
 	}
 
 	// 처리 여부 → 만료 → 본인 확인 → 이미 운영진 순으로 검사. 처리된 초대는 만료 시각과 상관없이 ALREADY_HANDLED
@@ -132,7 +135,15 @@ public class InvitationService {
 		}
 		Member member = join(invitation.getOrganization(), user, invitation.getTeam());
 		invitation.accept(user, now);
+		cancelPendingInvitations(invitation.getOrganization(), user, now);
 		return member;
+	}
+
+	// 합류한 회원에게 같은 단체에서 걸려 있던 다른 대기 초대를 취소
+	// 남겨 두면 내보낸 뒤에도 7일 안에는 그 초대로 다시 들어올 수 있음
+	private void cancelPendingInvitations(Organization organization, User user, LocalDateTime now) {
+		invitationRepository.findAllPendingByOrganizationIdAndInvitee(organization.getId(), user.getId(),
+			user.getPhone()).forEach(invitation -> invitation.cancel(now));
 	}
 
 	// 초대 시점에 가입자였으면 그 회원, 아니면 연락처가 같은 회원만 본인
@@ -180,7 +191,7 @@ public class InvitationService {
 		String trimmed = contact == null ? "" : contact.strip();
 		if (trimmed.contains("@")) {
 			String email = trimmed.toLowerCase();
-			if (EMAIL.matcher(email).matches() && email.length() <= 255) {
+			if (EMAIL.matcher(email).matches() && email.length() <= Invitation.CONTACT_MAX_LENGTH) {
 				return email;
 			}
 			throw invalid(MemberInputReason.CONTACT_INVALID);
