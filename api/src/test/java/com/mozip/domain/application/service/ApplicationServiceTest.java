@@ -258,8 +258,11 @@ class ApplicationServiceTest {
 	void rejectsSavingWhenRecruitWindowExpired() {
 		// 공고 작성 시점엔 마감일이 미래여야 게시 가능(postingService.publish의 모집 기간 검증). 게시 후 시간이 지난 상황은
 		// 엔티티를 직접 건드려서 흉내냄(스케줄러 테스트의 PostingRepositoryTest와 같은 방식)
+		// publish의 모집 기간 검증(PostingService)은 서울 시각 기준이라, 여기서도 서울 시각으로 맞춰야
+		// JVM 기본 시간대가 서울이 아닌 CI에서도 publish가 거부되지 않음
+		LocalDateTime seoulNow = LocalDateTime.now(LocalDateTimeScalar.ZONE);
 		Posting posting = postingService.saveDraft(operator.getId(), organization.getId(), null,
-			basicInput("마감 지난 공고 " + System.nanoTime(), LocalDateTime.now().plusHours(1)));
+			basicInput("마감 지난 공고 " + System.nanoTime(), seoulNow.plusHours(1)));
 		postingService.saveDraft(operator.getId(), organization.getId(), posting.getId(),
 			withPositions(List.of(new PositionInput(null, "백엔드", 1, 0))));
 		postingService.saveDraft(operator.getId(), organization.getId(), posting.getId(),
@@ -268,7 +271,7 @@ class ApplicationServiceTest {
 		posting.updateBasicStep(posting.getTitle(), posting.getContent(), posting.getSemester(), posting.getRegion(),
 			posting.getFee(), posting.isAllowEnrolled(), posting.isAllowOnLeave(), posting.getEligibilityNote(),
 			posting.getActivityStartedOn(), posting.getActivityEndedOn(), posting.getRecruitStartAt(),
-			LocalDateTime.now().minusDays(1));
+			seoulNow.minusDays(1));
 
 		assertThatThrownBy(() -> applicationService.saveDraft(applicant.getId(), posting.getId(),
 			new ApplicationInput(null, null, null)))
