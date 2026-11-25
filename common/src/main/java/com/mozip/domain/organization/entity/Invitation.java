@@ -29,6 +29,9 @@ public class Invitation extends BaseEntity {
 
 	public static final int VALID_DAYS = 7;
 
+	// User.contactEmail(100자)과 같은 길이
+	public static final int CONTACT_MAX_LENGTH = 100;
+
 	@Id
 	@GeneratedValue(strategy = GenerationType.IDENTITY)
 	private Long id;
@@ -46,7 +49,7 @@ public class Invitation extends BaseEntity {
 	@JoinColumn(name = "invitee_id")
 	private User invitee;
 
-	@Column(nullable = false, length = 255)
+	@Column(nullable = false, length = CONTACT_MAX_LENGTH)
 	private String inviteeContact;
 
 	// 합류 시 배정할 팀, 없으면 팀 미지정
@@ -59,7 +62,7 @@ public class Invitation extends BaseEntity {
 	private String code;
 
 	@Enumerated(EnumType.STRING)
-	@Column(nullable = false, length = 20)
+	@Column(nullable = false, length = 30)
 	private InvitationStatus status;
 
 	@Column(nullable = false)
@@ -109,6 +112,15 @@ public class Invitation extends BaseEntity {
 		}
 		this.invitee = user;
 		this.status = InvitationStatus.ACCEPTED;
+		this.respondedAt = now;
+	}
+
+	// 대기 중인 초대를 취소 (초대받은 회원이 다른 경로로 이미 합류했을 때)
+	public void cancel(LocalDateTime now) {
+		if (!isPending()) {
+			throw new IllegalStateException("이미 처리된 초대입니다.");
+		}
+		this.status = InvitationStatus.CANCELED;
 		this.respondedAt = now;
 	}
 

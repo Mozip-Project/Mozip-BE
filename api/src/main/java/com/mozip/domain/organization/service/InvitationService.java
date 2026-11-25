@@ -113,7 +113,9 @@ public class InvitationService {
 		if (link.isExpired(now)) {
 			throw new BusinessException(MemberErrorCode.INVITATION_EXPIRED).addContext("inviteLinkId", link.getId());
 		}
-		return join(link.getOrganization(), user, null);
+		Member member = join(link.getOrganization(), user, null);
+		cancelPendingInvitations(link.getOrganization(), user, now);
+		return member;
 	}
 
 	// 처리 여부 → 만료 → 본인 확인 → 이미 운영진 순으로 검사. 처리된 초대는 만료 시각과 상관없이 ALREADY_HANDLED
@@ -132,7 +134,15 @@ public class InvitationService {
 		}
 		Member member = join(invitation.getOrganization(), user, invitation.getTeam());
 		invitation.accept(user, now);
+		cancelPendingInvitations(invitation.getOrganization(), user, now);
 		return member;
+	}
+
+	// 합류한 회원에게 같은 단체에서 걸려 있던 다른 대기 초대를 취소
+	// 남겨 두면 내보낸 뒤에도 7일 안에는 그 초대로 다시 들어올 수 있음
+	private void cancelPendingInvitations(Organization organization, User user, LocalDateTime now) {
+		invitationRepository.findAllPendingByOrganizationIdAndInvitee(organization.getId(), user.getId(),
+			user.getPhone()).forEach(invitation -> invitation.cancel(now));
 	}
 
 	// 초대 시점에 가입자였으면 그 회원, 아니면 연락처가 같은 회원만 본인
@@ -180,7 +190,7 @@ public class InvitationService {
 		String trimmed = contact == null ? "" : contact.strip();
 		if (trimmed.contains("@")) {
 			String email = trimmed.toLowerCase();
-			if (EMAIL.matcher(email).matches() && email.length() <= 255) {
+			if (EMAIL.matcher(email).matches() && email.length() <= Invitation.CONTACT_MAX_LENGTH) {
 				return email;
 			}
 			throw invalid(MemberInputReason.CONTACT_INVALID);

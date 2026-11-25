@@ -484,7 +484,7 @@ class OrganizationGraphqlControllerTest {
 				""")
 			.variable("organizationId", organizationId)
 			.execute()
-			.path("createInviteLink.url").entity(String.class).isEqualTo("https://mozip.kr/invite/" + token);
+			.path("createInviteLink.url").entity(String.class).isEqualTo("https://mo-zip.com/invite/" + token);
 	}
 
 	private String createOrganization(HttpGraphQlTester asUser) {
