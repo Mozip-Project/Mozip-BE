@@ -124,7 +124,7 @@ class PostingServiceResultConfirmationTest {
 			ArgumentValue.ofNullable("서울"), ArgumentValue.ofNullable("무료"), true, false, null,
 			null, null, LocalDateTime.now(), LocalDateTime.now().plusDays(7), null,
 			null, null,
-			null, null, null, null, null, null, null, null,
+			null, null, null, null, null, null, null,
 			null, null);
 	}
 
@@ -132,7 +132,7 @@ class PostingServiceResultConfirmationTest {
 		return new PostingDraftInput(null, null, null, null, null, null, null, null,
 			null, null, null, null, null,
 			false, positions,
-			null, null, null, null, null, null, null, null,
+			null, null, null, null, null, null, null,
 			null, null);
 	}
 
@@ -140,7 +140,7 @@ class PostingServiceResultConfirmationTest {
 		return new PostingDraftInput(null, null, null, null, null, null, null, null,
 			null, null, null, null, null,
 			null, null,
-			null, null, null, null, null, null, null, null,
+			null, null, null, null, null, null, null,
 			true, questions);
 	}
 
