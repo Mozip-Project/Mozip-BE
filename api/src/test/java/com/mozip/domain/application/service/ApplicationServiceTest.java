@@ -46,7 +46,6 @@ import com.mozip.domain.posting.dto.PostingDraftInput;
 import com.mozip.domain.posting.dto.QuestionInput;
 import com.mozip.domain.posting.dto.QuestionOptionsInput;
 import com.mozip.domain.posting.entity.AssignRule;
-import com.mozip.domain.posting.entity.InterviewMethod;
 import com.mozip.domain.posting.entity.Position;
 import com.mozip.domain.posting.entity.Posting;
 import com.mozip.domain.posting.entity.QuestionType;
@@ -940,7 +939,7 @@ class ApplicationServiceTest {
 		postingService.saveDraft(operator.getId(), organization.getId(), posting.getId(),
 			withPositions(List.of(new PositionInput(null, "백엔드", 1, 0))));
 		postingService.saveDraft(operator.getId(), organization.getId(), posting.getId(),
-			withInterview(true, InterviewMethod.ONLINE, 20, 10, AssignRule.ALL_MEMBERS, 1, 1,
+			withInterview(true, 20, 10, AssignRule.ALL_MEMBERS, 1, 1,
 				List.of(new InterviewTimeRangeInput(null, date, startTime, endTime, List.of()))));
 		postingService.saveDraft(operator.getId(), organization.getId(), posting.getId(),
 			withQuestions(List.of(new QuestionInput(null, QuestionType.TEXT, "자기소개", null, true, 500, null, 0))));
@@ -948,13 +947,13 @@ class ApplicationServiceTest {
 		return posting;
 	}
 
-	private PostingDraftInput withInterview(Boolean hasInterview, InterviewMethod interviewMethod,
+	private PostingDraftInput withInterview(Boolean hasInterview,
 		Integer interviewMinutes, Integer breakMinutes, AssignRule assignRule, Integer maxApplicantsPerInterview,
 		Integer maxParallelInterviews, List<InterviewTimeRangeInput> interviewTimeRanges) {
 		return new PostingDraftInput(null, null, null, null, null, null, null, null,
 			null, null, null, null, null,
 			null, null,
-			hasInterview, interviewMethod, interviewMinutes, breakMinutes, assignRule, maxApplicantsPerInterview,
+			hasInterview, interviewMinutes, breakMinutes, assignRule, maxApplicantsPerInterview,
 			maxParallelInterviews, interviewTimeRanges,
 			null, null);
 	}
@@ -976,7 +975,7 @@ class ApplicationServiceTest {
 			ArgumentValue.ofNullable("서울"), ArgumentValue.ofNullable("무료"), true, false, null,
 			null, null, LocalDateTime.now(), recruitEndAt, null,
 			null, null,
-			null, null, null, null, null, null, null, null,
+			null, null, null, null, null, null, null,
 			null, null);
 	}
 
@@ -986,7 +985,7 @@ class ApplicationServiceTest {
 			ArgumentValue.ofNullable("서울"), ArgumentValue.ofNullable("무료"), true, false, null,
 			null, null, recruitStartAt, recruitEndAt, null,
 			null, null,
-			null, null, null, null, null, null, null, null,
+			null, null, null, null, null, null, null,
 			null, null);
 	}
 
@@ -994,7 +993,7 @@ class ApplicationServiceTest {
 		return new PostingDraftInput(null, null, null, null, null, null, null, null,
 			null, null, null, null, null,
 			false, positions,
-			null, null, null, null, null, null, null, null,
+			null, null, null, null, null, null, null,
 			null, null);
 	}
 
@@ -1002,7 +1001,7 @@ class ApplicationServiceTest {
 		return new PostingDraftInput(null, null, null, null, null, null, null, null,
 			null, null, null, null, null,
 			null, null,
-			null, null, null, null, null, null, null, null,
+			null, null, null, null, null, null, null,
 			true, questions);
 	}
 

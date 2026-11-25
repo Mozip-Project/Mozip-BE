@@ -7,7 +7,6 @@ import java.util.List;
 import org.springframework.graphql.data.ArgumentValue;
 
 import com.mozip.domain.posting.entity.AssignRule;
-import com.mozip.domain.posting.entity.InterviewMethod;
 
 import jakarta.validation.Valid;
 import jakarta.validation.constraints.Positive;
@@ -41,7 +40,6 @@ public record PostingDraftInput(
 
 	// 3단계 interview
 	Boolean hasInterview,
-	InterviewMethod interviewMethod,
 	@Positive(message = "면접 시간은 1분 이상이어야 해요") Integer interviewMinutes,
 	@PositiveOrZero(message = "휴식 시간은 0분 이상이어야 해요") Integer breakMinutes,
 	AssignRule assignRule,
