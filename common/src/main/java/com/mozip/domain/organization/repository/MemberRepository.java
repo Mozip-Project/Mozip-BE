@@ -2,14 +2,18 @@ package com.mozip.domain.organization.repository;
 
 import java.util.Collection;
 import java.util.List;
+import java.util.Optional;
 
 import org.springframework.data.jpa.repository.JpaRepository;
+import org.springframework.data.jpa.repository.Lock;
 import org.springframework.data.jpa.repository.Query;
 import org.springframework.data.repository.query.Param;
 
 import com.mozip.domain.organization.entity.Member;
 import com.mozip.domain.organization.entity.MemberRole;
 import com.mozip.domain.organization.entity.Organization;
+
+import jakarta.persistence.LockModeType;
 
 public interface MemberRepository extends JpaRepository<Member, Long> {
 
@@ -39,6 +43,17 @@ public interface MemberRepository extends JpaRepository<Member, Long> {
 		+ "left join fetch o.school left join fetch m.team t left join fetch t.organization "
 		+ "where m.organization in :organizations order by m.id")
 	List<Member> findAllWithUserAndTeamByOrganizationIn(@Param("organizations") Collection<Organization> organizations);
+
+	// GraphQL DocEvaluation.member 배치 조회, 하위 필드가 읽는 회원, 단체, 팀, 학교를 함께 조회
+	@Query("select m from Member m join fetch m.user u left join fetch u.school join fetch m.organization o "
+		+ "left join fetch o.school left join fetch m.team t left join fetch t.organization where m.id in :ids")
+	List<Member> findAllWithUserAndTeamByIdIn(@Param("ids") Collection<Long> ids);
+
+	// 같은 운영진의 저장 요청이 겹칠 때 줄 세우려고 행을 잠금. 평가처럼 운영진마다 한 건만 있어야 하는 행을 만들기 전에 사용
+	@Lock(LockModeType.PESSIMISTIC_WRITE)
+	@Query("select m from Member m where m.organization.id = :organizationId and m.user.id = :userId")
+	Optional<Member> findForUpdateByOrganizationIdAndUserId(@Param("organizationId") Long organizationId,
+		@Param("userId") Long userId);
 
 	// 주어진 단체 중 회원이 소속된 단체 id
 	@Query("select m.organization.id from Member m where m.user.id = :userId and m.organization in :organizations")

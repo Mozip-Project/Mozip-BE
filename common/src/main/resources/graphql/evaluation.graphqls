@@ -1,5 +1,129 @@
 # 서류 평가, 면접 평가
 
+extend type Query {
+    "서류 평가 목록, 공고 단체 운영진만. 제출된 지원서만 나오고 결과 확정 뒤에도 조회된다. page는 1부터, 한 쪽에 10건. 공고 없으면 POSTING_404, 운영진 아니면 COMMON_403, page가 1 미만이거나 positionIds에 이 공고 포지션이 아닌 id가 있으면 COMMON_400"
+    docEvaluationApplications(
+        postingId: ID!
+        tab: DocEvaluationTab = ALL
+        "null이나 빈 배열이면 전체 포지션"
+        positionIds: [ID!]
+        "지원자 이름 부분 일치"
+        keyword: String
+        sort: ApplicationSort = SUBMITTED_DESC
+        page: Int = 1
+    ): DocEvaluationApplicationPage!
+
+    "서류 평가 화면 위쪽 지원자 칩, 목록과 같은 조건으로 쪽 나눔 없이 전부. 에러는 docEvaluationApplications와 같다"
+    docEvaluationApplicationChips(
+        postingId: ID!
+        tab: DocEvaluationTab = ALL
+        positionIds: [ID!]
+        keyword: String
+        sort: ApplicationSort = SUBMITTED_DESC
+    ): [DocEvaluationApplicationRow!]!
+
+    "이 지원서에 내가 쓴 서류 평가, 아직 없으면 null. 지원서가 없거나 제출 전이면 EVALUATION_404, 운영진 아니면 COMMON_403"
+    myDocEvaluation(applicationId: ID!): DocEvaluation
+}
+
+extend type Mutation {
+    """
+    서류 평가 저장. submit = false는 자동 저장(DRAFT)이라 비어 있어도 되고, true는 저장 버튼(SAVED)이라 의견과 점수를 검사한다.
+    보낸 값으로 전체를 덮어쓴다. SAVED인 평가는 자동 저장해도 SAVED로 남는다.
+    지원서가 없거나 제출 전이면 EVALUATION_404, 운영진 아니면 COMMON_403, 서류 결과 확정 뒤면 EVALUATION_423.
+    입력이 틀리면 COMMON_400이고 reason은 OPINION_REQUIRED, SCORE_REQUIRED, INVALID_SCORE, MEMO_TOO_LONG, QUESTION_NOT_IN_POSTING
+    """
+    saveDocEvaluation(input: SaveDocEvaluationInput!, submit: Boolean!): SaveDocEvaluationPayload!
+}
+
+"서류 평가 목록 탭"
+enum DocEvaluationTab {
+    ALL
+    "내 평가가 없거나 작성 중"
+    NOT_EVALUATED
+    "내 평가를 저장함"
+    EVALUATED
+}
+
+"지원서 목록 정렬. 지원자 관리, 서류 평가, 취합 목록이 같이 쓴다"
+enum ApplicationSort {
+    SUBMITTED_DESC
+    SUBMITTED_ASC
+    NAME_ASC
+    NAME_DESC
+}
+
+"서류 평가 1건의 저장 상태"
+enum DocEvaluationStatus {
+    "자동 저장만 됨"
+    DRAFT
+    "저장 버튼으로 저장함"
+    SAVED
+}
+
+"한 지원서에 대한 내 서류 평가 상태. 목록 행에서만 쓴다"
+enum MyDocEvaluationStatus {
+    "평가를 시작하지 않음"
+    NONE
+    "자동 저장만 됨"
+    DRAFT
+    "저장 버튼으로 저장함"
+    SAVED
+}
+
+type DocEvaluationApplicationPage {
+    rows: [DocEvaluationApplicationRow!]!
+    "탭, 포지션 필터, 검색어를 모두 적용한 건수"
+    totalCount: Int!
+    "포지션 필터와 검색어만 적용한 탭별 건수"
+    tabCounts: DocEvaluationTabCounts!
+    "검색어만 적용한 포지션별 건수, 공고의 포지션 순서대로. 포지션 없는 모집이면 빈 배열"
+    positionCounts: [PositionCount!]!
+    page: Int!
+    "결과가 없으면 0"
+    totalPages: Int!
+}
+
+type DocEvaluationApplicationRow {
+    application: Application!
+    myEvaluationStatus: MyDocEvaluationStatus!
+}
+
+type DocEvaluationTabCounts {
+    all: Int!
+    notEvaluated: Int!
+    evaluated: Int!
+}
+
+"포지션별 지원서 수. 지원자 관리, 서류 평가, 취합 목록이 같이 쓴다"
+type PositionCount {
+    position: Position!
+    count: Int!
+}
+
+input SaveDocEvaluationInput {
+    applicationId: ID!
+    opinion: Opinion
+    "posting.docScorePerQuestion = true일 때만 쓴다. 아니면 보내도 저장하지 않는다"
+    scores: [DocScoreInput!]
+    "최대 300자"
+    memo: String
+}
+
+input DocScoreInput {
+    questionId: ID!
+    "1~5점"
+    score: Int!
+}
+
+type SaveDocEvaluationPayload {
+    evaluation: DocEvaluation!
+    "이 공고의 제출된 지원서 중 내 평가가 없거나 작성 중인 수, 탭과 필터와 무관"
+    remainingCount: Int!
+    "제출일 최신순으로 처음 나오는 미평가 지원서, 방금 저장한 지원서는 뺀다. 없으면 null"
+    nextUnevaluatedApplicationId: ID
+}
+
 "평가 의견 (서류, 면접 공통)"
 enum Opinion {
     PASS
@@ -22,13 +146,14 @@ type DocEvaluation {
     application: Application!
     "평가한 운영진"
     member: Member!
-    "자동 저장만 된 작성 중 상태에서는 null"
+    status: DocEvaluationStatus!
+    "자동 저장만 된 작성 중 상태에서는 null일 수 있음"
     opinion: Opinion
     "운영진만 보는 메모, 최대 300자"
     memo: String
     "문항별 점수, posting.docScorePerQuestion = true일 때만"
     scores: [DocScore!]!
-    "저장하고 다음 지원자 보기로 저장한 시각, null = 작성 중"
+    "처음 SAVED가 된 시각, null = 작성 중"
     submittedAt: DateTime
     updatedAt: DateTime!
 }
