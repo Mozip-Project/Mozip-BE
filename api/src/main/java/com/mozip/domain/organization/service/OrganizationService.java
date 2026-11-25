@@ -12,6 +12,7 @@ import org.springframework.data.domain.PageRequest;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
+import com.mozip.domain.file.dto.FilePurpose;
 import com.mozip.domain.organization.dto.CreateOrganizationInput;
 import com.mozip.domain.organization.dto.UpdateOrganizationInput;
 import com.mozip.domain.organization.entity.Member;
@@ -37,6 +38,7 @@ import com.mozip.domain.school.entity.School;
 import com.mozip.domain.school.repository.SchoolRepository;
 import com.mozip.domain.user.entity.User;
 import com.mozip.domain.user.repository.UserRepository;
+import com.mozip.global.config.S3Properties;
 import com.mozip.global.exception.BusinessException;
 import com.mozip.global.exception.CommonErrorCode;
 
@@ -57,9 +59,24 @@ public class OrganizationService {
 	private final OrganizationKeywordRepository keywordRepository;
 	private final OrganizationFieldTagRepository fieldTagRepository;
 	private final OrganizationLinkRepository linkRepository;
+	private final S3Properties s3Properties;
 	private final UserRepository userRepository;
 	private final SchoolRepository schoolRepository;
 	private final SubscriptionService subscriptionService;
+
+	@Transactional
+	public Organization updateLogo(Long organizationId, String fileKey, Long requesterId) {
+		// 발급 당시 purpose와 다른 fileKey가 들어오는 것을 막음 (예: 다른 purpose로 발급받은 키 재사용)
+		if (!fileKey.startsWith(FilePurpose.ORG_LOGO.keyPrefix() + "/")) {
+			throw new BusinessException(CommonErrorCode.INVALID_INPUT).addContext("fileKey", fileKey);
+		}
+		Organization organization = getOrganization(organizationId);
+		if (!memberRepository.existsByOrganizationIdAndUserId(organizationId, requesterId)) {
+			throw new BusinessException(CommonErrorCode.FORBIDDEN).addContext("userId", requesterId);
+		}
+		organization.updateLogo(s3Properties.cdnDomain() + "/" + fileKey);
+		return organization;
+	}
 
 	// 단체를 만들고 호출자를 대표자로 등록, 같은 요청이 두 번 오면 단체가 두 개 생김 (중복 제출은 프론트에서 막음)
 	@Transactional

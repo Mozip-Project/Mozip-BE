@@ -56,15 +56,11 @@ public class Posting extends BaseEntity {
 	@Column(nullable = false, length = 30)
 	private PostingStatus status;
 
-	// 작성 중 단계 1~5. DRAFT가 아니면 더 안 바뀜
+	// 작성 중 단계 1~4. DRAFT가 아니면 더 안 바뀜
 	private Integer draftStep;
 
 	@Column(nullable = false)
 	private boolean hasInterview;
-
-	@Enumerated(EnumType.STRING)
-	@Column(length = 30)
-	private InterviewMethod interviewMethod;
 
 	@Column(nullable = false)
 	private boolean noPosition;
@@ -181,11 +177,10 @@ public class Posting extends BaseEntity {
 	}
 
 	// 3단계: 면접 (InterviewTimeRange 목록은 리포지토리에서 통째로 교체)
-	public void updateInterviewStep(boolean hasInterview, InterviewMethod interviewMethod, Integer interviewMinutes,
+	public void updateInterviewStep(boolean hasInterview, Integer interviewMinutes,
 		Integer breakMinutes, AssignRule assignRule, Integer maxApplicantsPerInterview,
 		Integer maxParallelInterviews) {
 		this.hasInterview = hasInterview;
-		this.interviewMethod = hasInterview ? interviewMethod : null;
 		this.interviewMinutes = hasInterview ? interviewMinutes : null;
 		this.breakMinutes = hasInterview ? breakMinutes : null;
 		this.assignRule = hasInterview ? assignRule : null;
@@ -198,11 +193,6 @@ public class Posting extends BaseEntity {
 	public void updateQuestionsStep(boolean docScorePerQuestion) {
 		this.docScorePerQuestion = docScorePerQuestion;
 		advanceDraftStep(4);
-	}
-
-	// 5단계: 노출 (대표 이미지는 PostingImage 쪽에서 처리)
-	public void updateExposureStep() {
-		advanceDraftStep(5);
 	}
 
 	public void publishNow() {

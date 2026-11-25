@@ -39,13 +39,13 @@ public final class PostingSpecifications {
 		};
 	}
 
-	public static Specification<Posting> organizationType(OrganizationType organizationType) {
-		if (organizationType == null) {
+	public static Specification<Posting> organizationTypes(List<OrganizationType> organizationTypes) {
+		if (organizationTypes == null || organizationTypes.isEmpty()) {
 			return null;
 		}
 		return (root, query, builder) -> {
 			Join<Posting, Organization> organization = root.join("organization");
-			return builder.equal(organization.get("type"), organizationType);
+			return organization.get("type").in(organizationTypes);
 		};
 	}
 
@@ -56,15 +56,14 @@ public final class PostingSpecifications {
 		return (root, query, builder) -> builder.equal(root.get("hasInterview"), hasInterview);
 	}
 
-	// 마감 3일 이내 (recruitEndAt이 지금부터 72시간 이내면서 아직 지나지 않음)
-	public static Specification<Posting> closingSoon(Boolean closingSoon) {
+	// 마감 3일 이내 (recruitEndAt이 now부터 72시간 이내면서 아직 지나지 않음)
+	// recruitEndAt은 api의 LocalDateTimeScalar가 서울 시각으로 저장한 값이라, now도 서울 시각 기준으로 호출하는 쪽(PostingService)에서 넘겨받음.
+	// common은 api의 ZoneId를 참조할 수 없고, 여기서 LocalDateTime.now()를 직접 부르면 JVM 기본 시간대(운영은 UTC)를 따라 어긋남
+	public static Specification<Posting> closingSoon(Boolean closingSoon, LocalDateTime now) {
 		if (closingSoon == null || !closingSoon) {
 			return null;
 		}
-		return (root, query, builder) -> {
-			LocalDateTime now = LocalDateTime.now();
-			return builder.between(root.get("recruitEndAt"), now, now.plusDays(3));
-		};
+		return (root, query, builder) -> builder.between(root.get("recruitEndAt"), now, now.plusDays(3));
 	}
 
 }

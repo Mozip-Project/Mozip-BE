@@ -4,6 +4,8 @@ import java.time.Duration;
 import java.util.ArrayList;
 import java.util.List;
 
+import jakarta.servlet.DispatcherType;
+
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
 import org.springframework.http.HttpHeaders;
@@ -34,6 +36,9 @@ public class SecurityConfig {
 	public SecurityFilterChain securityFilterChain(HttpSecurity http) throws Exception {
 		return httpSecurityDefaults.apply(http)
 			.authorizeHttpRequests(auth -> auth
+				// SSE emitter 종료 시 Spring MVC가 ASYNC 디스패치로 필터 체인을 다시 타는데,
+				// JwtAuthenticationFilter가 이를 건너뛰어 AuthorizationDeniedException이 발생하므로 허용
+				.dispatcherTypeMatchers(DispatcherType.ASYNC).permitAll()
 				.requestMatchers(HttpSecurityDefaults.PUBLIC_URLS).permitAll()
 				.anyRequest().authenticated())
 			.build();

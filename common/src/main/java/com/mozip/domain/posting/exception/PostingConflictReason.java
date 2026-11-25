@@ -12,6 +12,8 @@ public enum PostingConflictReason {
 	// DOC_REVIEW에서 DOC_RESULT_NOTICE로 넘기려는데 서류 결과가 아직 확정되지 않음
 	DOC_RESULT_NOT_CONFIRMED,
 	// FINAL_RESULT로 넘기려는데 최종 결과가 아직 확정되지 않음
-	FINAL_RESULT_NOT_CONFIRMED
+	FINAL_RESULT_NOT_CONFIRMED,
+	// 모집 기간(RECRUITING 상태이고 recruitStartAt~recruitEndAt 안)이 아닌데 지원서를 저장·제출하려 함
+	NOT_RECRUITING
 
 }
