@@ -24,8 +24,10 @@ import com.mozip.domain.organization.entity.MemberRole;
 import com.mozip.domain.organization.entity.Organization;
 import com.mozip.domain.organization.entity.OrganizationScope;
 import com.mozip.domain.organization.entity.OrganizationType;
+import com.mozip.domain.organization.entity.Team;
 import com.mozip.domain.organization.repository.MemberRepository;
 import com.mozip.domain.organization.repository.OrganizationRepository;
+import com.mozip.domain.organization.repository.TeamRepository;
 import com.mozip.domain.posting.dto.InterviewTimeRangeInput;
 import com.mozip.domain.posting.dto.PositionInput;
 import com.mozip.domain.posting.dto.PostingDraftInput;
@@ -80,6 +82,9 @@ class PostingServiceTest {
 
 	@Autowired
 	private MemberRepository memberRepository;
+
+	@Autowired
+	private TeamRepository teamRepository;
 
 	@Autowired
 	private PositionRepository positionRepository;
@@ -297,6 +302,79 @@ class PostingServiceTest {
 
 		assertThat(postingRepository.findById(othersDraft.getId()).orElseThrow().getTitle())
 			.isEqualTo("남의 단체 공고");
+	}
+
+	@Test
+	@DisplayName("존재하지 않는 teamId로 포지션을 저장하면 COMMON_400을 던진다")
+	void rejectsUnknownTeamId() {
+		Posting posting = postingService.saveDraft(operator.getId(), organization.getId(), null, basicInput("제목"));
+
+		assertThatThrownBy(() -> postingService.saveDraft(operator.getId(), organization.getId(), posting.getId(),
+			withPositions(List.of(new PositionInput(999_999L, "백엔드", 1, 0)))))
+			.isInstanceOf(BusinessException.class)
+			.extracting(e -> ((BusinessException)e).getErrorCode())
+			.isEqualTo(CommonErrorCode.INVALID_INPUT);
+	}
+
+	@Test
+	@DisplayName("다른 단체의 teamId로 포지션을 저장하면 COMMON_400을 던진다")
+	void rejectsTeamFromAnotherOrganization() {
+		Organization otherOrganization = organizationRepository.save(
+			Organization.create("다른 단체", OrganizationType.CLUB, null, OrganizationScope.CAMPUS, null, true, null,
+				null));
+		Team othersTeam = teamRepository.save(Team.create(otherOrganization, "남의 팀"));
+		Posting posting = postingService.saveDraft(operator.getId(), organization.getId(), null, basicInput("제목"));
+
+		assertThatThrownBy(() -> postingService.saveDraft(operator.getId(), organization.getId(), posting.getId(),
+			withPositions(List.of(new PositionInput(othersTeam.getId(), "백엔드", 1, 0)))))
+			.isInstanceOf(BusinessException.class)
+			.extracting(e -> ((BusinessException)e).getErrorCode())
+			.isEqualTo(CommonErrorCode.INVALID_INPUT);
+	}
+
+	@Test
+	@DisplayName("존재하지 않는 positionId로 문항을 저장하면 COMMON_400을 던진다")
+	void rejectsUnknownPositionIdInQuestion() {
+		Posting posting = postingService.saveDraft(operator.getId(), organization.getId(), null, basicInput("제목"));
+
+		assertThatThrownBy(() -> postingService.saveDraft(operator.getId(), organization.getId(), posting.getId(),
+			withQuestions(List.of(
+				new QuestionInput(999_999L, QuestionType.TEXT, "자기소개", null, true, 500, null, 0)))))
+			.isInstanceOf(BusinessException.class)
+			.extracting(e -> ((BusinessException)e).getErrorCode())
+			.isEqualTo(CommonErrorCode.INVALID_INPUT);
+	}
+
+	@Test
+	@DisplayName("다른 공고의 positionId로 문항을 저장하면 COMMON_400을 던진다")
+	void rejectsPositionFromAnotherPostingInQuestion() {
+		Posting otherPosting = postingService.saveDraft(operator.getId(), organization.getId(), null,
+			basicInput("남의 공고"));
+		postingService.saveDraft(operator.getId(), organization.getId(), otherPosting.getId(),
+			withPositions(List.of(new PositionInput(null, "남의 포지션", 1, 0))));
+		Long othersPositionId = positionRepository.findAllByPostingOrderBySortOrder(otherPosting).get(0).getId();
+		Posting posting = postingService.saveDraft(operator.getId(), organization.getId(), null, basicInput("제목"));
+
+		assertThatThrownBy(() -> postingService.saveDraft(operator.getId(), organization.getId(), posting.getId(),
+			withQuestions(List.of(
+				new QuestionInput(othersPositionId, QuestionType.TEXT, "자기소개", null, true, 500, null, 0)))))
+			.isInstanceOf(BusinessException.class)
+			.extracting(e -> ((BusinessException)e).getErrorCode())
+			.isEqualTo(CommonErrorCode.INVALID_INPUT);
+	}
+
+	@Test
+	@DisplayName("존재하지 않는 positionId로 면접 시간대를 저장하면 COMMON_400을 던진다")
+	void rejectsUnknownPositionIdInInterviewTimeRange() {
+		Posting posting = postingService.saveDraft(operator.getId(), organization.getId(), null, basicInput("제목"));
+
+		assertThatThrownBy(() -> postingService.saveDraft(operator.getId(), organization.getId(), posting.getId(),
+			withInterview(true, InterviewMethod.ONLINE, 20, 5, AssignRule.SAME_TEAM, 1, 2,
+				List.of(new InterviewTimeRangeInput(999_999L, LocalDate.now().plusDays(3), LocalTime.of(10, 0),
+					LocalTime.of(12, 0), null)))))
+			.isInstanceOf(BusinessException.class)
+			.extracting(e -> ((BusinessException)e).getErrorCode())
+			.isEqualTo(CommonErrorCode.INVALID_INPUT);
 	}
 
 	@Test

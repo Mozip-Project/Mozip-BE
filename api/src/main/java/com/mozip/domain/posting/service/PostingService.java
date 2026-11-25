@@ -2,6 +2,11 @@ package com.mozip.domain.posting.service;
 
 import java.util.ArrayList;
 import java.util.List;
+import java.util.Map;
+import java.util.Objects;
+import java.util.Set;
+import java.util.function.Function;
+import java.util.stream.Collectors;
 
 import org.springframework.data.domain.PageRequest;
 import org.springframework.data.domain.Pageable;
@@ -11,6 +16,7 @@ import org.springframework.transaction.annotation.Transactional;
 
 import com.mozip.domain.evaluation.service.PostingResultChecker;
 import com.mozip.domain.organization.entity.Organization;
+import com.mozip.domain.organization.entity.Team;
 import com.mozip.domain.organization.exception.OrganizationErrorCode;
 import com.mozip.domain.organization.repository.TeamRepository;
 import com.mozip.domain.organization.service.OrganizationAccessChecker;
@@ -325,8 +331,13 @@ public class PostingService {
 
 	private void replacePositions(Posting posting, List<PositionInput> positionInputs) {
 		positionRepository.deleteAllByPosting(posting);
+		Set<Long> teamIds = positionInputs.stream()
+			.map(PositionInput::teamId)
+			.filter(Objects::nonNull)
+			.collect(Collectors.toSet());
+		Map<Long, Team> teams = resolveTeams(posting, teamIds);
 		List<Position> positions = positionInputs.stream()
-			.map(i -> Position.create(posting, i.teamId() == null ? null : teamRepository.findById(i.teamId()).orElse(null),
+			.map(i -> Position.create(posting, i.teamId() == null ? null : teams.get(i.teamId()),
 				i.name(), i.headcount(), i.sortOrder()))
 			.toList();
 		positionRepository.saveAll(positions);
@@ -334,9 +345,14 @@ public class PostingService {
 
 	private void replaceQuestions(Posting posting, List<QuestionInput> questionInputs) {
 		questionRepository.deleteAllByPosting(posting);
+		Set<Long> positionIds = questionInputs.stream()
+			.map(QuestionInput::positionId)
+			.filter(Objects::nonNull)
+			.collect(Collectors.toSet());
+		Map<Long, Position> positions = resolvePositions(posting, positionIds);
 		List<Question> questions = new ArrayList<>();
 		for (QuestionInput i : questionInputs) {
-			Position position = i.positionId() == null ? null : positionRepository.findById(i.positionId()).orElse(null);
+			Position position = i.positionId() == null ? null : positions.get(i.positionId());
 			List<String> choices = i.options() != null ? i.options().choices() : null;
 			List<String> columns = i.options() != null ? i.options().columns() : null;
 			Integer maxRows = i.options() != null ? i.options().maxRows() : null;
@@ -349,13 +365,46 @@ public class PostingService {
 
 	private void replaceInterviewTimeRanges(Posting posting, List<InterviewTimeRangeInput> rangeInputs) {
 		interviewTimeRangeRepository.deleteAllByPosting(posting);
+		Set<Long> positionIds = rangeInputs.stream()
+			.map(InterviewTimeRangeInput::positionId)
+			.filter(Objects::nonNull)
+			.collect(Collectors.toSet());
+		Map<Long, Position> positions = resolvePositions(posting, positionIds);
 		List<InterviewTimeRange> ranges = new ArrayList<>();
 		for (InterviewTimeRangeInput i : rangeInputs) {
-			Position position = i.positionId() == null ? null : positionRepository.findById(i.positionId()).orElse(null);
+			Position position = i.positionId() == null ? null : positions.get(i.positionId());
 			ranges.add(InterviewTimeRange.create(posting, position, i.date(), i.startTime(), i.endTime(),
 				i.closedSlots()));
 		}
 		interviewTimeRangeRepository.saveAll(ranges);
+	}
+
+	// teamId가 이 공고의 단체 소속인지 한 번에 확인. 다른 단체 팀 id나 없는 id면 COMMON_400
+	private Map<Long, Team> resolveTeams(Posting posting, Set<Long> teamIds) {
+		if (teamIds.isEmpty()) {
+			return Map.of();
+		}
+		Map<Long, Team> teams = teamRepository.findAllById(teamIds).stream()
+			.filter(team -> team.getOrganization().getId().equals(posting.getOrganization().getId()))
+			.collect(Collectors.toMap(Team::getId, Function.identity()));
+		if (teams.size() != teamIds.size()) {
+			throw new BusinessException(CommonErrorCode.INVALID_INPUT).addContext("teamIds", teamIds);
+		}
+		return teams;
+	}
+
+	// positionId가 이 공고에 2단계로 먼저 저장된 포지션인지 한 번에 확인. 다른 공고 포지션 id나 없는 id면 COMMON_400
+	private Map<Long, Position> resolvePositions(Posting posting, Set<Long> positionIds) {
+		if (positionIds.isEmpty()) {
+			return Map.of();
+		}
+		Map<Long, Position> positions = positionRepository.findAllById(positionIds).stream()
+			.filter(position -> position.getPosting().getId().equals(posting.getId()))
+			.collect(Collectors.toMap(Position::getId, Function.identity()));
+		if (positions.size() != positionIds.size()) {
+			throw new BusinessException(CommonErrorCode.INVALID_INPUT).addContext("positionIds", positionIds);
+		}
+		return positions;
 	}
 
 	// 대표는 한 번에 하나만 있어야 하므로 고른 것 외엔 전부 내림
