@@ -5,6 +5,7 @@ import static org.assertj.core.api.Assertions.assertThat;
 import java.time.LocalDate;
 import java.time.LocalDateTime;
 import java.time.LocalTime;
+import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.concurrent.ThreadLocalRandom;
@@ -17,6 +18,7 @@ import org.springframework.boot.graphql.test.autoconfigure.tester.AutoConfigureH
 import org.springframework.boot.test.context.SpringBootTest;
 import org.springframework.boot.webmvc.test.autoconfigure.AutoConfigureMockMvc;
 import org.springframework.context.annotation.Import;
+import org.springframework.graphql.data.ArgumentValue;
 import org.springframework.graphql.test.tester.HttpGraphQlTester;
 
 import com.mozip.TestcontainersConfiguration;
@@ -78,9 +80,10 @@ class PostingGraphqlControllerTest {
 	private JwtProvider jwtProvider;
 
 	private static final String SAVE_DRAFT = """
-		mutation($organizationId: ID!, $input: PostingDraftInput!) {
-			savePostingDraft(organizationId: $organizationId, input: $input) {
+		mutation($organizationId: ID!, $id: ID, $input: PostingDraftInput!) {
+			savePostingDraft(organizationId: $organizationId, id: $id, input: $input) {
 				id
+				region
 			}
 		}
 		""";
@@ -103,6 +106,57 @@ class PostingGraphqlControllerTest {
 					.singleElement()
 					.hasFieldOrPropertyWithValue("field", "input.title");
 			});
+	}
+
+	@Test
+	@DisplayName("region이 100자를 넘으면 COMMON_500이 아니라 COMMON_400과 fieldErrors(input.region)로 응답한다")
+	void rejectsRegionOverMaxLengthWith400NotServerError() {
+		User operator = saveOperator();
+		Organization organization = saveOrganization(operator);
+
+		asUser(operator).document(SAVE_DRAFT)
+			.variable("organizationId", organization.getId())
+			.variable("input", Map.of("title", "지역 검증용 공고", "region", "a".repeat(101)))
+			.execute()
+			.errors()
+			.satisfy(errors -> {
+				assertThat(errors.getFirst().getExtensions()).containsEntry("code", "COMMON_400");
+				assertThat(errors.getFirst().getExtensions().get("fieldErrors"))
+					.asInstanceOf(InstanceOfAssertFactories.LIST)
+					.singleElement()
+					.hasFieldOrPropertyWithValue("field", "input.region");
+			});
+	}
+
+	@Test
+	@DisplayName("GraphQL 변수로 region에 null을 명시하면 지워지고, region 키를 생략하면 기존 값이 유지된다")
+	void clearsRegionOnExplicitNullButKeepsItWhenFieldOmitted() {
+		User operator = saveOperator();
+		Organization organization = saveOrganization(operator);
+
+		String postingId = asUser(operator).document(SAVE_DRAFT)
+			.variable("organizationId", organization.getId())
+			.variable("input", Map.of("title", "지역 테스트 공고", "region", "서울"))
+			.execute()
+			.path("savePostingDraft.region").entity(String.class).isEqualTo("서울")
+			.path("savePostingDraft.id").entity(String.class).get();
+
+		// region 키를 생략한 요청(다른 필드만 수정)은 기존 값을 그대로 둬야 함
+		asUser(operator).document(SAVE_DRAFT)
+			.variable("organizationId", organization.getId())
+			.variable("id", postingId)
+			.variable("input", Map.of("fee", "무료"))
+			.execute()
+			.path("savePostingDraft.region").entity(String.class).isEqualTo("서울");
+
+		Map<String, Object> explicitNull = new HashMap<>();
+		explicitNull.put("region", null);
+		asUser(operator).document(SAVE_DRAFT)
+			.variable("organizationId", organization.getId())
+			.variable("id", postingId)
+			.variable("input", explicitNull)
+			.execute()
+			.path("savePostingDraft.region").valueIsNull();
 	}
 
 	@Test
@@ -213,7 +267,8 @@ class PostingGraphqlControllerTest {
 	}
 
 	private PostingDraftInput basicInput(String title) {
-		return new PostingDraftInput(title, "본문", "2026-2", "서울", "무료", true, false, null,
+		return new PostingDraftInput(title, "본문", ArgumentValue.ofNullable("2026-2"),
+			ArgumentValue.ofNullable("서울"), ArgumentValue.ofNullable("무료"), true, false, null,
 			null, null, LocalDateTime.now(), LocalDateTime.now().plusDays(7), null,
 			null, null,
 			null, null, null, null, null, null, null, null,

@@ -16,6 +16,7 @@ import org.springframework.data.domain.Page;
 import org.springframework.data.domain.PageRequest;
 import org.springframework.data.domain.Pageable;
 import org.springframework.data.jpa.domain.Specification;
+import org.springframework.graphql.data.ArgumentValue;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
@@ -237,21 +238,48 @@ public class PostingService {
 		if (!touchesBasicStep(input)) {
 			return;
 		}
+		String semester = resolve(input.semester(), posting.getSemester());
+		String region = resolve(input.region(), posting.getRegion());
+		String fee = resolve(input.fee(), posting.getFee());
+		String eligibilityNote = resolve(input.eligibilityNote(), posting.getEligibilityNote());
+		validateOptionalBasicFieldLengths(semester, region, fee, eligibilityNote);
 		posting.updateBasicStep(
 			orElse(input.title(), posting.getTitle()),
 			orElse(input.content(), posting.getContent()),
-			orElse(input.semester(), posting.getSemester()),
-			orElse(input.region(), posting.getRegion()),
-			orElse(input.fee(), posting.getFee()),
+			semester,
+			region,
+			fee,
 			orElse(input.allowEnrolled(), posting.isAllowEnrolled()),
 			orElse(input.allowOnLeave(), posting.isAllowOnLeave()),
-			orElse(input.eligibilityNote(), posting.getEligibilityNote()),
-			orElse(input.activityStartedOn(), posting.getActivityStartedOn()),
-			orElse(input.activityEndedOn(), posting.getActivityEndedOn()),
+			eligibilityNote,
+			resolve(input.activityStartedOn(), posting.getActivityStartedOn()),
+			resolve(input.activityEndedOn(), posting.getActivityEndedOn()),
 			orElse(input.recruitStartAt(), posting.getRecruitStartAt()),
 			orElse(input.recruitEndAt(), posting.getRecruitEndAt()));
 		if (input.images() != null) {
 			replaceImages(posting, input.images());
+		}
+	}
+
+	// semester/region/fee/eligibilityNote는 지울 수 있어야 해서 ArgumentValue로 받다 보니 @Size가 안 걸림.
+	// null(지움)은 통과시키고 실제 값이 있을 때만 길이를 봄
+	private void validateOptionalBasicFieldLengths(String semester, String region, String fee,
+		String eligibilityNote) {
+		List<FieldErrorResponse> fieldErrors = new ArrayList<>();
+		if (semester != null && semester.length() > 20) {
+			fieldErrors.add(new FieldErrorResponse("input.semester", "학기는 20자까지 입력할 수 있어요"));
+		}
+		if (region != null && region.length() > 100) {
+			fieldErrors.add(new FieldErrorResponse("input.region", "지역은 100자까지 입력할 수 있어요"));
+		}
+		if (fee != null && fee.length() > 50) {
+			fieldErrors.add(new FieldErrorResponse("input.fee", "활동비는 50자까지 입력할 수 있어요"));
+		}
+		if (eligibilityNote != null && eligibilityNote.length() > 200) {
+			fieldErrors.add(new FieldErrorResponse("input.eligibilityNote", "지원 자격은 200자까지 입력할 수 있어요"));
+		}
+		if (!fieldErrors.isEmpty()) {
+			throw new BusinessException(CommonErrorCode.INVALID_INPUT).withFieldErrors(fieldErrors);
 		}
 	}
 
@@ -471,11 +499,11 @@ public class PostingService {
 	}
 
 	private static boolean touchesBasicStep(PostingDraftInput input) {
-		return input.title() != null || input.content() != null || input.semester() != null
-			|| input.region() != null || input.fee() != null || input.allowEnrolled() != null
-			|| input.allowOnLeave() != null || input.eligibilityNote() != null || input.activityStartedOn() != null
-			|| input.activityEndedOn() != null || input.recruitStartAt() != null || input.recruitEndAt() != null
-			|| input.images() != null;
+		return input.title() != null || input.content() != null || !input.semester().isOmitted()
+			|| !input.region().isOmitted() || !input.fee().isOmitted() || input.allowEnrolled() != null
+			|| input.allowOnLeave() != null || !input.eligibilityNote().isOmitted()
+			|| !input.activityStartedOn().isOmitted() || !input.activityEndedOn().isOmitted()
+			|| input.recruitStartAt() != null || input.recruitEndAt() != null || input.images() != null;
 	}
 
 	private static boolean touchesPositionsStep(PostingDraftInput input) {
@@ -499,6 +527,11 @@ public class PostingService {
 
 	private static <T> T orElse(T value, T fallback) {
 		return value != null ? value : fallback;
+	}
+
+	// 필드를 안 보냄(omitted) = 기존 값 유지, null을 보냄 = 지움
+	private static <T> T resolve(ArgumentValue<T> value, T fallback) {
+		return value.isOmitted() ? fallback : value.value();
 	}
 
 }

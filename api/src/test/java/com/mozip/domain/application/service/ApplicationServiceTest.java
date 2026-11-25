@@ -15,6 +15,7 @@ import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.context.SpringBootTest;
 import org.springframework.context.annotation.Import;
+import org.springframework.graphql.data.ArgumentValue;
 import org.springframework.transaction.annotation.Transactional;
 
 import com.mozip.TestcontainersConfiguration;
@@ -968,7 +969,8 @@ class ApplicationServiceTest {
 	}
 
 	private PostingDraftInput basicInput(String title, LocalDateTime recruitEndAt) {
-		return new PostingDraftInput(title, "본문", "2026-2", "서울", "무료", true, false, null,
+		return new PostingDraftInput(title, "본문", ArgumentValue.ofNullable("2026-2"),
+			ArgumentValue.ofNullable("서울"), ArgumentValue.ofNullable("무료"), true, false, null,
 			null, null, LocalDateTime.now(), recruitEndAt, null,
 			null, null,
 			null, null, null, null, null, null, null, null,
@@ -977,7 +979,8 @@ class ApplicationServiceTest {
 
 	private PostingDraftInput basicInputWithWindow(String title, LocalDateTime recruitStartAt,
 		LocalDateTime recruitEndAt) {
-		return new PostingDraftInput(title, "본문", "2026-2", "서울", "무료", true, false, null,
+		return new PostingDraftInput(title, "본문", ArgumentValue.ofNullable("2026-2"),
+			ArgumentValue.ofNullable("서울"), ArgumentValue.ofNullable("무료"), true, false, null,
 			null, null, recruitStartAt, recruitEndAt, null,
 			null, null,
 			null, null, null, null, null, null, null, null,

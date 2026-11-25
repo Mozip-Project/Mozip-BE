@@ -274,22 +274,29 @@ input InterviewTimeRangeInput {
     closedSlots: [LocalTime!]
 }
 
-"4단계 입력을 한 타입에 모아두고, 단계별로 그 단계에 해당하는 필드만 채워서 보냄 (나머지는 null = 기존 값 유지)"
+"""
+4단계 입력을 한 타입에 모아두고, 단계별로 그 단계에 해당하는 필드만 채워서 보냄.
+대부분은 필드를 안 보내거나 null을 보내면 똑같이 기존 값이 유지됨.
+단, semester/region/fee/eligibilityNote/activityStartedOn/activityEndedOn은 선택 항목이라 지울 수도 있어서
+필드를 안 보내면(생략) 기존 값 유지, null을 명시해서 보내면 지움으로 구분함
+"""
 input PostingDraftInput {
     "1단계 basic. 최대 100자"
     title: String
     content: String
-    "최대 20자"
+    "최대 20자. 생략 = 기존 값 유지, null = 지움"
     semester: String
-    "최대 100자"
+    "최대 100자. 생략 = 기존 값 유지, null = 지움"
     region: String
-    "최대 50자"
+    "최대 50자. 생략 = 기존 값 유지, null = 지움"
     fee: String
     allowEnrolled: Boolean
     allowOnLeave: Boolean
-    "최대 200자"
+    "최대 200자. 생략 = 기존 값 유지, null = 지움"
     eligibilityNote: String
+    "생략 = 기존 값 유지, null = 지움"
     activityStartedOn: Date
+    "생략 = 기존 값 유지, null = 지움"
     activityEndedOn: Date
     recruitStartAt: DateTime
     recruitEndAt: DateTime

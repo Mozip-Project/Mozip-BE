@@ -16,6 +16,7 @@ import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.context.SpringBootTest;
 import org.springframework.context.annotation.Import;
+import org.springframework.graphql.data.ArgumentValue;
 import org.springframework.transaction.annotation.Transactional;
 
 import com.mozip.TestcontainersConfiguration;
@@ -144,6 +145,31 @@ class PostingServiceTest {
 		assertThat(updated.getTitle()).isEqualTo("제목1");
 		assertThat(updated.isNoPosition()).isFalse();
 		assertThat(updated.getDraftStep()).isEqualTo(2);
+	}
+
+	@Test
+	@DisplayName("선택 항목에 null을 명시해서 보내면 지워지고, 필드를 안 보내면(생략) 기존 값이 유지된다")
+	void explicitNullClearsOptionalFieldButOmittingKeepsIt() {
+		Posting posting = postingService.saveDraft(operator.getId(), organization.getId(), null,
+			basicInput("제목"));
+		postingService.saveDraft(operator.getId(), organization.getId(), posting.getId(),
+			withEligibilityNote(ArgumentValue.ofNullable("1~3학년")));
+		assertThat(postingRepository.findById(posting.getId()).orElseThrow().getEligibilityNote())
+			.isEqualTo("1~3학년");
+
+		// eligibilityNote를 안 건드리는 저장(예: positions 단계)은 기존 값을 그대로 둬야 함
+		postingService.saveDraft(operator.getId(), organization.getId(), posting.getId(),
+			withPositions(List.of(new PositionInput(null, "백엔드", 1, 0))));
+		assertThat(postingRepository.findById(posting.getId()).orElseThrow().getEligibilityNote())
+			.isEqualTo("1~3학년");
+
+		Posting cleared = postingService.saveDraft(operator.getId(), organization.getId(), posting.getId(),
+			withEligibilityNote(ArgumentValue.ofNullable(null)));
+
+		assertThat(cleared.getEligibilityNote()).isNull();
+		// region/fee는 건드리지 않았으니 basicInput에서 저장한 값이 그대로 남아야 함
+		assertThat(cleared.getRegion()).isEqualTo("서울");
+		assertThat(cleared.getFee()).isEqualTo("무료");
 	}
 
 	@Test
@@ -309,8 +335,11 @@ class PostingServiceTest {
 		assertThatThrownBy(() -> postingService.saveDraft(operator.getId(), organization.getId(), posting.getId(),
 			basicInput("수정")))
 			.isInstanceOf(BusinessException.class)
-			.extracting(e -> ((BusinessException)e).getErrorCode())
-			.isEqualTo(PostingErrorCode.CONFLICT);
+			.satisfies(e -> {
+				BusinessException ex = (BusinessException)e;
+				assertThat(ex.getErrorCode()).isEqualTo(PostingErrorCode.CONFLICT);
+				assertThat(ex.getReason()).isEqualTo(PostingConflictReason.NOT_DRAFT.name());
+			});
 	}
 
 	@Test
@@ -560,8 +589,11 @@ class PostingServiceTest {
 
 		assertThatThrownBy(() -> postingService.publish(operator.getId(), posting.getId()))
 			.isInstanceOf(BusinessException.class)
-			.extracting(e -> ((BusinessException)e).getErrorCode())
-			.isEqualTo(PostingErrorCode.CONFLICT);
+			.satisfies(e -> {
+				BusinessException ex = (BusinessException)e;
+				assertThat(ex.getErrorCode()).isEqualTo(PostingErrorCode.CONFLICT);
+				assertThat(ex.getReason()).isEqualTo(PostingConflictReason.ALREADY_PUBLISHED.name());
+			});
 	}
 
 	@Test
@@ -603,12 +635,27 @@ class PostingServiceTest {
 	}
 
 	@Test
-	@DisplayName("postings의 size가 범위를 벗어나면 COMMON_400을 던진다")
+	@DisplayName("postings의 page가 음수거나 size가 범위를 벗어나면 COMMON_400을 던진다")
 	void rejectsInvalidPageSize() {
 		assertThatThrownBy(() -> postingService.findList(null, PostingSort.LATEST, 0, 0))
 			.isInstanceOf(BusinessException.class)
 			.extracting(e -> ((BusinessException)e).getErrorCode())
 			.isEqualTo(CommonErrorCode.INVALID_INPUT);
+		assertThatThrownBy(() -> postingService.findList(null, PostingSort.LATEST, -1, 10))
+			.isInstanceOf(BusinessException.class)
+			.extracting(e -> ((BusinessException)e).getErrorCode())
+			.isEqualTo(CommonErrorCode.INVALID_INPUT);
+		assertThatThrownBy(() -> postingService.findList(null, PostingSort.LATEST, 0, 51))
+			.isInstanceOf(BusinessException.class)
+			.extracting(e -> ((BusinessException)e).getErrorCode())
+			.isEqualTo(CommonErrorCode.INVALID_INPUT);
+	}
+
+	@Test
+	@DisplayName("postings는 page=0, size=1과 size=50(최대치) 경계값을 정상 처리한다")
+	void acceptsBoundaryPageSize() {
+		assertThat(postingService.findList(null, PostingSort.LATEST, 0, 1)).isNotNull();
+		assertThat(postingService.findList(null, PostingSort.LATEST, 0, 50)).isNotNull();
 	}
 
 	@Test
@@ -862,7 +909,8 @@ class PostingServiceTest {
 	}
 
 	private PostingDraftInput basicInput(String title, LocalDateTime recruitEndAt) {
-		return new PostingDraftInput(title, "본문", "2026-2", "서울", "무료", true, false, null,
+		return new PostingDraftInput(title, "본문", ArgumentValue.ofNullable("2026-2"),
+			ArgumentValue.ofNullable("서울"), ArgumentValue.ofNullable("무료"), true, false, null,
 			null, null, LocalDateTime.now(), recruitEndAt, null,
 			null, null,
 			null, null, null, null, null, null, null, null,
@@ -871,8 +919,10 @@ class PostingServiceTest {
 
 	private PostingDraftInput basicInput(String title, LocalDate activityStartedOn, LocalDate activityEndedOn,
 		LocalDateTime recruitStartAt, LocalDateTime recruitEndAt) {
-		return new PostingDraftInput(title, "본문", "2026-2", "서울", "무료", true, false, null,
-			activityStartedOn, activityEndedOn, recruitStartAt, recruitEndAt, null,
+		return new PostingDraftInput(title, "본문", ArgumentValue.ofNullable("2026-2"),
+			ArgumentValue.ofNullable("서울"), ArgumentValue.ofNullable("무료"), true, false, null,
+			ArgumentValue.ofNullable(activityStartedOn), ArgumentValue.ofNullable(activityEndedOn), recruitStartAt,
+			recruitEndAt, null,
 			null, null,
 			null, null, null, null, null, null, null, null,
 			null, null);
@@ -882,6 +932,14 @@ class PostingServiceTest {
 		return new PostingDraftInput(null, null, null, null, null, null, null, null,
 			null, null, null, null, null,
 			false, positions,
+			null, null, null, null, null, null, null, null,
+			null, null);
+	}
+
+	private PostingDraftInput withEligibilityNote(ArgumentValue<String> eligibilityNote) {
+		return new PostingDraftInput(null, null, null, null, null, null, null, eligibilityNote,
+			null, null, null, null, null,
+			null, null,
 			null, null, null, null, null, null, null, null,
 			null, null);
 	}
