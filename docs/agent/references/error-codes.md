@@ -49,6 +49,13 @@
 |---|---|---|---|
 | `ORG_402` | 402 | `SUBSCRIPTION_REQUIRED` | 이용권 없는 단체의 유료 기능 호출 (A 이용권에서 사용, `publishPosting`에서도 사용, #65) |
 | `ORG_404` | 404 | `ORGANIZATION_NOT_FOUND` | 단체 없음. 심사 전이거나 반려된 단체를 소속이 아닌 사람이 상세 조회할 때도 같음 |
+| `ORG_409` | 409 | `CONFLICT` | `reason`으로 구분 (`OrganizationConflictReason`, #70) |
+
+## 디스코드 (`DiscordErrorCode`, #70)
+
+| 코드 | HTTP | 상수 | 언제 |
+|---|---|---|---|
+| `DISCORD_401` | 401 | `INVALID_SIGNATURE` | `POST /api/discord/interactions`의 Ed25519 서명 헤더가 없거나 body와 맞지 않음. 공개 키 설정이 비어 있을 때도 같음 |
 
 ## 알림 (`NotificationErrorCode`, #48)
 
@@ -81,6 +88,7 @@
 | enum | 코드 | 값 |
 |---|---|---|
 | `OrganizationInputReason` | `COMMON_400` | `COUNCIL_LEVEL_REQUIRED`, `COUNCIL_LEVEL_NOT_ALLOWED`, `SCHOOL_REQUIRED`, `SCHOOL_NOT_ALLOWED`, `SCHOOL_NOT_FOUND` (#37), `FIELDS_REQUIRED`, `FIELDS_NOT_ALLOWED`, `LINK_URL_INVALID` (#38) |
+| `OrganizationConflictReason` | `ORG_409` | `ALREADY_REVIEWED`(심사 대기가 아닌 단체를 승인 또는 미승인하려 함, #70) |
 | `PostingConflictReason` | `POSTING_409` | `NOT_DRAFT`(DRAFT 아닌 공고 수정 또는 삭제), `ALREADY_PUBLISHED`(이미 게시된 공고 재게시), `INVALID_STATUS_TRANSITION`(정해진 다음 단계가 아님, #66), `DOC_RESULT_NOT_CONFIRMED`(서류 결과 미확정, #66), `FINAL_RESULT_NOT_CONFIRMED`(최종 결과 미확정, #66), `NOT_RECRUITING`(모집 기간이 아님, #69) |
 | `ApplicationConflictReason` | `APPLICATION_409` | `ALREADY_SUBMITTED`(이미 제출된 지원서를 다시 저장·제출하려 함, #69), `CONCURRENT_SAVE`(동시 요청으로 지원서가 막 생성됨, 다시 요청하면 됨, #69) |
 | `ApplicationForbiddenReason` | `APPLICATION_403` | `SCHOOL_NOT_VERIFIED`(학교 인증을 하지 않은 회원, #69) |

@@ -125,6 +125,12 @@ public class OrganizationGraphqlController {
 		return manageableOnly(organizations, principal, Organization::getProofFileUrl);
 	}
 
+	// 미승인 사유도 소속 운영진에게만 보이고 그 외에는 null
+	@BatchMapping(typeName = "Organization")
+	public Map<Organization, String> rejectReason(List<Organization> organizations, Principal principal) {
+		return manageableOnly(organizations, principal, Organization::getRejectReason);
+	}
+
 	// 값이 null이면 Map에서 빼서 null로 응답
 	private Map<Organization, String> manageableOnly(List<Organization> organizations, Principal principal,
 		Function<Organization, String> field) {

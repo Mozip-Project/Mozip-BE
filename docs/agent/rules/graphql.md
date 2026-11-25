@@ -2,7 +2,7 @@
 
 ## 스키마 파일
 
-- 프론트 API는 GraphQL로 제공하고 REST는 인증과 헬스 체크에만 쓴다 (결정 002)
+- 프론트 API는 GraphQL로 제공하고 REST는 인증, 헬스 체크, 외부 서비스가 부르는 콜백에만 쓴다 (결정 002)
 - 스키마는 `common/src/main/resources/graphql/`에 도메인별 `.graphqls`로 나눈다 (`organization.graphqls`, `posting.graphqls`)
 - 루트 `type Query`와 `type Mutation`은 `schema.graphqls`에만 둔다. 도메인 파일은 `extend type Query`, `extend type Mutation`으로 필드를 추가한다
 - 공통 스칼라(`DateTime`, `Date`, `LocalTime`, `JSON`)와 디렉티브도 `schema.graphqls`에 있다

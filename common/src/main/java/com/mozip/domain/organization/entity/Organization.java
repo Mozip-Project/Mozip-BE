@@ -24,6 +24,9 @@ import lombok.NoArgsConstructor;
 @NoArgsConstructor(access = AccessLevel.PROTECTED)
 public class Organization extends BaseEntity {
 
+	// reject_reason 컬럼 길이 (DDL, 디스코드 사유 입력칸 최대 길이와 같음)
+	public static final int REJECT_REASON_MAX_LENGTH = 500;
+
 	@Id
 	@GeneratedValue(strategy = GenerationType.IDENTITY)
 	private Long id;
@@ -62,6 +65,10 @@ public class Organization extends BaseEntity {
 	@Enumerated(EnumType.STRING)
 	@Column(nullable = false, length = 30)
 	private ReviewStatus reviewStatus;
+
+	// 미승인 사유, REJECTED일 때만 값이 있음
+	@Column(length = REJECT_REASON_MAX_LENGTH)
+	private String rejectReason;
 
 	// 프로필, 등록 직후에는 전부 null
 	@Column(length = 500)
@@ -111,6 +118,35 @@ public class Organization extends BaseEntity {
 		this.tagline = tagline;
 		this.description = description;
 		this.email = email;
+	}
+
+	// 심사는 한 번만, PENDING이 아니면 거부
+	public void approve() {
+		requirePending();
+		this.reviewStatus = ReviewStatus.APPROVED;
+	}
+
+	// 미승인은 사유 필수
+	public void reject(String reason) {
+		requirePending();
+		if (reason == null || reason.isBlank()) {
+			throw new IllegalArgumentException("미승인 사유는 비울 수 없습니다.");
+		}
+		if (reason.length() > REJECT_REASON_MAX_LENGTH) {
+			throw new IllegalArgumentException("미승인 사유는 " + REJECT_REASON_MAX_LENGTH + "자를 넘을 수 없습니다.");
+		}
+		this.reviewStatus = ReviewStatus.REJECTED;
+		this.rejectReason = reason;
+	}
+
+	public boolean isPending() {
+		return reviewStatus == ReviewStatus.PENDING;
+	}
+
+	private void requirePending() {
+		if (reviewStatus != ReviewStatus.PENDING) {
+			throw new IllegalArgumentException("심사 대기 중인 단체만 승인하거나 미승인할 수 있습니다. 현재 상태: " + reviewStatus);
+		}
 	}
 
 	public boolean isStudentCouncil() {

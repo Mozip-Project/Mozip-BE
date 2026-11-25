@@ -11,3 +11,11 @@ data:
   S3_BUCKET: "mozip-prod-assets"
   AWS_REGION: "ap-northeast-2"
   CDN_DOMAIN: "https://mozip-prod-assets.s3.ap-northeast-2.amazonaws.com"
+  # 단체 생성 심사 디스코드 연동. 공개키와 허용 역할/사용자를 채운 뒤 true로 바꾼다 (봇 토큰은 mozip-secret의 DISCORD_BOT_TOKEN)
+  DISCORD_ENABLED: "false"
+  # 디스코드 개발자 콘솔 General Information의 Public Key. 비면 Interactions 요청은 전부 401
+  DISCORD_PUBLIC_KEY: ""
+  DISCORD_REVIEW_CHANNEL_ID: "1574977073104162938"
+  # 승인/미승인 버튼을 누를 수 있는 역할 id와 사용자 id (콤마로 여러 개). 둘 다 비면 아무도 못 누른다
+  DISCORD_ALLOWED_ROLE_IDS: ""
+  DISCORD_ALLOWED_USER_IDS: ""
