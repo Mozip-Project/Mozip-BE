@@ -224,14 +224,16 @@ type PostingPage {
 }
 
 input PostingImageInput {
+    "최대 500자"
     url: String!
     sortOrder: Int!
 }
 
 input PositionInput {
     teamId: ID
+    "최대 50자"
     name: String!
-    "null = 모집 인원 미정"
+    "null = 모집 인원 미정, 1 이상"
     headcount: Int
     sortOrder: Int!
 }
@@ -240,7 +242,9 @@ input PositionInput {
 input QuestionOptionsInput {
     choices: [String!]
     columns: [String!]
+    "1 이상"
     maxRows: Int
+    "1 이상"
     maxFiles: Int
 }
 
@@ -248,9 +252,12 @@ input QuestionInput {
     "null = 공통 문항. 2단계에서 먼저 저장된 Position의 id"
     positionId: ID
     type: QuestionType!
+    "최대 200자"
     title: String!
+    "최대 500자"
     description: String
     required: Boolean!
+    "TEXT 글자 수 제한, 1 이상"
     maxLength: Int
     options: QuestionOptionsInput
     sortOrder: Int!
@@ -267,14 +274,18 @@ input InterviewTimeRangeInput {
 
 "5단계 입력을 한 타입에 모아두고, 단계별로 그 단계에 해당하는 필드만 채워서 보냄 (나머지는 null = 기존 값 유지)"
 input PostingDraftInput {
-    "1단계 basic"
+    "1단계 basic. 최대 100자"
     title: String
     content: String
+    "최대 20자"
     semester: String
+    "최대 100자"
     region: String
+    "최대 50자"
     fee: String
     allowEnrolled: Boolean
     allowOnLeave: Boolean
+    "최대 200자"
     eligibilityNote: String
     activityStartedOn: Date
     activityEndedOn: Date
@@ -290,10 +301,14 @@ input PostingDraftInput {
     "3단계 interview"
     hasInterview: Boolean
     interviewMethod: InterviewMethod
+    "1분 이상"
     interviewMinutes: Int
+    "0분 이상"
     breakMinutes: Int
     assignRule: AssignRule
+    "1명 이상"
     maxApplicantsPerInterview: Int
+    "1개 이상"
     maxParallelInterviews: Int
     interviewTimeRanges: [InterviewTimeRangeInput!]
 
