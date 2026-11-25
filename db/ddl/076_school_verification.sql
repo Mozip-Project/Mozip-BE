@@ -224,4 +224,4 @@ insert into schools (email_domain, name, created_at, updated_at) values
     ('hongik.ac.kr', '홍익대학교', now(), now()),
     ('g.hongik.ac.kr', '홍익대학교', now(), now()),
     ('mail.hongik.ac.kr', '홍익대학교', now(), now())
-on conflict (email_domain) do nothing;
+on conflict (email_domain) where email_domain is not null do nothing;
