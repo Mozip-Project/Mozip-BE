@@ -76,14 +76,15 @@ public class User extends BaseEntity {
 	@Column(length = 100)
 	private String contactEmail;
 
-	// TODO: 알림 기능 구현 전까지는 항상 true로 생성됨. 실제 토글 뮤테이션이 생기면 UserService.toMe()의
-	// NotificationSettings.defaults()도 이 컬럼을 읽도록 같이 바꿔야 함 (지금은 두 값이 우연히 같을 뿐, 연결 안 돼 있음)
+	// 지원 결과, 면접 일정 알림
 	@Column(nullable = false)
 	private boolean notifyResult;
 
+	// 스크랩 공고 지원 시작 알림
 	@Column(nullable = false)
 	private boolean notifyScrap;
 
+	// 대표자 인수 요청, 평가 마감 알림
 	@Column(nullable = false)
 	private boolean notifyOperator;
 
@@ -116,6 +117,12 @@ public class User extends BaseEntity {
 
 	public boolean isActive() {
 		return status == UserStatus.ACTIVE;
+	}
+
+	public void updateNotificationSettings(boolean notifyResult, boolean notifyScrap, boolean notifyOperator) {
+		this.notifyResult = notifyResult;
+		this.notifyScrap = notifyScrap;
+		this.notifyOperator = notifyOperator;
 	}
 
 	// 지원자/운영진 홈 전환
