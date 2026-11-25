@@ -15,6 +15,7 @@ import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.context.SpringBootTest;
 import org.springframework.context.annotation.Import;
+import org.springframework.graphql.data.ArgumentValue;
 import org.springframework.transaction.annotation.Transactional;
 
 import com.mozip.TestcontainersConfiguration;
@@ -255,13 +256,22 @@ class ApplicationServiceTest {
 	@Test
 	@DisplayName("RECRUITING이어도 recruitEndAt이 지났으면 POSTING_409(NOT_RECRUITING)를 던진다")
 	void rejectsSavingWhenRecruitWindowExpired() {
+		// 공고 작성 시점엔 마감일이 미래여야 게시 가능(postingService.publish의 모집 기간 검증). 게시 후 시간이 지난 상황은
+		// 엔티티를 직접 건드려서 흉내냄(스케줄러 테스트의 PostingRepositoryTest와 같은 방식)
+		// publish의 모집 기간 검증(PostingService)은 서울 시각 기준이라, 여기서도 서울 시각으로 맞춰야
+		// JVM 기본 시간대가 서울이 아닌 CI에서도 publish가 거부되지 않음
+		LocalDateTime seoulNow = LocalDateTime.now(LocalDateTimeScalar.ZONE);
 		Posting posting = postingService.saveDraft(operator.getId(), organization.getId(), null,
-			basicInput("마감 지난 공고 " + System.nanoTime(), LocalDateTime.now().minusDays(1)));
+			basicInput("마감 지난 공고 " + System.nanoTime(), seoulNow.plusHours(1)));
 		postingService.saveDraft(operator.getId(), organization.getId(), posting.getId(),
 			withPositions(List.of(new PositionInput(null, "백엔드", 1, 0))));
 		postingService.saveDraft(operator.getId(), organization.getId(), posting.getId(),
 			withQuestions(List.of(new QuestionInput(null, QuestionType.TEXT, "자기소개", null, true, 500, null, 0))));
 		postingService.publish(operator.getId(), posting.getId());
+		posting.updateBasicStep(posting.getTitle(), posting.getContent(), posting.getSemester(), posting.getRegion(),
+			posting.getFee(), posting.isAllowEnrolled(), posting.isAllowOnLeave(), posting.getEligibilityNote(),
+			posting.getActivityStartedOn(), posting.getActivityEndedOn(), posting.getRecruitStartAt(),
+			seoulNow.minusDays(1));
 
 		assertThatThrownBy(() -> applicationService.saveDraft(applicant.getId(), posting.getId(),
 			new ApplicationInput(null, null, null)))
@@ -946,8 +956,7 @@ class ApplicationServiceTest {
 			null, null,
 			hasInterview, interviewMethod, interviewMinutes, breakMinutes, assignRule, maxApplicantsPerInterview,
 			maxParallelInterviews, interviewTimeRanges,
-			null, null,
-			null);
+			null, null);
 	}
 
 	private Position onlyPosition(Posting posting) {
@@ -963,22 +972,22 @@ class ApplicationServiceTest {
 	}
 
 	private PostingDraftInput basicInput(String title, LocalDateTime recruitEndAt) {
-		return new PostingDraftInput(title, "본문", "2026-2", "서울", "무료", true, false, null,
+		return new PostingDraftInput(title, "본문", ArgumentValue.ofNullable("2026-2"),
+			ArgumentValue.ofNullable("서울"), ArgumentValue.ofNullable("무료"), true, false, null,
 			null, null, LocalDateTime.now(), recruitEndAt, null,
 			null, null,
 			null, null, null, null, null, null, null, null,
-			null, null,
-			null);
+			null, null);
 	}
 
 	private PostingDraftInput basicInputWithWindow(String title, LocalDateTime recruitStartAt,
 		LocalDateTime recruitEndAt) {
-		return new PostingDraftInput(title, "본문", "2026-2", "서울", "무료", true, false, null,
+		return new PostingDraftInput(title, "본문", ArgumentValue.ofNullable("2026-2"),
+			ArgumentValue.ofNullable("서울"), ArgumentValue.ofNullable("무료"), true, false, null,
 			null, null, recruitStartAt, recruitEndAt, null,
 			null, null,
 			null, null, null, null, null, null, null, null,
-			null, null,
-			null);
+			null, null);
 	}
 
 	private PostingDraftInput withPositions(List<PositionInput> positions) {
@@ -986,8 +995,7 @@ class ApplicationServiceTest {
 			null, null, null, null, null,
 			false, positions,
 			null, null, null, null, null, null, null, null,
-			null, null,
-			null);
+			null, null);
 	}
 
 	private PostingDraftInput withQuestions(List<QuestionInput> questions) {
@@ -995,8 +1003,7 @@ class ApplicationServiceTest {
 			null, null, null, null, null,
 			null, null,
 			null, null, null, null, null, null, null, null,
-			true, questions,
-			null);
+			true, questions);
 	}
 
 }

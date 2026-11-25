@@ -18,6 +18,7 @@ import com.mozip.domain.organization.entity.Organization;
 import com.mozip.domain.organization.entity.Team;
 import com.mozip.domain.organization.repository.OrganizationRepository;
 import com.mozip.domain.organization.repository.TeamRepository;
+import com.mozip.domain.posting.dto.PostingCard;
 import com.mozip.domain.posting.dto.PostingDraftInput;
 import com.mozip.domain.posting.dto.PostingFilter;
 import com.mozip.domain.posting.dto.PostingPage;
@@ -59,8 +60,8 @@ public class PostingGraphqlController {
 
 	@QueryMapping
 	public PostingPage postings(@Argument PostingFilter filter, @Argument PostingSort sort, @Argument int page,
-		@Argument int size) {
-		return postingService.findList(filter, sort, page, size);
+		@Argument int size, @AuthenticationPrincipal AuthUser authUser) {
+		return postingService.findList(filter, sort, page, size, authUser == null ? null : authUser.userId());
 	}
 
 	@QueryMapping
@@ -134,6 +135,21 @@ public class PostingGraphqlController {
 	@BatchMapping(typeName = "Posting", field = "sourcePosting")
 	public Map<Posting, Posting> sourcePosting(List<Posting> postings) {
 		return groupToOne(postings, Posting::getSourcePosting, Posting::getId, postingRepository::findAllById);
+	}
+
+	// PostingCard는 카드 조립 시점에 만든 DTO라 안에 든 Posting으로 기존 배치 매핑을 그대로 재사용
+	@BatchMapping(typeName = "PostingCard", field = "organization")
+	public Map<PostingCard, Organization> cardOrganization(List<PostingCard> cards) {
+		Map<Posting, Organization> organizationByPosting = organization(cards.stream().map(PostingCard::posting).toList());
+		return cards.stream()
+			.collect(Collectors.toMap(Function.identity(), card -> organizationByPosting.get(card.posting())));
+	}
+
+	@BatchMapping(typeName = "PostingCard", field = "positions")
+	public Map<PostingCard, List<Position>> cardPositions(List<PostingCard> cards) {
+		Map<Posting, List<Position>> positionsByPosting = positions(cards.stream().map(PostingCard::posting).toList());
+		return cards.stream()
+			.collect(Collectors.toMap(Function.identity(), card -> positionsByPosting.get(card.posting())));
 	}
 
 	@BatchMapping(typeName = "Position", field = "team")

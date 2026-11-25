@@ -14,6 +14,7 @@ import org.springframework.boot.graphql.test.autoconfigure.tester.AutoConfigureH
 import org.springframework.boot.test.context.SpringBootTest;
 import org.springframework.boot.webmvc.test.autoconfigure.AutoConfigureMockMvc;
 import org.springframework.context.annotation.Import;
+import org.springframework.graphql.data.ArgumentValue;
 import org.springframework.graphql.test.tester.HttpGraphQlTester;
 import org.springframework.jdbc.core.JdbcTemplate;
 
@@ -176,12 +177,12 @@ class ApplicationGraphqlControllerTest {
 	}
 
 	private PostingDraftInput basicInput(String title) {
-		return new PostingDraftInput(title, "본문", "2026-2", "서울", "무료", true, false, null,
+		return new PostingDraftInput(title, "본문", ArgumentValue.ofNullable("2026-2"),
+			ArgumentValue.ofNullable("서울"), ArgumentValue.ofNullable("무료"), true, false, null,
 			null, null, LocalDateTime.now(), LocalDateTime.now().plusDays(7), null,
 			null, null,
 			null, null, null, null, null, null, null, null,
-			null, null,
-			null);
+			null, null);
 	}
 
 	private PostingDraftInput withNoPosition() {
@@ -189,8 +190,7 @@ class ApplicationGraphqlControllerTest {
 			null, null, null, null, null,
 			true, List.of(),
 			null, null, null, null, null, null, null, null,
-			null, null,
-			null);
+			null, null);
 	}
 
 	private PostingDraftInput withQuestions(List<QuestionInput> questions) {
@@ -198,8 +198,7 @@ class ApplicationGraphqlControllerTest {
 			null, null, null, null, null,
 			null, null,
 			null, null, null, null, null, null, null, null,
-			true, questions,
-			null);
+			true, questions);
 	}
 
 	private User saveUser(String name) {

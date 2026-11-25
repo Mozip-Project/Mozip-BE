@@ -51,7 +51,7 @@ type Posting {
     "모집 안내 (HTML)"
     content: String
     status: PostingStatus!
-    "작성 중 단계 1~5"
+    "작성 중 단계 1~4"
     draftStep: Int
     hasInterview: Boolean!
     "비면접이면 null"
@@ -209,7 +209,7 @@ enum PostingSort {
 input PostingFilter {
     keyword: String
     schoolId: ID
-    organizationType: OrganizationType
+    organizationTypes: [OrganizationType!]
     "TODO: 기준 데이터가 아직 없어 받기만 하고 적용하지 않음"
     fields: [String!]
     hasInterview: Boolean
@@ -218,20 +218,39 @@ input PostingFilter {
 }
 
 type PostingPage {
-    items: [Posting!]!
+    items: [PostingCard!]!
     totalCount: Int!
     hasNext: Boolean!
 }
 
+"공고 목록에서 보여줄 카드 정보"
+type PostingCard {
+    id: ID!
+    title: String!
+    organization: OrganizationSummary!
+    "대표 이미지, 없으면 null"
+    thumbnailUrl: String
+    recruitEndAt: DateTime!
+    hasInterview: Boolean!
+    scrapCount: Int!
+    "비로그인이면 false"
+    scrapped: Boolean!
+    positions: [Position!]!
+}
+
 input PostingImageInput {
+    "최대 500자"
     url: String!
     sortOrder: Int!
+    "대표 이미지(전체 공고 카드 썸네일)로 지정. 여러 장에 true를 보내면 COMMON_400, 하나도 없으면 안 고른 것으로 처리(안 고르면 첫 번째 사진)"
+    isRepresentative: Boolean = false
 }
 
 input PositionInput {
     teamId: ID
+    "최대 50자"
     name: String!
-    "null = 모집 인원 미정"
+    "null = 모집 인원 미정, 1 이상"
     headcount: Int
     sortOrder: Int!
 }
@@ -240,7 +259,9 @@ input PositionInput {
 input QuestionOptionsInput {
     choices: [String!]
     columns: [String!]
+    "1 이상"
     maxRows: Int
+    "1 이상"
     maxFiles: Int
 }
 
@@ -248,9 +269,12 @@ input QuestionInput {
     "null = 공통 문항. 2단계에서 먼저 저장된 Position의 id"
     positionId: ID
     type: QuestionType!
+    "최대 200자"
     title: String!
+    "최대 500자"
     description: String
     required: Boolean!
+    "TEXT 글자 수 제한, 1 이상"
     maxLength: Int
     options: QuestionOptionsInput
     sortOrder: Int!
@@ -265,18 +289,29 @@ input InterviewTimeRangeInput {
     closedSlots: [LocalTime!]
 }
 
-"5단계 입력을 한 타입에 모아두고, 단계별로 그 단계에 해당하는 필드만 채워서 보냄 (나머지는 null = 기존 값 유지)"
+"""
+4단계 입력을 한 타입에 모아두고, 단계별로 그 단계에 해당하는 필드만 채워서 보냄.
+대부분은 필드를 안 보내거나 null을 보내면 똑같이 기존 값이 유지됨.
+단, semester/region/fee/eligibilityNote/activityStartedOn/activityEndedOn은 선택 항목이라 지울 수도 있어서
+필드를 안 보내면(생략) 기존 값 유지, null을 명시해서 보내면 지움으로 구분함
+"""
 input PostingDraftInput {
-    "1단계 basic"
+    "1단계 basic. 최대 100자"
     title: String
     content: String
+    "최대 20자. 생략 = 기존 값 유지, null = 지움"
     semester: String
+    "최대 100자. 생략 = 기존 값 유지, null = 지움"
     region: String
+    "최대 50자. 생략 = 기존 값 유지, null = 지움"
     fee: String
     allowEnrolled: Boolean
     allowOnLeave: Boolean
+    "최대 200자. 생략 = 기존 값 유지, null = 지움"
     eligibilityNote: String
+    "생략 = 기존 값 유지, null = 지움"
     activityStartedOn: Date
+    "생략 = 기존 값 유지, null = 지움"
     activityEndedOn: Date
     recruitStartAt: DateTime
     recruitEndAt: DateTime
@@ -290,19 +325,20 @@ input PostingDraftInput {
     "3단계 interview"
     hasInterview: Boolean
     interviewMethod: InterviewMethod
+    "1분 이상"
     interviewMinutes: Int
+    "0분 이상"
     breakMinutes: Int
     assignRule: AssignRule
+    "1명 이상"
     maxApplicantsPerInterview: Int
+    "1개 이상"
     maxParallelInterviews: Int
     interviewTimeRanges: [InterviewTimeRangeInput!]
 
     "4단계 questions"
     docScorePerQuestion: Boolean
     questions: [QuestionInput!]
-
-    "5단계 exposure"
-    representativeImageId: ID
 }
 
 extend type Query {
