@@ -39,13 +39,13 @@ public final class PostingSpecifications {
 		};
 	}
 
-	public static Specification<Posting> organizationType(OrganizationType organizationType) {
-		if (organizationType == null) {
+	public static Specification<Posting> organizationTypes(List<OrganizationType> organizationTypes) {
+		if (organizationTypes == null || organizationTypes.isEmpty()) {
 			return null;
 		}
 		return (root, query, builder) -> {
 			Join<Posting, Organization> organization = root.join("organization");
-			return builder.equal(organization.get("type"), organizationType);
+			return organization.get("type").in(organizationTypes);
 		};
 	}
 

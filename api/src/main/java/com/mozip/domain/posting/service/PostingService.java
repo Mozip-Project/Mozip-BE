@@ -5,6 +5,7 @@ import java.time.LocalDateTime;
 import java.time.LocalTime;
 import java.util.ArrayList;
 import java.util.Comparator;
+import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.Objects;
@@ -29,6 +30,7 @@ import com.mozip.domain.organization.service.OrganizationAccessChecker;
 import com.mozip.domain.payment.service.SubscriptionService;
 import com.mozip.domain.posting.dto.InterviewTimeRangeInput;
 import com.mozip.domain.posting.dto.PositionInput;
+import com.mozip.domain.posting.dto.PostingCard;
 import com.mozip.domain.posting.dto.PostingDraftInput;
 import com.mozip.domain.posting.dto.PostingFilter;
 import com.mozip.domain.posting.dto.PostingImageInput;
@@ -49,6 +51,7 @@ import com.mozip.domain.posting.repository.PostingImageRepository;
 import com.mozip.domain.posting.repository.PostingRepository;
 import com.mozip.domain.posting.repository.PostingSpecifications;
 import com.mozip.domain.posting.repository.QuestionRepository;
+import com.mozip.domain.posting.repository.ScrapRepository;
 import com.mozip.global.common.response.FieldErrorResponse;
 import com.mozip.global.config.graphql.LocalDateTimeScalar;
 import com.mozip.global.exception.BusinessException;
@@ -69,6 +72,7 @@ public class PostingService {
 	private final QuestionRepository questionRepository;
 	private final PostingImageRepository postingImageRepository;
 	private final InterviewTimeRangeRepository interviewTimeRangeRepository;
+	private final ScrapRepository scrapRepository;
 	private final TeamRepository teamRepository;
 	private final OrganizationAccessChecker organizationAccessChecker;
 	private final SubscriptionService subscriptionService;
@@ -193,7 +197,7 @@ public class PostingService {
 		return posting;
 	}
 
-	public PostingPage findList(PostingFilter filter, PostingSort sort, int page, int size) {
+	public PostingPage findList(PostingFilter filter, PostingSort sort, int page, int size, Long requestUserId) {
 		if (page < 0 || size < 1 || size > MAX_PAGE_SIZE) {
 			throw new BusinessException(CommonErrorCode.INVALID_INPUT)
 				.addContext("page", page)
@@ -203,7 +207,7 @@ public class PostingService {
 		if (filter != null) {
 			spec = addIfPresent(spec, PostingSpecifications.keyword(filter.keyword()));
 			spec = addIfPresent(spec, PostingSpecifications.schoolId(filter.schoolId()));
-			spec = addIfPresent(spec, PostingSpecifications.organizationType(filter.organizationType()));
+			spec = addIfPresent(spec, PostingSpecifications.organizationTypes(filter.organizationTypes()));
 			spec = addIfPresent(spec, PostingSpecifications.hasInterview(filter.hasInterview()));
 			spec = addIfPresent(spec,
 				PostingSpecifications.closingSoon(filter.closingSoon(), LocalDateTime.now(LocalDateTimeScalar.ZONE)));
@@ -213,7 +217,45 @@ public class PostingService {
 		Pageable pageable = PageRequest.of(page, size, effectiveSort.toJpaSort());
 
 		Page<Posting> result = postingRepository.findAll(spec, pageable);
-		return new PostingPage(result.getContent(), result.getTotalElements(), result.hasNext());
+		List<PostingCard> cards = toCards(result.getContent(), requestUserId);
+		return new PostingPage(cards, result.getTotalElements(), result.hasNext());
+	}
+
+	// 썸네일(대표 이미지, 없으면 첫 번째)/스크랩 수/내 스크랩 여부를 한 번에 조회해서 카드로 묶음
+	private List<PostingCard> toCards(List<Posting> postings, Long requestUserId) {
+		if (postings.isEmpty()) {
+			return List.of();
+		}
+		Map<Long, String> thumbnailByPostingId = resolveThumbnails(postings);
+		Map<Long, Long> scrapCountByPostingId = scrapRepository.findAllByPostingIn(postings).stream()
+			.collect(Collectors.groupingBy(scrap -> scrap.getPosting().getId(), Collectors.counting()));
+		Set<Long> scrappedPostingIds = requestUserId == null
+			? Set.of()
+			: scrapRepository.findAllByUser_IdAndPostingIn(requestUserId, postings).stream()
+				.map(scrap -> scrap.getPosting().getId())
+				.collect(Collectors.toSet());
+		return postings.stream()
+			.map(posting -> new PostingCard(posting, thumbnailByPostingId.get(posting.getId()),
+				scrapCountByPostingId.getOrDefault(posting.getId(), 0L), scrappedPostingIds.contains(posting.getId())))
+			.toList();
+	}
+
+	private Map<Long, String> resolveThumbnails(List<Posting> postings) {
+		Map<Long, List<PostingImage>> imagesByPostingId = postingImageRepository
+			.findAllByPostingInOrderBySortOrder(postings).stream()
+			.collect(Collectors.groupingBy(image -> image.getPosting().getId()));
+		Map<Long, String> thumbnailByPostingId = new HashMap<>();
+		for (Posting posting : postings) {
+			List<PostingImage> images = imagesByPostingId.getOrDefault(posting.getId(), List.of());
+			String thumbnailUrl = images.stream()
+				.filter(PostingImage::isRepresentative)
+				.findFirst()
+				.or(() -> images.stream().findFirst())
+				.map(PostingImage::getUrl)
+				.orElse(null);
+			thumbnailByPostingId.put(posting.getId(), thumbnailUrl);
+		}
+		return thumbnailByPostingId;
 	}
 
 	public List<Posting> findOrganizationPostings(Long userId, Long organizationId, List<PostingStatus> statuses) {

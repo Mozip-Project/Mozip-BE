@@ -209,7 +209,7 @@ enum PostingSort {
 input PostingFilter {
     keyword: String
     schoolId: ID
-    organizationType: OrganizationType
+    organizationTypes: [OrganizationType!]
     "TODO: 기준 데이터가 아직 없어 받기만 하고 적용하지 않음"
     fields: [String!]
     hasInterview: Boolean
@@ -218,9 +218,24 @@ input PostingFilter {
 }
 
 type PostingPage {
-    items: [Posting!]!
+    items: [PostingCard!]!
     totalCount: Int!
     hasNext: Boolean!
+}
+
+"공고 목록에서 보여줄 카드 정보"
+type PostingCard {
+    id: ID!
+    title: String!
+    organization: OrganizationSummary!
+    "대표 이미지, 없으면 null"
+    thumbnailUrl: String
+    recruitEndAt: DateTime!
+    hasInterview: Boolean!
+    scrapCount: Int!
+    "비로그인이면 false"
+    scrapped: Boolean!
+    positions: [Position!]!
 }
 
 input PostingImageInput {

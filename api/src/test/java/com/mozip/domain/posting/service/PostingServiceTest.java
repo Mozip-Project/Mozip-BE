@@ -32,6 +32,7 @@ import com.mozip.domain.organization.repository.OrganizationRepository;
 import com.mozip.domain.organization.repository.TeamRepository;
 import com.mozip.domain.posting.dto.InterviewTimeRangeInput;
 import com.mozip.domain.posting.dto.PositionInput;
+import com.mozip.domain.posting.dto.PostingCard;
 import com.mozip.domain.posting.dto.PostingDraftInput;
 import com.mozip.domain.posting.dto.PostingFilter;
 import com.mozip.domain.posting.dto.PostingImageInput;
@@ -627,9 +628,9 @@ class PostingServiceTest {
 		postingService.saveDraft(operator.getId(), organization.getId(), null, basicInput("아직 비공개"));
 
 		PostingFilter filter = new PostingFilter("백엔드", null, null, null, null);
-		PostingPage page = postingService.findList(filter, PostingSort.LATEST, 0, 10);
+		PostingPage page = postingService.findList(filter, PostingSort.LATEST, 0, 10, null);
 
-		assertThat(page.items()).extracting(Posting::getTitle).containsExactly("백엔드 모집");
+		assertThat(page.items()).extracting(PostingCard::title).containsExactly("백엔드 모집");
 		assertThat(page.totalCount()).isEqualTo(1);
 		assertThat(page.hasNext()).isFalse();
 	}
@@ -637,15 +638,15 @@ class PostingServiceTest {
 	@Test
 	@DisplayName("postings의 page가 음수거나 size가 범위를 벗어나면 COMMON_400을 던진다")
 	void rejectsInvalidPageSize() {
-		assertThatThrownBy(() -> postingService.findList(null, PostingSort.LATEST, 0, 0))
+		assertThatThrownBy(() -> postingService.findList(null, PostingSort.LATEST, 0, 0, null))
 			.isInstanceOf(BusinessException.class)
 			.extracting(e -> ((BusinessException)e).getErrorCode())
 			.isEqualTo(CommonErrorCode.INVALID_INPUT);
-		assertThatThrownBy(() -> postingService.findList(null, PostingSort.LATEST, -1, 10))
+		assertThatThrownBy(() -> postingService.findList(null, PostingSort.LATEST, -1, 10, null))
 			.isInstanceOf(BusinessException.class)
 			.extracting(e -> ((BusinessException)e).getErrorCode())
 			.isEqualTo(CommonErrorCode.INVALID_INPUT);
-		assertThatThrownBy(() -> postingService.findList(null, PostingSort.LATEST, 0, 51))
+		assertThatThrownBy(() -> postingService.findList(null, PostingSort.LATEST, 0, 51, null))
 			.isInstanceOf(BusinessException.class)
 			.extracting(e -> ((BusinessException)e).getErrorCode())
 			.isEqualTo(CommonErrorCode.INVALID_INPUT);
@@ -654,8 +655,8 @@ class PostingServiceTest {
 	@Test
 	@DisplayName("postings는 page=0, size=1과 size=50(최대치) 경계값을 정상 처리한다")
 	void acceptsBoundaryPageSize() {
-		assertThat(postingService.findList(null, PostingSort.LATEST, 0, 1)).isNotNull();
-		assertThat(postingService.findList(null, PostingSort.LATEST, 0, 50)).isNotNull();
+		assertThat(postingService.findList(null, PostingSort.LATEST, 0, 1, null)).isNotNull();
+		assertThat(postingService.findList(null, PostingSort.LATEST, 0, 50, null)).isNotNull();
 	}
 
 	@Test
@@ -692,12 +693,13 @@ class PostingServiceTest {
 			publishablePosting(councilElsewhere, "타교 학생회 모집", LocalDateTime.now().plusDays(7)).getId());
 
 		PostingPage bySchool = postingService.findList(new PostingFilter(null, schoolA.getId(), null, null, null),
-			PostingSort.LATEST, 0, 10);
-		assertThat(bySchool.items()).extracting(Posting::getTitle).containsExactly("A동아리 모집");
+			PostingSort.LATEST, 0, 10, null);
+		assertThat(bySchool.items()).extracting(PostingCard::title).containsExactly("A동아리 모집");
 
 		PostingPage byType = postingService.findList(
-			new PostingFilter(null, null, OrganizationType.STUDENT_COUNCIL, null, null), PostingSort.LATEST, 0, 10);
-		assertThat(byType.items()).extracting(Posting::getTitle).containsExactly("타교 학생회 모집");
+			new PostingFilter(null, null, List.of(OrganizationType.STUDENT_COUNCIL), null, null), PostingSort.LATEST,
+			0, 10, null);
+		assertThat(byType.items()).extracting(PostingCard::title).containsExactly("타교 학생회 모집");
 	}
 
 	@Test
@@ -710,9 +712,9 @@ class PostingServiceTest {
 		postingService.publish(operator.getId(), publishablePosting("면접 없는 모집").getId());
 
 		PostingPage page = postingService.findList(new PostingFilter(null, null, null, true, null),
-			PostingSort.LATEST, 0, 10);
+			PostingSort.LATEST, 0, 10, null);
 
-		assertThat(page.items()).extracting(Posting::getTitle).containsExactly("면접 있는 모집");
+		assertThat(page.items()).extracting(PostingCard::title).containsExactly("면접 있는 모집");
 	}
 
 	@Test
@@ -726,11 +728,11 @@ class PostingServiceTest {
 			publishablePosting("마감 여유", seoulNow.plusDays(10)).getId());
 
 		PostingPage closingSoonOnly = postingService.findList(new PostingFilter(null, null, null, null, true),
-			PostingSort.LATEST, 0, 10);
-		assertThat(closingSoonOnly.items()).extracting(Posting::getTitle).containsExactly("마감 임박");
+			PostingSort.LATEST, 0, 10, null);
+		assertThat(closingSoonOnly.items()).extracting(PostingCard::title).containsExactly("마감 임박");
 
-		PostingPage sorted = postingService.findList(null, PostingSort.CLOSING_SOON, 0, 10);
-		assertThat(sorted.items()).extracting(Posting::getTitle).containsExactly("마감 임박", "마감 여유");
+		PostingPage sorted = postingService.findList(null, PostingSort.CLOSING_SOON, 0, 10, null);
+		assertThat(sorted.items()).extracting(PostingCard::title).containsExactly("마감 임박", "마감 여유");
 	}
 
 	@Test
@@ -754,8 +756,8 @@ class PostingServiceTest {
 
 			// 버그가 있다면 now가 UTC 기준 LocalDateTime.now()(서울보다 9시간 느림)라서 5시간 전에 마감한 공고도 범위에 걸림
 			PostingPage closingSoonOnly = postingService.findList(new PostingFilter(null, null, null, null, true),
-				PostingSort.LATEST, 0, 10);
-			assertThat(closingSoonOnly.items()).extracting(Posting::getTitle).containsExactly("마감 1시간 남음");
+				PostingSort.LATEST, 0, 10, null);
+			assertThat(closingSoonOnly.items()).extracting(PostingCard::title).containsExactly("마감 1시간 남음");
 		} finally {
 			TimeZone.setDefault(originalDefault);
 		}
@@ -775,9 +777,9 @@ class PostingServiceTest {
 			.executeUpdate();
 		flushAndClear();
 
-		PostingPage page = postingService.findList(null, PostingSort.POPULAR, 0, 10);
+		PostingPage page = postingService.findList(null, PostingSort.POPULAR, 0, 10, null);
 
-		assertThat(page.items()).extracting(Posting::getTitle)
+		assertThat(page.items()).extracting(PostingCard::title)
 			.containsExactly("더 인기있는 모집", "덜 인기있는 모집");
 	}
 
@@ -788,7 +790,7 @@ class PostingServiceTest {
 		postingService.publish(operator.getId(), publishablePosting("모집2").getId());
 		postingService.publish(operator.getId(), publishablePosting("모집3").getId());
 
-		PostingPage page = postingService.findList(null, PostingSort.LATEST, 0, 2);
+		PostingPage page = postingService.findList(null, PostingSort.LATEST, 0, 2, null);
 
 		assertThat(page.items()).hasSize(2);
 		assertThat(page.totalCount()).isEqualTo(3);

@@ -237,6 +237,45 @@ class PostingGraphqlControllerTest {
 	}
 
 	@Test
+	@DisplayName("postings는 카드의 organization, positions을 배치 매핑으로 채워서 돌려준다")
+	void postingsResolvesCardOrganizationAndPositionsThroughBatchMapping() {
+		User operator = saveOperator();
+		Organization organization = saveOrganization(operator);
+
+		Posting posting = postingService.saveDraft(operator.getId(), organization.getId(), null,
+			basicInput("카드 조회용 공고"));
+		postingService.saveDraft(operator.getId(), organization.getId(), posting.getId(),
+			withPositions(List.of(new PositionInput(null, "백엔드", 1, 0))));
+		postingService.saveDraft(operator.getId(), organization.getId(), posting.getId(),
+			withQuestions(List.of(new QuestionInput(null, QuestionType.TEXT, "자기소개", null, true, 500, null, 0))));
+		postingService.publish(operator.getId(), posting.getId());
+
+		graphQlTester.document("""
+			query($filter: PostingFilter) {
+				postings(filter: $filter) {
+					items {
+						id
+						organization { id name }
+						thumbnailUrl
+						positions { id name }
+						scrapCount
+						scrapped
+					}
+					totalCount
+				}
+			}
+			""")
+			.variable("filter", Map.of("keyword", "카드 조회용"))
+			.execute()
+			.path("postings.items[0].id").entity(String.class).isEqualTo(String.valueOf(posting.getId()))
+			.path("postings.items[0].organization.id").entity(String.class).isEqualTo(String.valueOf(organization.getId()))
+			.path("postings.items[0].positions[0].name").entity(String.class).isEqualTo("백엔드")
+			.path("postings.items[0].thumbnailUrl").valueIsNull()
+			.path("postings.items[0].scrapCount").entity(Integer.class).isEqualTo(0)
+			.path("postings.items[0].scrapped").entity(Boolean.class).isEqualTo(false);
+	}
+
+	@Test
 	@DisplayName("closedSlots를 생략해서 저장해도 interviewTimeRanges 조회가 non-null 에러 없이 빈 배열을 돌려준다")
 	void closedSlotsDefaultsToEmptyListWhenOmitted() {
 		User operator = saveOperator();
