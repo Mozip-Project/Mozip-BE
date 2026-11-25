@@ -195,10 +195,12 @@ public class Posting extends BaseEntity {
 		advanceDraftStep(4);
 	}
 
-	public void publishNow() {
+	// publishedAt/bumpedAt은 LocalDateTimeScalar가 서울 시각으로 저장한 recruitStartAt/recruitEndAt과 비교되므로,
+	// now도 호출하는 쪽(PostingService)에서 서울 시각 기준으로 넘겨받음 (closingSoon과 같은 이유)
+	public void publishNow(LocalDateTime now) {
 		this.status = PostingStatus.RECRUITING;
-		this.publishedAt = LocalDateTime.now();
-		this.bumpedAt = LocalDateTime.now();
+		this.publishedAt = now;
+		this.bumpedAt = now;
 	}
 
 	public boolean isDraft() {
@@ -207,12 +209,12 @@ public class Posting extends BaseEntity {
 
 	// advancePostingStatus에서 씀. 순서·조건 검사는 호출하는 쪽(PostingService)에서 끝내고 넘어옴.
 	// 스케줄러의 자동 전환은 조건부 UPDATE(PostingRepository)로 따로 처리해 이 메서드를 안 탐
-	public void advanceStatus(PostingStatus to) {
+	public void advanceStatus(PostingStatus to, LocalDateTime now) {
 		this.status = to;
 		if (to == PostingStatus.DOC_RESULT_NOTICE) {
-			this.docResultAt = LocalDateTime.now();
+			this.docResultAt = now;
 		} else if (to == PostingStatus.FINAL_RESULT) {
-			this.finalResultAt = LocalDateTime.now();
+			this.finalResultAt = now;
 		}
 	}
 

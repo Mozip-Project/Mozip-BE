@@ -122,7 +122,7 @@ public class PostingService {
 		}
 		validateRequiredSteps(posting);
 
-		posting.publishNow();
+		posting.publishNow(LocalDateTime.now(LocalDateTimeScalar.ZONE));
 		return posting;
 	}
 
@@ -147,7 +147,7 @@ public class PostingService {
 				.addContext("postingId", postingId);
 		}
 
-		posting.advanceStatus(to);
+		posting.advanceStatus(to, LocalDateTime.now(LocalDateTimeScalar.ZONE));
 		return posting;
 	}
 
