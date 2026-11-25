@@ -202,7 +202,8 @@ public class PostingService {
 			spec = addIfPresent(spec, PostingSpecifications.schoolId(filter.schoolId()));
 			spec = addIfPresent(spec, PostingSpecifications.organizationType(filter.organizationType()));
 			spec = addIfPresent(spec, PostingSpecifications.hasInterview(filter.hasInterview()));
-			spec = addIfPresent(spec, PostingSpecifications.closingSoon(filter.closingSoon()));
+			spec = addIfPresent(spec,
+				PostingSpecifications.closingSoon(filter.closingSoon(), LocalDateTime.now(LocalDateTimeScalar.ZONE)));
 		}
 
 		PostingSort effectiveSort = sort != null ? sort : PostingSort.LATEST;

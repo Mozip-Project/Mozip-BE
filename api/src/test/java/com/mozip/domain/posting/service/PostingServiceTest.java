@@ -7,6 +7,7 @@ import java.time.LocalDate;
 import java.time.LocalDateTime;
 import java.time.LocalTime;
 import java.util.List;
+import java.util.TimeZone;
 import java.util.stream.IntStream;
 
 import org.junit.jupiter.api.BeforeEach;
@@ -599,6 +600,34 @@ class PostingServiceTest {
 
 		PostingPage sorted = postingService.findList(null, PostingSort.CLOSING_SOON, 0, 10);
 		assertThat(sorted.items()).extracting(Posting::getTitle).containsExactly("마감 임박", "마감 여유");
+	}
+
+	@Test
+	@DisplayName("JVM 기본 시간대가 서울이 아니어도 closingSoon은 서울 시각 기준으로 판단한다")
+	void closingSoonJudgesInSeoulTimeRegardlessOfJvmDefaultZone() {
+		TimeZone originalDefault = TimeZone.getDefault();
+		try {
+			TimeZone.setDefault(TimeZone.getTimeZone("UTC"));
+			LocalDateTime seoulNow = LocalDateTime.now(LocalDateTimeScalar.ZONE);
+
+			// 실제로는 마감 지난 공고를 publish할 수 없으니, 게시 후 시간이 지난 상황을 엔티티 직접 수정으로 흉내냄
+			Posting expired = publishablePosting("마감 5시간 지남", seoulNow.plusHours(1));
+			postingService.publish(operator.getId(), expired.getId());
+			expired.updateBasicStep(expired.getTitle(), expired.getContent(), expired.getSemester(),
+				expired.getRegion(), expired.getFee(), expired.isAllowEnrolled(), expired.isAllowOnLeave(),
+				expired.getEligibilityNote(), expired.getActivityStartedOn(), expired.getActivityEndedOn(),
+				expired.getRecruitStartAt(), seoulNow.minusHours(5));
+
+			Posting stillSoon = publishablePosting("마감 1시간 남음", seoulNow.plusHours(1));
+			postingService.publish(operator.getId(), stillSoon.getId());
+
+			// 버그가 있다면 now가 UTC 기준 LocalDateTime.now()(서울보다 9시간 느림)라서 5시간 전에 마감한 공고도 범위에 걸림
+			PostingPage closingSoonOnly = postingService.findList(new PostingFilter(null, null, null, null, true),
+				PostingSort.LATEST, 0, 10);
+			assertThat(closingSoonOnly.items()).extracting(Posting::getTitle).containsExactly("마감 1시간 남음");
+		} finally {
+			TimeZone.setDefault(originalDefault);
+		}
 	}
 
 	@Test
