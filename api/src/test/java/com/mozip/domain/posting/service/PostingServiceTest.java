@@ -278,6 +278,28 @@ class PostingServiceTest {
 	}
 
 	@Test
+	@DisplayName("다른 단체 소속 DRAFT를 자기 단체 id로 수정하려 하면 POSTING_404를 던지고 원본은 바뀌지 않는다")
+	void rejectsEditingDraftOfAnotherOrganization() {
+		User otherOperator = userRepository.save(
+			User.create("01033330003", "encoded", "다른 단체 운영진", false, LocalDateTime.now()));
+		Organization otherOrganization = organizationRepository.save(
+			Organization.create("다른 단체", OrganizationType.CLUB, null, OrganizationScope.CAMPUS, null, true, null,
+				null));
+		memberRepository.save(Member.create(otherOrganization, otherOperator, null, MemberRole.REPRESENTATIVE));
+		Posting othersDraft = postingService.saveDraft(otherOperator.getId(), otherOrganization.getId(), null,
+			basicInput("남의 단체 공고"));
+
+		assertThatThrownBy(() -> postingService.saveDraft(operator.getId(), organization.getId(),
+			othersDraft.getId(), basicInput("가로채기 시도")))
+			.isInstanceOf(BusinessException.class)
+			.extracting(e -> ((BusinessException)e).getErrorCode())
+			.isEqualTo(PostingErrorCode.NOT_FOUND);
+
+		assertThat(postingRepository.findById(othersDraft.getId()).orElseThrow().getTitle())
+			.isEqualTo("남의 단체 공고");
+	}
+
+	@Test
 	@DisplayName("게시하면 즉시 RECRUITING이 되고 publishedAt/bumpedAt이 찍힌다")
 	void publishesImmediately() {
 		Posting posting = publishablePosting("게시용 공고");

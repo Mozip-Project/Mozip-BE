@@ -70,6 +70,11 @@ public class PostingService {
 			posting = createDraft(organizationId, input);
 		} else {
 			posting = findById(postingId);
+			// 다른 단체 소속 공고를 id만 맞혀서 수정/조회하지 못하게 막음. 403이 아니라 404인 이유는 findDetail과 같음
+			// (403을 주면 id를 바꿔가며 불러서 남의 DRAFT가 있는지 알아낼 수 있음)
+			if (!posting.getOrganization().getId().equals(organizationId)) {
+				throw new BusinessException(PostingErrorCode.NOT_FOUND).addContext("postingId", postingId);
+			}
 			if (!posting.isDraft()) {
 				throw new BusinessException(PostingErrorCode.CONFLICT, PostingConflictReason.NOT_DRAFT)
 					.addContext("postingId", postingId);
