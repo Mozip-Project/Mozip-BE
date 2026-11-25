@@ -58,6 +58,7 @@ import com.mozip.global.config.graphql.LocalDateTimeScalar;
 import com.mozip.domain.school.repository.SchoolRepository;
 import com.mozip.domain.user.entity.User;
 import com.mozip.domain.user.repository.UserRepository;
+import com.mozip.global.common.response.FieldErrorResponse;
 import com.mozip.global.exception.BusinessException;
 import com.mozip.global.exception.CommonErrorCode;
 
@@ -402,6 +403,71 @@ class PostingServiceTest {
 	}
 
 	@Test
+	@DisplayName("모집 기간이 비어 있으면 POSTING_400을 던진다")
+	void rejectsPublishingWithoutRecruitPeriod() {
+		Posting posting = publishableDraft(null, null, null, null);
+
+		assertThatThrownBy(() -> postingService.publish(operator.getId(), posting.getId()))
+			.isInstanceOf(BusinessException.class)
+			.satisfies(e -> {
+				BusinessException ex = (BusinessException)e;
+				assertThat(ex.getErrorCode()).isEqualTo(PostingErrorCode.INVALID_INPUT);
+				assertThat(ex.getFieldErrors()).extracting(FieldErrorResponse::message)
+					.contains("모집 기간을 입력해주세요.");
+			});
+	}
+
+	@Test
+	@DisplayName("모집 종료가 시작보다 뒤가 아니면 POSTING_400을 던진다")
+	void rejectsPublishingWhenRecruitEndNotAfterStart() {
+		LocalDateTime seoulNow = LocalDateTime.now(LocalDateTimeScalar.ZONE);
+		LocalDateTime sameInstant = seoulNow.plusDays(5);
+		Posting posting = publishableDraft(null, null, sameInstant, sameInstant);
+
+		assertThatThrownBy(() -> postingService.publish(operator.getId(), posting.getId()))
+			.isInstanceOf(BusinessException.class)
+			.satisfies(e -> {
+				BusinessException ex = (BusinessException)e;
+				assertThat(ex.getErrorCode()).isEqualTo(PostingErrorCode.INVALID_INPUT);
+				assertThat(ex.getFieldErrors()).extracting(FieldErrorResponse::message)
+					.contains("모집 종료는 시작보다 뒤여야 해요.");
+			});
+	}
+
+	@Test
+	@DisplayName("모집 종료가 이미 지났으면 POSTING_400을 던진다")
+	void rejectsPublishingWhenRecruitEndAlreadyPassed() {
+		LocalDateTime seoulNow = LocalDateTime.now(LocalDateTimeScalar.ZONE);
+		Posting posting = publishableDraft(null, null, seoulNow.minusDays(10), seoulNow.minusDays(2));
+
+		assertThatThrownBy(() -> postingService.publish(operator.getId(), posting.getId()))
+			.isInstanceOf(BusinessException.class)
+			.satisfies(e -> {
+				BusinessException ex = (BusinessException)e;
+				assertThat(ex.getErrorCode()).isEqualTo(PostingErrorCode.INVALID_INPUT);
+				assertThat(ex.getFieldErrors()).extracting(FieldErrorResponse::message)
+					.contains("모집 종료가 이미 지났어요.");
+			});
+	}
+
+	@Test
+	@DisplayName("활동 종료가 시작보다 뒤가 아니면 POSTING_400을 던진다")
+	void rejectsPublishingWhenActivityPeriodReversed() {
+		LocalDateTime seoulNow = LocalDateTime.now(LocalDateTimeScalar.ZONE);
+		Posting posting = publishableDraft(LocalDate.now().plusMonths(2), LocalDate.now().plusMonths(1),
+			seoulNow.plusDays(1), seoulNow.plusDays(5));
+
+		assertThatThrownBy(() -> postingService.publish(operator.getId(), posting.getId()))
+			.isInstanceOf(BusinessException.class)
+			.satisfies(e -> {
+				BusinessException ex = (BusinessException)e;
+				assertThat(ex.getErrorCode()).isEqualTo(PostingErrorCode.INVALID_INPUT);
+				assertThat(ex.getFieldErrors()).extracting(FieldErrorResponse::message)
+					.contains("활동 종료는 시작보다 뒤여야 해요.");
+			});
+	}
+
+	@Test
 	@DisplayName("이미 게시된 공고를 다시 게시하면 POSTING_409를 던진다")
 	void rejectsPublishingAlreadyPublished() {
 		Posting posting = publishablePosting("게시용 공고");
@@ -662,6 +728,17 @@ class PostingServiceTest {
 			withQuestions(List.of(new QuestionInput(null, QuestionType.TEXT, "자기소개", null, true, 500, null, 0))));
 	}
 
+	// 모집 기간/활동 기간 검증 테스트용. 포지션·문항은 채워서 그 단계는 걸리지 않게 함
+	private Posting publishableDraft(LocalDate activityStartedOn, LocalDate activityEndedOn,
+		LocalDateTime recruitStartAt, LocalDateTime recruitEndAt) {
+		Posting posting = postingService.saveDraft(operator.getId(), organization.getId(), null,
+			basicInput("기간 검증용", activityStartedOn, activityEndedOn, recruitStartAt, recruitEndAt));
+		postingService.saveDraft(operator.getId(), organization.getId(), posting.getId(),
+			withPositions(List.of(new PositionInput(null, "백엔드", 1, 0))));
+		return postingService.saveDraft(operator.getId(), organization.getId(), posting.getId(),
+			withQuestions(List.of(new QuestionInput(null, QuestionType.TEXT, "자기소개", null, true, 500, null, 0))));
+	}
+
 	// 1 title, 2 content, 3 semester, 4 region, 5 fee, 6 allowEnrolled, 7 allowOnLeave, 8 eligibilityNote,
 	// 9 activityStartedOn, 10 activityEndedOn, 11 recruitStartAt, 12 recruitEndAt, 13 images,
 	// 14 noPosition, 15 positions, 16 hasInterview, 17 interviewMethod, 18 interviewMinutes, 19 breakMinutes,
@@ -674,6 +751,16 @@ class PostingServiceTest {
 	private PostingDraftInput basicInput(String title, LocalDateTime recruitEndAt) {
 		return new PostingDraftInput(title, "본문", "2026-2", "서울", "무료", true, false, null,
 			null, null, LocalDateTime.now(), recruitEndAt, null,
+			null, null,
+			null, null, null, null, null, null, null, null,
+			null, null,
+			null);
+	}
+
+	private PostingDraftInput basicInput(String title, LocalDate activityStartedOn, LocalDate activityEndedOn,
+		LocalDateTime recruitStartAt, LocalDateTime recruitEndAt) {
+		return new PostingDraftInput(title, "본문", "2026-2", "서울", "무료", true, false, null,
+			activityStartedOn, activityEndedOn, recruitStartAt, recruitEndAt, null,
 			null, null,
 			null, null, null, null, null, null, null, null,
 			null, null,

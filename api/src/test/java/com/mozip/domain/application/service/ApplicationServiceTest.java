@@ -255,13 +255,19 @@ class ApplicationServiceTest {
 	@Test
 	@DisplayName("RECRUITING이어도 recruitEndAt이 지났으면 POSTING_409(NOT_RECRUITING)를 던진다")
 	void rejectsSavingWhenRecruitWindowExpired() {
+		// 공고 작성 시점엔 마감일이 미래여야 게시 가능(postingService.publish의 모집 기간 검증). 게시 후 시간이 지난 상황은
+		// 엔티티를 직접 건드려서 흉내냄(스케줄러 테스트의 PostingRepositoryTest와 같은 방식)
 		Posting posting = postingService.saveDraft(operator.getId(), organization.getId(), null,
-			basicInput("마감 지난 공고 " + System.nanoTime(), LocalDateTime.now().minusDays(1)));
+			basicInput("마감 지난 공고 " + System.nanoTime(), LocalDateTime.now().plusHours(1)));
 		postingService.saveDraft(operator.getId(), organization.getId(), posting.getId(),
 			withPositions(List.of(new PositionInput(null, "백엔드", 1, 0))));
 		postingService.saveDraft(operator.getId(), organization.getId(), posting.getId(),
 			withQuestions(List.of(new QuestionInput(null, QuestionType.TEXT, "자기소개", null, true, 500, null, 0))));
 		postingService.publish(operator.getId(), posting.getId());
+		posting.updateBasicStep(posting.getTitle(), posting.getContent(), posting.getSemester(), posting.getRegion(),
+			posting.getFee(), posting.isAllowEnrolled(), posting.isAllowOnLeave(), posting.getEligibilityNote(),
+			posting.getActivityStartedOn(), posting.getActivityEndedOn(), posting.getRecruitStartAt(),
+			LocalDateTime.now().minusDays(1));
 
 		assertThatThrownBy(() -> applicationService.saveDraft(applicant.getId(), posting.getId(),
 			new ApplicationInput(null, null, null)))

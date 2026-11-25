@@ -1,5 +1,7 @@
 package com.mozip.domain.posting.service;
 
+import java.time.LocalDate;
+import java.time.LocalDateTime;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Map;
@@ -44,6 +46,7 @@ import com.mozip.domain.posting.repository.PostingRepository;
 import com.mozip.domain.posting.repository.PostingSpecifications;
 import com.mozip.domain.posting.repository.QuestionRepository;
 import com.mozip.global.common.response.FieldErrorResponse;
+import com.mozip.global.config.graphql.LocalDateTimeScalar;
 import com.mozip.global.exception.BusinessException;
 import com.mozip.global.exception.CommonErrorCode;
 
@@ -424,6 +427,22 @@ public class PostingService {
 		List<FieldErrorResponse> fieldErrors = new ArrayList<>();
 		if (posting.getTitle() == null || posting.getTitle().isBlank() || posting.getContent() == null) {
 			fieldErrors.add(new FieldErrorResponse("basicStep", "기본 정보(제목, 본문)를 입력해주세요."));
+		}
+		// recruitStartAt/recruitEndAt은 LocalDateTimeScalar가 서울 시각으로 저장한 값이라, now도 서울 시각 기준으로 맞춤
+		LocalDateTime now = LocalDateTime.now(LocalDateTimeScalar.ZONE);
+		LocalDateTime recruitStartAt = posting.getRecruitStartAt();
+		LocalDateTime recruitEndAt = posting.getRecruitEndAt();
+		if (recruitStartAt == null || recruitEndAt == null) {
+			fieldErrors.add(new FieldErrorResponse("basicStep", "모집 기간을 입력해주세요."));
+		} else if (!recruitEndAt.isAfter(recruitStartAt)) {
+			fieldErrors.add(new FieldErrorResponse("basicStep", "모집 종료는 시작보다 뒤여야 해요."));
+		} else if (!recruitEndAt.isAfter(now)) {
+			fieldErrors.add(new FieldErrorResponse("basicStep", "모집 종료가 이미 지났어요."));
+		}
+		LocalDate activityStartedOn = posting.getActivityStartedOn();
+		LocalDate activityEndedOn = posting.getActivityEndedOn();
+		if (activityStartedOn != null && activityEndedOn != null && !activityEndedOn.isAfter(activityStartedOn)) {
+			fieldErrors.add(new FieldErrorResponse("basicStep", "활동 종료는 시작보다 뒤여야 해요."));
 		}
 		if (!posting.isNoPosition() && positionRepository.findAllByPostingOrderBySortOrder(posting).isEmpty()) {
 			fieldErrors.add(new FieldErrorResponse("positionsStep", "모집 포지션을 1개 이상 추가해주세요."));
