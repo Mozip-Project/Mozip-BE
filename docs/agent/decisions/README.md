@@ -33,3 +33,4 @@
 | 007 | 운영진의 현재 단체는 쿠키로 전달, 선택과 전환은 REST | superseded (008) |
 | 008 | 운영진의 현재 단체는 프론트 쿠키, 백엔드는 organizationId 인자와 소속 검사 | accepted |
 | 009 | 심사 상태 enum(ReviewStatus)을 organization에서 global로 옮김 | proposed |
+| 010 | 회원가입에 학교 메일 인증을 필수로 포함 | proposed |

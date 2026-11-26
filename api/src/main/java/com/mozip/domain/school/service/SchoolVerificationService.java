@@ -88,6 +88,29 @@ public class SchoolVerificationService {
 	public Me verifySchoolEmail(Long userId, String email, String code) {
 		User user = findUser(userId);
 		requireNotVerified(user);
+		School school = consumeValidCode(email, code);
+
+		schoolVerificationRepository.save(SchoolVerification.createApprovedEmail(user, school, email));
+		user.verifySchool(school);
+		return userService.me(userId);
+	}
+
+	// 회원가입 시 학교 메일 인증을 끝냄. 아직 User가 없어 School만 반환하고, 가입 자체는 호출자(AuthService)가 처리.
+	// 성공하면 코드가 지워지므로, 이후 가입이 다른 이유(중복 번호 등)로 실패해도 같은 코드로 다시 시도할 수 없음
+	@Transactional
+	public School verifyForSignup(String email, String code) {
+		return consumeValidCode(email, code);
+	}
+
+	// 가입으로 생성된 User에 학교 인증 완료를 반영. verifyForSignup과 분리된 건 User 저장(가입) 전에는
+	// school_verifications.user_id를 채울 수 없기 때문
+	@Transactional
+	public void completeSignupVerification(User user, School school, String email) {
+		schoolVerificationRepository.save(SchoolVerification.createApprovedEmail(user, school, email));
+		user.verifySchool(school);
+	}
+
+	private School consumeValidCode(String email, String code) {
 		School school = findSchoolByEmailDomain(email);
 
 		String savedCode = codeRepository.findCode(email)
@@ -100,9 +123,7 @@ public class SchoolVerificationService {
 		}
 
 		codeRepository.deleteCode(email);
-		schoolVerificationRepository.save(SchoolVerification.createApprovedEmail(user, school, email));
-		user.verifySchool(school);
-		return userService.me(userId);
+		return school;
 	}
 
 	private void requireNotVerified(User user) {

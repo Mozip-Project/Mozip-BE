@@ -18,9 +18,12 @@ import jakarta.servlet.http.HttpServletResponse;
 @Tag(name = "Auth", description = "회원가입, 로그인, 토큰 재발급, 로그아웃 (토큰은 HttpOnly 쿠키로 주고받음)")
 public interface AuthControllerApi {
 
-	@Operation(summary = "회원가입", description = "휴대폰 번호와 비밀번호로 가입합니다. 가입 후 로그인 API를 따로 호출해야 합니다.")
+	@Operation(summary = "회원가입", description = """
+		휴대폰 번호와 비밀번호로 가입합니다. 가입 후 로그인 API를 따로 호출해야 합니다.
+		가입 전에 school 쿼리 `requestSchoolEmailVerification`으로 학교 메일 인증번호를 먼저 받아야 하며,
+		그 메일과 인증번호를 `schoolEmail`/`schoolVerificationCode`로 같이 보내야 가입이 끝납니다 (가입과 학교 인증이 한 번에 처리됨).""")
 	@SecurityRequirements
-	@ApiErrorCodes({"COMMON_400", "USER_001"})
+	@ApiErrorCodes({"COMMON_400", "USER_001", "SCHOOL_400", "SCHOOL_404"})
 	ApiResponse<SignupResponse> signup(SignupRequest request);
 
 	@Operation(summary = "로그인", description = """

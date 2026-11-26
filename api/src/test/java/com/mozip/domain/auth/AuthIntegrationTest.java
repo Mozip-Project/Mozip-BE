@@ -7,6 +7,7 @@ import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.jsonPath;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
 
+import java.time.Duration;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.concurrent.CountDownLatch;
@@ -15,6 +16,7 @@ import java.util.concurrent.Executors;
 import java.util.concurrent.Future;
 import java.util.concurrent.ThreadLocalRandom;
 
+import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -28,6 +30,9 @@ import org.springframework.test.web.servlet.MockMvc;
 
 import com.mozip.TestcontainersConfiguration;
 import com.mozip.domain.auth.repository.RefreshTokenRepository;
+import com.mozip.domain.school.entity.School;
+import com.mozip.domain.school.repository.SchoolRepository;
+import com.mozip.domain.user.repository.UserRepository;
 import com.mozip.global.security.cookie.AuthCookieManager;
 
 import jakarta.servlet.http.Cookie;
@@ -44,6 +49,21 @@ class AuthIntegrationTest {
 
 	@Autowired
 	private StringRedisTemplate redisTemplate;
+
+	@Autowired
+	private SchoolRepository schoolRepository;
+
+	@Autowired
+	private UserRepository userRepository;
+
+	private String schoolEmailDomain;
+
+	@BeforeEach
+	void setUpSchool() {
+		School school = schoolRepository.save(School.create("가입테스트대학교 " + ThreadLocalRandom.current().nextInt(1_000_000),
+			"signuptest" + ThreadLocalRandom.current().nextInt(1_000_000) + ".ac.kr"));
+		schoolEmailDomain = school.getEmailDomain();
+	}
 
 	@Test
 	@DisplayName("회원가입 후 로그인하면 토큰을 body가 아닌 HttpOnly 쿠키로 발급하고, body에는 만료까지 남은 초를 준다")
@@ -70,6 +90,73 @@ class AuthIntegrationTest {
 			.andExpect(cookie().sameSite(AuthCookieManager.ACCESS_TOKEN_COOKIE, "Lax"))
 			.andExpect(cookie().httpOnly(AuthCookieManager.REFRESH_TOKEN_COOKIE, true))
 			.andExpect(cookie().path(AuthCookieManager.REFRESH_TOKEN_COOKIE, "/auth"));
+	}
+
+	@Test
+	@DisplayName("가입하면 학교 인증도 같은 트랜잭션에서 끝나 User.school이 채워진다")
+	void signupCompletesSchoolVerification() throws Exception {
+		String phone = randomPhone();
+
+		mockMvc.perform(post("/auth/signup")
+				.contentType(MediaType.APPLICATION_JSON)
+				.content(signupJson(phone, true)))
+			.andExpect(status().isCreated());
+
+		assertThat(userRepository.findWithSchoolByPhone(phone))
+			.get()
+			.satisfies(user -> {
+				assertThat(user.isSchoolVerified()).isTrue();
+				assertThat(user.getSchool().getEmailDomain()).isEqualTo(schoolEmailDomain);
+			});
+	}
+
+	@Test
+	@DisplayName("학교 메일 인증번호를 요청한 적 없이 가입하면 SCHOOL_400(CODE_EXPIRED)으로 응답한다")
+	void signupWithoutRequestingCodeFails() throws Exception {
+		String schoolEmail = "auth" + ThreadLocalRandom.current().nextInt(1_000_000) + "@" + schoolEmailDomain;
+
+		mockMvc.perform(post("/auth/signup")
+				.contentType(MediaType.APPLICATION_JSON)
+				.content("""
+					{"phone": "%s", "password": "%s", "name": "김모집", "termsAgreed": true, "marketingAgreed": false,
+					"schoolEmail": "%s", "schoolVerificationCode": "123456"}
+					""".formatted(randomPhone(), PASSWORD, schoolEmail)))
+			.andExpect(status().isBadRequest())
+			.andExpect(jsonPath("$.code").value("SCHOOL_400"))
+			.andExpect(jsonPath("$.reason").value("CODE_EXPIRED"));
+	}
+
+	@Test
+	@DisplayName("학교 메일 인증번호가 틀리면 SCHOOL_400(CODE_MISMATCH)으로 응답한다")
+	void signupWithWrongCodeFails() throws Exception {
+		String schoolEmail = "auth" + ThreadLocalRandom.current().nextInt(1_000_000) + "@" + schoolEmailDomain;
+		redisTemplate.opsForValue().set("school:verify:code:" + schoolEmail, "123456", Duration.ofMinutes(5));
+
+		mockMvc.perform(post("/auth/signup")
+				.contentType(MediaType.APPLICATION_JSON)
+				.content("""
+					{"phone": "%s", "password": "%s", "name": "김모집", "termsAgreed": true, "marketingAgreed": false,
+					"schoolEmail": "%s", "schoolVerificationCode": "000000"}
+					""".formatted(randomPhone(), PASSWORD, schoolEmail)))
+			.andExpect(status().isBadRequest())
+			.andExpect(jsonPath("$.code").value("SCHOOL_400"))
+			.andExpect(jsonPath("$.reason").value("CODE_MISMATCH"));
+	}
+
+	@Test
+	@DisplayName("학교 메일 도메인과 일치하는 학교가 없으면 SCHOOL_404로 응답한다")
+	void signupWithUnknownSchoolDomainFails() throws Exception {
+		String unknownEmail = "student@unknown-" + ThreadLocalRandom.current().nextInt(1_000_000) + ".ac.kr";
+		redisTemplate.opsForValue().set("school:verify:code:" + unknownEmail, "123456", Duration.ofMinutes(5));
+
+		mockMvc.perform(post("/auth/signup")
+				.contentType(MediaType.APPLICATION_JSON)
+				.content("""
+					{"phone": "%s", "password": "%s", "name": "김모집", "termsAgreed": true, "marketingAgreed": false,
+					"schoolEmail": "%s", "schoolVerificationCode": "123456"}
+					""".formatted(randomPhone(), PASSWORD, unknownEmail)))
+			.andExpect(status().isNotFound())
+			.andExpect(jsonPath("$.code").value("SCHOOL_404"));
 	}
 
 	@Test
@@ -296,14 +383,19 @@ class AuthIntegrationTest {
 		return "010" + ThreadLocalRandom.current().nextInt(10_000_000, 100_000_000);
 	}
 
-	private static String signupJson(String phone, boolean termsAgreed) {
+	private String signupJson(String phone, boolean termsAgreed) {
 		return signupJson(phone, PASSWORD, termsAgreed);
 	}
 
-	private static String signupJson(String phone, String password, boolean termsAgreed) {
+	// 학교 메일 인증번호를 Redis에 미리 넣어 요청 JSON에 같이 실어 보냄(실제로는 requestSchoolEmailVerification으로 받는 값)
+	private String signupJson(String phone, String password, boolean termsAgreed) {
+		String schoolEmail = "auth" + ThreadLocalRandom.current().nextInt(1_000_000) + "@" + schoolEmailDomain;
+		String code = "123456";
+		redisTemplate.opsForValue().set("school:verify:code:" + schoolEmail, code, Duration.ofMinutes(5));
 		return """
-			{"phone": "%s", "password": "%s", "name": "김모집", "termsAgreed": %s, "marketingAgreed": false}
-			""".formatted(phone, password, termsAgreed);
+			{"phone": "%s", "password": "%s", "name": "김모집", "termsAgreed": %s, "marketingAgreed": false,
+			"schoolEmail": "%s", "schoolVerificationCode": "%s"}
+			""".formatted(phone, password, termsAgreed, schoolEmail, code);
 	}
 
 	private static String loginJson(String phone, String password) {

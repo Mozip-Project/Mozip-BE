@@ -89,3 +89,6 @@
   - `requestSchoolEmailVerification`(인증번호 발송)은 `@public`. 로그인 없이도 호출 가능하며 이때는 userId가 없어
     "이미 인증된 회원인지" 검사를 건너뜀. `verifySchoolEmail`(인증번호 확인)은 그대로 로그인 필요
   - 인증번호 TTL은 5분(`SchoolEmailVerificationCodeRepository.CODE_TTL`), 6자리 랜덤 숫자
+  - `POST /auth/signup`에 `schoolEmail`/`schoolVerificationCode`가 필수라, 가입 자체가 학교 인증을 끝낸 상태로만 끝난다(결정 010).
+    `requestSchoolEmailVerification`으로 미리 받은 코드를 가입 요청에 같이 보내야 함. 코드 검증은
+    `SchoolVerificationService.verifyForSignup`/`completeSignupVerification`이 처리하고, `AuthService`는 결과만 씀
