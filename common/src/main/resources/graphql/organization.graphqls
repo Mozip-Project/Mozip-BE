@@ -170,12 +170,16 @@ type InviteLink {
     expiresAt: DateTime!
 }
 
+"대표자 인수 요청. 대표자(from)가 운영진(to)에게 요청하고 to가 수락하면 두 사람의 역할이 바뀜"
 type RepresentativeTransfer {
     id: ID!
     organization: Organization!
-    requester: User!
-    message: String
+    "요청한 대표자"
+    from: Member!
+    "넘겨받을 운영진"
+    to: Member!
     status: TransferStatus!
+    respondedAt: DateTime
     createdAt: DateTime!
 }
 
@@ -247,4 +251,8 @@ extend type Mutation {
     acceptInvitation(code: String!): Member!
     "팀 목록 전체 교체, 그 단체 운영진만. 배열 순서가 sortOrder. 목록에서 빠진 팀은 삭제하고 소속 운영진은 팀 미지정으로. 팀 없는 단체면 COMMON_400 (reason NO_TEAM_ORGANIZATION), 공고 포지션이 쓰는 팀을 빼면 TEAM_409. 이름 규칙 위반 reason TEAM_NAME_INVALID / TEAM_DUPLICATED, 다른 단체 팀 id는 TEAM_NOT_FOUND"
     saveTeams(organizationId: ID!, teams: [TeamInput!]!): [Team!]!
+    "대표자 인수 요청, 그 단체 대표자만 (아니면 COMMON_403). 대상은 같은 단체 운영진 (없거나 나갔으면 MEMBER_404, 본인이면 COMMON_400 reason TRANSFER_TO_SELF). 대기 중 요청이 있으면 MEMBER_409 (reason TRANSFER_IN_PROGRESS). 대상에게 TRANSFER_REQUEST 알림"
+    requestRepresentativeTransfer(memberId: ID!): RepresentativeTransfer!
+    "대표자 인수 응답, 요청 대상만 (아니면 COMMON_403). 없는 요청 MEMBER_404, 처리된 요청 MEMBER_409 (reason ALREADY_HANDLED). 수락하면 기존 대표자는 OPERATOR, 대상은 REPRESENTATIVE가 되고 요청자에게 TRANSFER_APPROVED, 거절하면 TRANSFER_REJECTED 알림. 요청자나 대상이 단체를 나가면 대기 요청은 CANCELED"
+    respondRepresentativeTransfer(id: ID!, accept: Boolean!): RepresentativeTransfer!
 }

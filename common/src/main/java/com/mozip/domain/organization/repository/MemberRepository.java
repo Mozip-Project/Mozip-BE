@@ -20,6 +20,8 @@ public interface MemberRepository extends JpaRepository<Member, Long> {
 
 	boolean existsByOrganizationIdAndUserIdAndRoleAndLeftAtIsNull(Long organizationId, Long userId, MemberRole role);
 
+	Optional<Member> findByOrganizationIdAndUserIdAndRoleAndLeftAtIsNull(Long organizationId, Long userId,
+		MemberRole role);
 	// organization과 그 school까지 한 번에 로딩 (Query.me의 organizations 응답용. 그냥 findByUserId였다면
 	// open-in-view=false에서 Organization이 전부 미초기화 프록시로 와서 500이 났을 것)
 	@Query("""
@@ -41,6 +43,10 @@ public interface MemberRepository extends JpaRepository<Member, Long> {
 	// 단체와 회원을 함께 조회
 	@Query("select m from Member m join fetch m.organization join fetch m.user where m.id = :id and m.leftAt is null")
 	Optional<Member> findActiveWithOrganizationAndUserById(@Param("id") Long id);
+
+	// 단체 id만 조회 (단체 행을 잠그기 전에 사용)
+	@Query("select m.organization.id from Member m where m.id = :id")
+	Optional<Long> findOrganizationIdById(@Param("id") Long id);
 
 	// GraphQL Me.memberships 조회, 단체, 팀, 회원, 학교를 함께 조회
 	@Query("select m from Member m join fetch m.organization o left join fetch o.school join fetch m.user u "

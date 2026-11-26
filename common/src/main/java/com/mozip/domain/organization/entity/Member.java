@@ -84,6 +84,14 @@ public class Member extends BaseEntity {
 		this.leftAt = now;
 	}
 
+	// 역할 변경 (대표자 인수 수락 시 호출), 나간 운영진이면 예외
+	public void changeRole(MemberRole role) {
+		if (leftAt != null) {
+			throw new IllegalStateException("단체를 나간 운영진의 역할은 바꿀 수 없습니다.");
+		}
+		this.role = role;
+	}
+
 	// 팀 미지정으로 되돌림 (팀 삭제 시 호출)
 	public void leaveTeam() {
 		this.team = null;

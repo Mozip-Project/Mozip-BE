@@ -8,10 +8,13 @@ import org.springframework.transaction.annotation.Transactional;
 
 import com.mozip.domain.organization.entity.Member;
 import com.mozip.domain.organization.entity.MemberRole;
+import com.mozip.domain.organization.entity.RepresentativeTransfer;
+import com.mozip.domain.organization.entity.TransferStatus;
 import com.mozip.domain.organization.exception.MemberErrorCode;
 import com.mozip.domain.organization.exception.MemberReason;
 import com.mozip.domain.organization.repository.InviteLinkRepository;
 import com.mozip.domain.organization.repository.MemberRepository;
+import com.mozip.domain.organization.repository.RepresentativeTransferRepository;
 import com.mozip.domain.organization.repository.OrganizationRepository;
 import com.mozip.global.exception.BusinessException;
 import com.mozip.global.exception.CommonErrorCode;
@@ -28,6 +31,7 @@ public class MemberService {
 	private final InviteLinkRepository inviteLinkRepository;
 	private final OrganizationRepository organizationRepository;
 	private final OrganizationService organizationService;
+	private final RepresentativeTransferRepository representativeTransferRepository;
 
 	// 그 단체 운영진만 조회 가능, 없으면 ORG_404이고 소속이 아니면 COMMON_403
 	public List<Member> getMembers(Long userId, Long organizationId) {
@@ -65,6 +69,9 @@ public class MemberService {
 		// 내보낸 운영진이 공용 링크로 돌아오지 못하게 유효한 링크를 모두 만료
 		inviteLinkRepository.findAllByOrganizationIdAndExpiresAtAfter(organizationId, now)
 			.forEach(link -> link.expire(now));
+		// 나간 운영진이 걸린 대기 중 대표자 인수 요청은 취소
+		representativeTransferRepository.findAllByMemberAndStatus(member, TransferStatus.PENDING)
+			.forEach(transfer -> transfer.cancel(now));
 		// 방금 나간 소속은 빼고 셈
 		boolean stillOperator = memberRepository.existsByUserIdAndLeftAtIsNull(member.getUser().getId());
 		member.getUser().leaveOrganization(stillOperator);
