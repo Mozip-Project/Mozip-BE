@@ -63,3 +63,6 @@
   같은 메일로 confirmed 상태에서 `verifySchoolEmail`을 다시 부르면 SCHOOL_409(`EMAIL_ALREADY_CONFIRMED`)를 던지게 함.
   최초 기록에서 "고려한 대안"으로 적었던 티켓 방식을 이번에 실제로 채택함(가입을 "코드를 아는 것"이 아니라
   "서버가 방금 확인했다고 기억하는 것"으로 게이트하기 위함). `SignupRequest.schoolVerificationCode` 필드는 삭제됨
+- 2026-11-27: `verifyForSignup`이 confirmed 표시를 지우는 시점을 `User` 저장 이전에서 이후(`completeSignupVerification`)로
+  옮김. Redis 삭제는 DB 트랜잭션에 묶이지 않아서, 저장 전에 지우면 가입이 다른 이유(동시 가입 등)로 실패해도
+  confirmed 표시가 복구되지 않는 문제가 있었음

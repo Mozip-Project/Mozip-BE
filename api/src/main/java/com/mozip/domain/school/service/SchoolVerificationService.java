@@ -100,23 +100,24 @@ public class SchoolVerificationService {
 		return true;
 	}
 
-	// 회원가입 시 학교 메일 인증을 끝냄. verifySchoolEmail로 confirmed 표시가 남아 있어야 하고(10분 안에 가입해야 함),
-	// 없으면 SCHOOL_400(EMAIL_NOT_VERIFIED). 아직 User가 없어 School만 반환하고, 가입 자체는 호출자(AuthService)가 처리
-	@Transactional
+	// 회원가입 시 학교 메일 인증 여부만 확인(읽기 전용, Redis confirmed 표시를 지우지 않음). verifySchoolEmail로
+	// confirmed 표시가 남아 있어야 하고(10분 안에 가입해야 함), 없으면 SCHOOL_400(EMAIL_NOT_VERIFIED).
+	// 여기서 지우지 않는 이유: User 저장(DB)과 Redis는 같은 트랜잭션으로 안 묶여서, 저장이 실패해도 Redis
+	// 삭제는 롤백되지 않음. 실제로 가입이 끝난 뒤(completeSignupVerification)에만 지워서 실패 시 재시도 가능하게 함
 	public School verifyForSignup(String email) {
 		if (!codeRepository.isConfirmed(email)) {
 			throw new BusinessException(SchoolErrorCode.INVALID_INPUT, SchoolInputReason.EMAIL_NOT_VERIFIED)
 				.addContext("email", email);
 		}
-		School school = findSchoolByEmailDomain(email);
-		codeRepository.deleteConfirmed(email);
-		return school;
+		return findSchoolByEmailDomain(email);
 	}
 
-	// 가입으로 생성된 User에 학교 인증 완료를 반영. verifyForSignup과 분리된 건 User 저장(가입) 전에는
-	// school_verifications.user_id를 채울 수 없기 때문
+	// 가입으로 생성된 User에 학교 인증 완료를 반영. User가 실제로 저장된 뒤에만 호출돼야 confirmed 표시를
+	// 안전하게 지울 수 있음(verifyForSignup과 분리된 이유: User 저장 전에는 school_verifications.user_id를
+	// 채울 수도 없고, confirmed를 미리 지우면 가입이 다른 이유로 실패해도 되돌릴 방법이 없음)
 	@Transactional
 	public void completeSignupVerification(User user, School school, String email) {
+		codeRepository.deleteConfirmed(email);
 		schoolVerificationRepository.save(SchoolVerification.createApprovedEmail(user, school, email));
 		user.verifySchool(school);
 	}
