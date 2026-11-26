@@ -18,5 +18,5 @@ mail:
 aws:
   ses:
     region: ${AWS_REGION:ap-northeast-2}
-    sender-address: ${MAIL_SENDER_ADDRESS:}
+    sender-address: ${MAIL_SENDER_ADDRESS:noreply@mo-zip.com}
     sender-name: ${MAIL_SENDER_NAME:모집}
