@@ -11,6 +11,7 @@ import org.springframework.data.repository.query.Param;
 import com.mozip.domain.organization.entity.Member;
 import com.mozip.domain.organization.entity.MemberRole;
 import com.mozip.domain.organization.entity.Organization;
+import com.mozip.domain.organization.entity.Team;
 
 // 조회는 모두 소속 중(leftAt is null)인 행만
 public interface MemberRepository extends JpaRepository<Member, Long> {
@@ -65,5 +66,8 @@ public interface MemberRepository extends JpaRepository<Member, Long> {
 		+ "order by case when m.role = com.mozip.domain.organization.entity.MemberRole.REPRESENTATIVE then 0 else 1 end, "
 		+ "m.createdAt, m.id")
 	List<Member> findAllActiveWithUserAndTeamByOrganizationId(@Param("organizationId") Long organizationId);
+
+	// 팀 삭제 시 소속 해제 대상 (내보낸 운영진 행 포함)
+	List<Member> findAllByTeamIn(Collection<Team> teams);
 
 }

@@ -208,7 +208,7 @@ class PostingGraphqlControllerTest {
 			Organization.create("N+1 테스트 단체 " + ThreadLocalRandom.current().nextInt(1_000_000), OrganizationType.CLUB,
 				null, OrganizationScope.CAMPUS, null, true, null, null));
 		memberRepository.save(Member.create(organization, operator, null, MemberRole.REPRESENTATIVE));
-		Team team = teamRepository.save(Team.create(organization, "백엔드팀"));
+		Team team = teamRepository.save(Team.create(organization, "백엔드팀", 0));
 
 		Posting posting = postingService.saveDraft(operator.getId(), organization.getId(), null,
 			basicInput("N+1 테스트 공고"));

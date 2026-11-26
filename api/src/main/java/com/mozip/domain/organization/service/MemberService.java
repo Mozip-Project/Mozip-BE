@@ -10,6 +10,7 @@ import com.mozip.domain.organization.entity.Member;
 import com.mozip.domain.organization.entity.MemberRole;
 import com.mozip.domain.organization.exception.MemberErrorCode;
 import com.mozip.domain.organization.exception.MemberReason;
+import com.mozip.domain.organization.repository.InviteLinkRepository;
 import com.mozip.domain.organization.repository.MemberRepository;
 import com.mozip.domain.organization.repository.OrganizationRepository;
 import com.mozip.global.exception.BusinessException;
@@ -24,6 +25,7 @@ import lombok.RequiredArgsConstructor;
 public class MemberService {
 
 	private final MemberRepository memberRepository;
+	private final InviteLinkRepository inviteLinkRepository;
 	private final OrganizationRepository organizationRepository;
 	private final OrganizationService organizationService;
 
@@ -58,7 +60,11 @@ public class MemberService {
 			throw new BusinessException(MemberErrorCode.MEMBER_CONFLICT, MemberReason.REPRESENTATIVE)
 				.addContext("memberId", memberId);
 		}
-		member.leave(LocalDateTime.now());
+		LocalDateTime now = LocalDateTime.now();
+		member.leave(now);
+		// 내보낸 운영진이 공용 링크로 돌아오지 못하게 유효한 링크를 모두 만료
+		inviteLinkRepository.findAllByOrganizationIdAndExpiresAtAfter(organizationId, now)
+			.forEach(link -> link.expire(now));
 		// 방금 나간 소속은 빼고 셈
 		boolean stillOperator = memberRepository.existsByUserIdAndLeftAtIsNull(member.getUser().getId());
 		member.getUser().leaveOrganization(stillOperator);
