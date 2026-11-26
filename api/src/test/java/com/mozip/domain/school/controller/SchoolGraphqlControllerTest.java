@@ -2,7 +2,6 @@ package com.mozip.domain.school.controller;
 
 import static org.assertj.core.api.Assertions.assertThat;
 
-import java.time.LocalDateTime;
 import java.util.concurrent.ThreadLocalRandom;
 
 import org.junit.jupiter.api.DisplayName;
@@ -18,11 +17,6 @@ import org.springframework.graphql.test.tester.HttpGraphQlTester;
 import com.mozip.TestcontainersConfiguration;
 import com.mozip.domain.school.entity.School;
 import com.mozip.domain.school.repository.SchoolRepository;
-import com.mozip.domain.user.entity.Authority;
-import com.mozip.domain.user.entity.User;
-import com.mozip.domain.user.repository.UserRepository;
-import com.mozip.global.security.cookie.AuthCookieManager;
-import com.mozip.global.security.jwt.JwtProvider;
 
 @Import(TestcontainersConfiguration.class)
 @SpringBootTest
@@ -35,12 +29,6 @@ class SchoolGraphqlControllerTest {
 
 	@Autowired
 	private SchoolRepository schoolRepository;
-
-	@Autowired
-	private UserRepository userRepository;
-
-	@Autowired
-	private JwtProvider jwtProvider;
 
 	@Autowired
 	private StringRedisTemplate redisTemplate;
@@ -62,16 +50,13 @@ class SchoolGraphqlControllerTest {
 	}
 
 	@Test
-	@DisplayName("메일 인증번호를 요청하고 확인하면 Me.school이 채워진다")
-	void requestAndVerifySchoolEmailEndToEnd() {
+	@DisplayName("메일 인증번호를 요청하고 확인하면(verifySchoolEmail) true를 반환하고, 코드는 지우지 않는다")
+	void requestAndVerifySchoolEmailSucceedsWithoutConsumingCode() {
 		School school = schoolRepository.save(School.create("이메일인증테스트대학교 " + ThreadLocalRandom.current().nextInt(1_000_000),
 			"emailverify" + ThreadLocalRandom.current().nextInt(1_000_000) + ".ac.kr"));
-		String phone = "010" + ThreadLocalRandom.current().nextInt(10_000_000, 99_999_999);
-		User applicant = userRepository.save(User.create(phone, "encoded", "지원자", false, LocalDateTime.now()));
 		String email = "student@" + school.getEmailDomain();
-		HttpGraphQlTester asApplicant = asUser(applicant);
 
-		asApplicant.document("""
+		graphQlTester.document("""
 			mutation($email: String!) {
 				requestSchoolEmailVerification(email: $email)
 			}
@@ -83,17 +68,17 @@ class SchoolGraphqlControllerTest {
 		String code = redisTemplate.opsForValue().get("school:verify:code:" + email);
 		assertThat(code).isNotNull();
 
-		asApplicant.document("""
+		graphQlTester.document("""
 			mutation($email: String!, $code: String!) {
-				verifySchoolEmail(email: $email, code: $code) {
-					school { id }
-				}
+				verifySchoolEmail(email: $email, code: $code)
 			}
 			""")
 			.variable("email", email)
 			.variable("code", code)
 			.execute()
-			.path("verifySchoolEmail.school.id").entity(String.class).isEqualTo(String.valueOf(school.getId()));
+			.path("verifySchoolEmail").entity(Boolean.class).isEqualTo(true);
+
+		assertThat(redisTemplate.opsForValue().get("school:verify:code:" + email)).isEqualTo(code);
 	}
 
 	@Test
@@ -158,11 +143,8 @@ class SchoolGraphqlControllerTest {
 	void wrongCodeRespondsWithSchool400() {
 		School school = schoolRepository.save(School.create("오류테스트대학교 " + ThreadLocalRandom.current().nextInt(1_000_000),
 			"errtest" + ThreadLocalRandom.current().nextInt(1_000_000) + ".ac.kr"));
-		String phone = "010" + ThreadLocalRandom.current().nextInt(10_000_000, 99_999_999);
-		User applicant = userRepository.save(User.create(phone, "encoded", "지원자", false, LocalDateTime.now()));
 		String email = "student@" + school.getEmailDomain();
-		HttpGraphQlTester asApplicant = asUser(applicant);
-		asApplicant.document("""
+		graphQlTester.document("""
 			mutation($email: String!) {
 				requestSchoolEmailVerification(email: $email)
 			}
@@ -170,9 +152,9 @@ class SchoolGraphqlControllerTest {
 			.variable("email", email)
 			.execute();
 
-		asApplicant.document("""
+		graphQlTester.document("""
 			mutation($email: String!, $code: String!) {
-				verifySchoolEmail(email: $email, code: $code) { id }
+				verifySchoolEmail(email: $email, code: $code)
 			}
 			""")
 			.variable("email", email)
@@ -183,13 +165,6 @@ class SchoolGraphqlControllerTest {
 				assertThat(errors.getFirst().getExtensions()).containsEntry("code", "SCHOOL_400");
 				assertThat(errors.getFirst().getExtensions()).containsEntry("reason", "CODE_MISMATCH");
 			});
-	}
-
-	private HttpGraphQlTester asUser(User user) {
-		String accessToken = jwtProvider.createAccessToken(user.getId(), Authority.USER);
-		return graphQlTester.mutate()
-			.webTestClient(client -> client.defaultCookie(AuthCookieManager.ACCESS_TOKEN_COOKIE, accessToken))
-			.build();
 	}
 
 }

@@ -161,9 +161,9 @@ extend type Mutation {
     """
     requestSchoolEmailVerification(email: String!): Boolean! @public
     """
-    인증번호를 확인하고 맞으면 바로 회원의 학교를 채움(APPROVED).
-    불일치/만료는 SCHOOL_400(reason: CODE_MISMATCH 또는 CODE_EXPIRED).
-    이미 학교 인증된 회원이면 SCHOOL_409(reason: ALREADY_VERIFIED)
+    로그인 없이도 호출 가능. 가입 폼의 나머지 입력을 채우기 전에 인증번호가 맞는지만 확인함(코드는 지우지 않음).
+    실제 가입(POST /auth/signup)에서 같은 email/code로 다시 검증하며, 그때 코드가 소비됨.
+    불일치/만료는 SCHOOL_400(reason: CODE_MISMATCH 또는 CODE_EXPIRED), 메일 도메인을 못 찾으면 SCHOOL_404
     """
-    verifySchoolEmail(email: String!, code: String!): Me!
+    verifySchoolEmail(email: String!, code: String!): Boolean! @public
 }

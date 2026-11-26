@@ -16,11 +16,9 @@ import com.mozip.domain.school.exception.SchoolInputReason;
 import com.mozip.domain.school.repository.SchoolEmailVerificationCodeRepository;
 import com.mozip.domain.school.repository.SchoolRepository;
 import com.mozip.domain.school.repository.SchoolVerificationRepository;
-import com.mozip.domain.user.dto.Me;
 import com.mozip.domain.user.entity.User;
 import com.mozip.domain.user.exception.UserErrorCode;
 import com.mozip.domain.user.repository.UserRepository;
-import com.mozip.domain.user.service.UserService;
 import com.mozip.global.common.ReviewStatus;
 import com.mozip.global.exception.BusinessException;
 
@@ -37,7 +35,6 @@ public class SchoolVerificationService {
 	private final SchoolVerificationRepository schoolVerificationRepository;
 	private final SchoolEmailVerificationCodeRepository codeRepository;
 	private final UserRepository userRepository;
-	private final UserService userService;
 	private final MailTaskPublisher mailTaskPublisher;
 
 	// 단체 만들기, 학교 인증 화면 자동완성
@@ -84,15 +81,12 @@ public class SchoolVerificationService {
 		return true;
 	}
 
+	// 가입 폼의 나머지 입력(전화번호, 비밀번호 등)을 채우기 전에 코드가 맞는지만 확인. 로그인 불필요(@public).
+	// 코드를 지우지 않아서, 실제 가입(verifyForSignup)에서 같은 코드를 그대로 다시 씀
 	@Transactional
-	public Me verifySchoolEmail(Long userId, String email, String code) {
-		User user = findUser(userId);
-		requireNotVerified(user);
-		School school = consumeValidCode(email, code);
-
-		schoolVerificationRepository.save(SchoolVerification.createApprovedEmail(user, school, email));
-		user.verifySchool(school);
-		return userService.me(userId);
+	public boolean verifySchoolEmail(String email, String code) {
+		requireValidCode(email, code);
+		return true;
 	}
 
 	// 회원가입 시 학교 메일 인증을 끝냄. 아직 User가 없어 School만 반환하고, 가입 자체는 호출자(AuthService)가 처리.
@@ -111,6 +105,12 @@ public class SchoolVerificationService {
 	}
 
 	private School consumeValidCode(String email, String code) {
+		School school = requireValidCode(email, code);
+		codeRepository.deleteCode(email);
+		return school;
+	}
+
+	private School requireValidCode(String email, String code) {
 		School school = findSchoolByEmailDomain(email);
 
 		String savedCode = codeRepository.findCode(email)
@@ -121,8 +121,6 @@ public class SchoolVerificationService {
 			throw new BusinessException(SchoolErrorCode.INVALID_INPUT, SchoolInputReason.CODE_MISMATCH)
 				.addContext("email", email);
 		}
-
-		codeRepository.deleteCode(email);
 		return school;
 	}
 

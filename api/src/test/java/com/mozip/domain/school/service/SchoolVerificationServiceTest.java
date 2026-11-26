@@ -26,10 +26,8 @@ import com.mozip.domain.school.exception.SchoolInputReason;
 import com.mozip.domain.school.repository.SchoolEmailVerificationCodeRepository;
 import com.mozip.domain.school.repository.SchoolRepository;
 import com.mozip.domain.school.repository.SchoolVerificationRepository;
-import com.mozip.domain.user.dto.Me;
 import com.mozip.domain.user.entity.User;
 import com.mozip.domain.user.repository.UserRepository;
-import com.mozip.global.common.ReviewStatus;
 import com.mozip.global.exception.BusinessException;
 
 @Import(TestcontainersConfiguration.class)
@@ -91,25 +89,27 @@ class SchoolVerificationServiceTest {
 	}
 
 	@Test
-	@DisplayName("인증번호를 요청하면 5분 TTL로 Redis에 저장되고, 그 번호로 인증하면 회원 학교가 채워진다")
-	void requestAndVerifySchoolEmailSucceeds() {
+	@DisplayName("인증번호를 요청하고 그 번호로 verifySchoolEmail을 호출하면 true를 반환하고, 코드를 지우지 않아 가입에서 다시 쓸 수 있다")
+	void requestAndVerifySchoolEmailSucceedsWithoutConsumingCode() {
 		schoolVerificationService.requestSchoolEmailVerification(applicant.getId(), email);
 		String code = redisTemplate.opsForValue().get("school:verify:code:" + email);
 		assertThat(code).matches("\\d{6}");
 
-		Me me = schoolVerificationService.verifySchoolEmail(applicant.getId(), email, code);
+		boolean result = schoolVerificationService.verifySchoolEmail(email, code);
 
-		assertThat(me.school()).isNotNull();
-		assertThat(me.school().getId()).isEqualTo(school.getId());
-		assertThat(redisTemplate.hasKey("school:verify:code:" + email)).isFalse();
-		List<SchoolVerification> saved = schoolVerificationRepository.findAll().stream()
-			.filter(v -> v.getUser().getId().equals(applicant.getId()))
-			.toList();
-		assertThat(saved).singleElement()
-			.satisfies(v -> {
-				assertThat(v.getStatus()).isEqualTo(ReviewStatus.APPROVED);
-				assertThat(v.getEmail()).isEqualTo(email);
-			});
+		assertThat(result).isTrue();
+		assertThat(redisTemplate.opsForValue().get("school:verify:code:" + email)).isEqualTo(code);
+		School verifiedSchool = schoolVerificationService.verifyForSignup(email, code);
+		assertThat(verifiedSchool.getId()).isEqualTo(school.getId());
+	}
+
+	@Test
+	@DisplayName("verifySchoolEmail은 메일 도메인과 일치하는 학교가 없으면 SCHOOL_404를 던진다")
+	void verifySchoolEmailRejectsUnknownDomain() {
+		assertThatThrownBy(() -> schoolVerificationService.verifySchoolEmail("student@unknown-domain.ac.kr", "123456"))
+			.isInstanceOf(BusinessException.class)
+			.extracting(e -> ((BusinessException)e).getErrorCode())
+			.isEqualTo(SchoolErrorCode.NOT_FOUND);
 	}
 
 	@Test
@@ -143,7 +143,7 @@ class SchoolVerificationServiceTest {
 	void rejectsWrongCode() {
 		schoolVerificationService.requestSchoolEmailVerification(applicant.getId(), email);
 
-		assertThatThrownBy(() -> schoolVerificationService.verifySchoolEmail(applicant.getId(), email, "000000"))
+		assertThatThrownBy(() -> schoolVerificationService.verifySchoolEmail(email, "000000"))
 			.isInstanceOf(BusinessException.class)
 			.satisfies(e -> {
 				BusinessException ex = (BusinessException)e;
@@ -155,7 +155,7 @@ class SchoolVerificationServiceTest {
 	@Test
 	@DisplayName("요청한 적 없는 인증번호를 확인하면 SCHOOL_400(CODE_EXPIRED)을 던진다")
 	void rejectsVerifyingWithoutRequesting() {
-		assertThatThrownBy(() -> schoolVerificationService.verifySchoolEmail(applicant.getId(), email, "123456"))
+		assertThatThrownBy(() -> schoolVerificationService.verifySchoolEmail(email, "123456"))
 			.isInstanceOf(BusinessException.class)
 			.satisfies(e -> {
 				BusinessException ex = (BusinessException)e;
@@ -172,11 +172,11 @@ class SchoolVerificationServiceTest {
 
 		for (int i = 0; i < SchoolEmailVerificationCodeRepository.MAX_ATTEMPTS; i++) {
 			assertThatThrownBy(
-				() -> schoolVerificationService.verifySchoolEmail(applicant.getId(), email, "000000"))
+				() -> schoolVerificationService.verifySchoolEmail(email, "000000"))
 				.isInstanceOf(BusinessException.class);
 		}
 
-		assertThatThrownBy(() -> schoolVerificationService.verifySchoolEmail(applicant.getId(), email, code))
+		assertThatThrownBy(() -> schoolVerificationService.verifySchoolEmail(email, code))
 			.isInstanceOf(BusinessException.class)
 			.satisfies(e -> assertThat(((BusinessException)e).getReason())
 				.isEqualTo(SchoolInputReason.CODE_EXPIRED.name()));

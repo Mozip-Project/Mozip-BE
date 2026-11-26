@@ -13,7 +13,9 @@
 - `POST /auth/signup`(`SignupRequest`)에 `schoolEmail`, `schoolVerificationCode`를 필수 필드로 추가한다
 - `AuthService.signup`은 휴대폰 번호 중복 검사 다음, `User` 생성 직전에 `SchoolVerificationService.verifyForSignup(email, code)`로 인증번호를 검증한다(기존 `requestSchoolEmailVerification`으로 미리 받은 코드)
 - 검증에 성공하면 `User`를 저장한 뒤 같은 트랜잭션에서 `SchoolVerificationService.completeSignupVerification(user, school, email)`을 호출해 `SchoolVerification`(APPROVED) 레코드를 남기고 `user.verifySchool(school)`을 호출한다. 가입이 끝나면 계정은 항상 학교 인증까지 끝난 상태다
-- 로그인 후 쓰는 기존 `verifySchoolEmail`(재인증/보완용)은 그대로 둔다. 이 변경 전에 만들어진(학교 인증 없는) 계정을 나중에 인증시키는 경로로 남겨둠
+- `verifySchoolEmail`은 로그인 없이도 호출 가능(`@public`)하게 바꾸고, 코드가 맞는지만 확인해 `Boolean!`을 반환하도록 통일한다(코드는 지우지 않음).
+  가입 폼의 나머지 입력을 채우기 전에 미리 코드를 확인하는 용도이고, 실제 완료(코드 소비, `SchoolVerification` 생성, `user.school` 반영)는
+  `/auth/signup`에서만 일어난다
 
 ## 근거
 
@@ -30,7 +32,9 @@
 
 - `api/src/main/java/com/mozip/domain/auth/dto/SignupRequest.java`: `schoolEmail`, `schoolVerificationCode` 필드 추가
 - `api/src/main/java/com/mozip/domain/auth/service/AuthService.java`: `SchoolVerificationService` 의존 추가, `signup` 로직 변경
-- `api/src/main/java/com/mozip/domain/school/service/SchoolVerificationService.java`: `verifyForSignup`, `completeSignupVerification` 추가, `verifySchoolEmail`은 `consumeValidCode`로 중복 제거
+- `api/src/main/java/com/mozip/domain/school/service/SchoolVerificationService.java`: `verifyForSignup`, `completeSignupVerification` 추가.
+  `verifySchoolEmail`은 `(userId, email, code): Me`에서 `(email, code): Boolean`(로그인 불필요, 코드 미소비)으로 바뀜.
+  공통 검증 로직은 `requireValidCode`/`consumeValidCode`로 뽑아 재사용
 - `api/src/main/java/com/mozip/domain/auth/controller/AuthControllerApi.java`: Swagger 설명과 에러 코드 목록 갱신
 - 프론트: 가입 폼이 `requestSchoolEmailVerification`을 먼저 호출해 인증번호를 받고, 가입 요청에 `schoolEmail`/`schoolVerificationCode`를 같이 보내야 함 (폼 순서 변경 필요)
 - 테스트: `AuthIntegrationTest`, `AuthTokenStoreFailureTest`, `AuthServiceTest`의 가입 헬퍼가 학교 메일/코드를 같이 보내도록 변경됨
@@ -38,3 +42,6 @@
 ## 변경 기록
 
 - 2026-11-26: 최초 기록
+- 2026-11-27: `verifySchoolEmail`을 로그인 필요한 완료용(`Me` 반환)으로 남겨두는 대신, 가입 전 "코드 확인" 단계로 성격을 바꿔
+  `requestSchoolEmailVerification`과 같은 `@public` 패턴으로 통일함. 별도로 만들었던 `checkSchoolEmailVerificationCode`
+  뮤테이션은 `verifySchoolEmail`과 중복이라 합치고 삭제함

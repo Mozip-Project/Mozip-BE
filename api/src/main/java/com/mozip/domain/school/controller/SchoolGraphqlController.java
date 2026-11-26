@@ -11,7 +11,6 @@ import org.springframework.stereotype.Controller;
 import com.mozip.domain.school.entity.School;
 import com.mozip.domain.school.entity.SchoolEmailVerificationStatus;
 import com.mozip.domain.school.service.SchoolVerificationService;
-import com.mozip.domain.user.dto.Me;
 import com.mozip.global.security.AuthUser;
 
 import lombok.RequiredArgsConstructor;
@@ -40,9 +39,8 @@ public class SchoolGraphqlController {
 	}
 
 	@MutationMapping
-	public Me verifySchoolEmail(@Argument String email, @Argument String code,
-		@AuthenticationPrincipal AuthUser authUser) {
-		return schoolVerificationService.verifySchoolEmail(authUser.userId(), email, code);
+	public boolean verifySchoolEmail(@Argument String email, @Argument String code) {
+		return schoolVerificationService.verifySchoolEmail(email, code);
 	}
 
 }
