@@ -131,8 +131,7 @@ public class PostingService {
 		Posting posting = findById(postingId);
 		requireOperator(userId, posting.getOrganization().getId());
 
-		PostingStatus next = nextStatus(posting);
-		if (next == null || next != to) {
+		if (!posting.canAdvanceTo(to)) {
 			throw new BusinessException(PostingErrorCode.CONFLICT, PostingConflictReason.INVALID_STATUS_TRANSITION)
 				.addContext("postingId", postingId)
 				.addContext("from", posting.getStatus())
@@ -170,18 +169,6 @@ public class PostingService {
 	// B가 평가/면접 화면을 열어도 되는 단계인지 확인할 때 쓰는 연결 함수 (A -> B, ab-boundary.md)
 	public PostingStatus getPostingStatus(Long postingId) {
 		return findById(postingId).getStatus();
-	}
-
-	// advancePostingStatus에서 허용하는 단 하나의 다음 단계. 없으면(DRAFT, ENDED) null
-	private static PostingStatus nextStatus(Posting posting) {
-		return switch (posting.getStatus()) {
-			case RECRUITING -> PostingStatus.DOC_REVIEW;
-			case DOC_REVIEW -> PostingStatus.DOC_RESULT_NOTICE;
-			case DOC_RESULT_NOTICE -> posting.isHasInterview() ? PostingStatus.INTERVIEW : PostingStatus.FINAL_RESULT;
-			case INTERVIEW -> PostingStatus.FINAL_RESULT;
-			case FINAL_RESULT -> PostingStatus.ENDED;
-			case DRAFT, ENDED -> null;
-		};
 	}
 
 	public Posting findDetail(Long postingId, Long requestUserId) {

@@ -356,9 +356,10 @@ extend type Mutation {
     """
     publishPosting(id: ID!): Posting!
     """
-    공고 진행 단계를 정해진 순서로만 한 단계 전환.
+    공고 진행 단계를 정해진 순서로만 한 단계 전환하거나, DRAFT로 되돌림.
     RECRUITING -> DOC_REVIEW -> DOC_RESULT_NOTICE -> (비면접은 건너뜀) INTERVIEW -> FINAL_RESULT -> ENDED.
-    순서가 아니거나 DRAFT/ENDED에서 호출하면 POSTING_409(reason: INVALID_STATUS_TRANSITION),
+    to가 DRAFT면 현재 단계와 무관하게 허용함. savePostingDraft로 다시 수정하려면 이걸로 먼저 DRAFT로 되돌려야 함.
+    그 외 순서가 아니거나 DRAFT에서 다음 단계로 호출하면 POSTING_409(reason: INVALID_STATUS_TRANSITION),
     서류 결과 미확정이면 POSTING_409(reason: DOC_RESULT_NOT_CONFIRMED),
     최종 결과 미확정이면 POSTING_409(reason: FINAL_RESULT_NOT_CONFIRMED)
     """

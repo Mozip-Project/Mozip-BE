@@ -207,15 +207,36 @@ public class Posting extends BaseEntity {
 		return status == PostingStatus.DRAFT;
 	}
 
-	// advancePostingStatus에서 씀. 순서·조건 검사는 호출하는 쪽(PostingService)에서 끝내고 넘어옴.
+	// advancePostingStatus에서 씀. DOC_RESULT_NOT_CONFIRMED 등 서비스 레벨 조건은 호출하는 쪽(PostingService)에서 끝내고 넘어옴.
+	// 상태 전이 자체는 여기서 막아서, PostingService를 거치지 않고 공유 엔티티를 직접 다루는 호출(예: B 도메인)도 잘못된 전이를 할 수 없게 함
 	// 스케줄러의 자동 전환은 조건부 UPDATE(PostingRepository)로 따로 처리해 이 메서드를 안 탐
 	public void advanceStatus(PostingStatus to, LocalDateTime now) {
+		if (!canAdvanceTo(to)) {
+			throw new IllegalArgumentException("허용되지 않는 전환: " + status + " -> " + to);
+		}
 		this.status = to;
 		if (to == PostingStatus.DOC_RESULT_NOTICE) {
 			this.docResultAt = now;
 		} else if (to == PostingStatus.FINAL_RESULT) {
 			this.finalResultAt = now;
 		}
+	}
+
+	// 다음 단계로 가는 전이이거나, 임시저장으로 되돌리는 DRAFT 복귀면 허용
+	public boolean canAdvanceTo(PostingStatus to) {
+		return to != null && (to == PostingStatus.DRAFT || to == nextStatus());
+	}
+
+	// 허용하는 단 하나의 다음 단계. 없으면(DRAFT, ENDED) null
+	private PostingStatus nextStatus() {
+		return switch (status) {
+			case RECRUITING -> PostingStatus.DOC_REVIEW;
+			case DOC_REVIEW -> PostingStatus.DOC_RESULT_NOTICE;
+			case DOC_RESULT_NOTICE -> hasInterview ? PostingStatus.INTERVIEW : PostingStatus.FINAL_RESULT;
+			case INTERVIEW -> PostingStatus.FINAL_RESULT;
+			case FINAL_RESULT -> PostingStatus.ENDED;
+			case DRAFT, ENDED -> null;
+		};
 	}
 
 	private void advanceDraftStep(int step) {
