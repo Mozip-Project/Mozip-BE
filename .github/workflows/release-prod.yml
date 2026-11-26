@@ -82,7 +82,7 @@ jobs:
       # 9. Docker metadata (API)
       - name: Docker metadata (API)
         id: meta-api
-        uses: docker/metadata-action@v5
+        uses: docker/metadata-action@v6
         with:
           images: ${{ steps.images.outputs.api }}
           tags: |
