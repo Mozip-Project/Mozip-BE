@@ -21,6 +21,11 @@ import org.springframework.graphql.execution.ErrorType;
 import org.springframework.graphql.test.tester.HttpGraphQlTester;
 
 import com.mozip.TestcontainersConfiguration;
+import com.mozip.domain.organization.entity.Member;
+import com.mozip.domain.organization.entity.MemberRole;
+import com.mozip.domain.organization.entity.Organization;
+import com.mozip.domain.organization.repository.MemberRepository;
+import com.mozip.domain.organization.repository.OrganizationRepository;
 import com.mozip.domain.school.entity.School;
 import com.mozip.domain.school.repository.SchoolRepository;
 import com.mozip.domain.user.entity.User;
@@ -65,6 +70,12 @@ class OrganizationGraphqlControllerTest {
 	private SchoolRepository schoolRepository;
 
 	@Autowired
+	private OrganizationRepository organizationRepository;
+
+	@Autowired
+	private MemberRepository memberRepository;
+
+	@Autowired
 	private JwtProvider jwtProvider;
 
 	@Autowired
@@ -76,6 +87,21 @@ class OrganizationGraphqlControllerTest {
 				id name lastRole
 				memberships { role organization { id name school { name } } team { id } }
 			}
+		}
+		""";
+
+	private static final String MEMBERS = """
+		query($organizationId: ID!) {
+			members(organizationId: $organizationId) {
+				id role user { id name school { name } } team { id organization { name } } createdAt
+				organization { name school { name } }
+			}
+		}
+		""";
+
+	private static final String REMOVE = """
+		mutation($memberId: ID!) {
+			removeMember(memberId: $memberId)
 		}
 		""";
 
@@ -272,6 +298,90 @@ class OrganizationGraphqlControllerTest {
 			.satisfy(errors -> {
 				assertThat(errors.getFirst().getErrorType()).isEqualTo(ErrorType.NOT_FOUND);
 				assertThat(errors.getFirst().getExtensions()).containsEntry("code", "ORG_404");
+			});
+	}
+
+	@Test
+	@DisplayName("운영진 목록은 대표자 먼저 나오고, 대표자가 운영진을 내보내면 목록과 me.memberships에서 빠진다")
+	void membersThenRemove() {
+		User representative = saveUser();
+		User operator = saveUser();
+		HttpGraphQlTester asRepresentative = asUser(representative);
+		HttpGraphQlTester asOperator = asUser(operator);
+		String organizationId = asRepresentative.document(CREATE)
+			.variable("input", Map.of("name", "모집 동아리", "type", "CLUB", "scope", "UNION"))
+			.execute()
+			.path("createOrganization.id").entity(String.class).get();
+		Organization organization = organizationRepository.findById(Long.valueOf(organizationId)).orElseThrow();
+		Member operatorMember = memberRepository.save(Member.create(organization, operator, null, MemberRole.OPERATOR));
+
+		asOperator.document(MEMBERS)
+			.variable("organizationId", organizationId)
+			.execute()
+			.path("members").entityList(Object.class).hasSize(2)
+			.path("members[0].role").entity(String.class).isEqualTo("REPRESENTATIVE")
+			.path("members[0].user.id").entity(String.class).isEqualTo(representative.getId().toString())
+			.path("members[1].id").entity(String.class).isEqualTo(operatorMember.getId().toString())
+			.path("members[1].team").valueIsNull()
+			.path("members[1].organization.name").entity(String.class).isEqualTo("모집 동아리");
+
+		asUser(saveUser()).document(MEMBERS)
+			.variable("organizationId", organizationId)
+			.execute()
+			.errors()
+			.satisfy(errors -> assertThat(errors.getFirst().getExtensions()).containsEntry("code", "COMMON_403"));
+
+		asOperator.document(REMOVE)
+			.variable("memberId", operatorMember.getId().toString())
+			.execute()
+			.errors()
+			.satisfy(errors -> assertThat(errors.getFirst().getExtensions()).containsEntry("code", "COMMON_403"));
+
+		asRepresentative.document(REMOVE)
+			.variable("memberId", operatorMember.getId().toString())
+			.execute()
+			.path("removeMember").entity(Boolean.class).isEqualTo(true);
+
+		asRepresentative.document(MEMBERS)
+			.variable("organizationId", organizationId)
+			.execute()
+			.path("members").entityList(Object.class).hasSize(1);
+		asOperator.document(ME)
+			.execute()
+			.path("me.memberships").entityList(Object.class).hasSize(0);
+	}
+
+	@Test
+	@DisplayName("대표자 본인은 내보낼 수 없고(MEMBER_409 REPRESENTATIVE), 없는 운영진이면 MEMBER_404다")
+	void removeRepresentativeOrUnknown() {
+		User representative = saveUser();
+		HttpGraphQlTester asRepresentative = asUser(representative);
+		String organizationId = asRepresentative.document(CREATE)
+			.variable("input", Map.of("name", "모집 동아리", "type", "CLUB", "scope", "UNION"))
+			.execute()
+			.path("createOrganization.id").entity(String.class).get();
+		String representativeMemberId = asRepresentative.document(MEMBERS)
+			.variable("organizationId", organizationId)
+			.execute()
+			.path("members[0].id").entity(String.class).get();
+
+		asRepresentative.document(REMOVE)
+			.variable("memberId", representativeMemberId)
+			.execute()
+			.errors()
+			.satisfy(errors -> {
+				assertThat(errors.getFirst().getErrorType()).isEqualTo(ErrorType.BAD_REQUEST);
+				assertThat(errors.getFirst().getExtensions()).containsEntry("code", "MEMBER_409");
+				assertThat(errors.getFirst().getExtensions()).containsEntry("reason", "REPRESENTATIVE");
+			});
+
+		asRepresentative.document(REMOVE)
+			.variable("memberId", String.valueOf(Long.MAX_VALUE))
+			.execute()
+			.errors()
+			.satisfy(errors -> {
+				assertThat(errors.getFirst().getErrorType()).isEqualTo(ErrorType.NOT_FOUND);
+				assertThat(errors.getFirst().getExtensions()).containsEntry("code", "MEMBER_404");
 			});
 	}
 

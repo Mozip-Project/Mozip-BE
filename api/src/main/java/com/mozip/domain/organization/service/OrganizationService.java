@@ -71,7 +71,7 @@ public class OrganizationService {
 			throw new BusinessException(CommonErrorCode.INVALID_INPUT).addContext("fileKey", fileKey);
 		}
 		Organization organization = getOrganization(organizationId);
-		if (!memberRepository.existsByOrganizationIdAndUserId(organizationId, requesterId)) {
+		if (!memberRepository.existsByOrganizationIdAndUserIdAndLeftAtIsNull(organizationId, requesterId)) {
 			throw new BusinessException(CommonErrorCode.FORBIDDEN).addContext("userId", requesterId);
 		}
 		organization.updateLogo(s3Properties.cdnDomain() + "/" + fileKey);
@@ -98,7 +98,7 @@ public class OrganizationService {
 		// 같은 단체 동시 수정은 단체 행을 잠가 차례로 처리
 		organizationRepository.lockById(organizationId);
 		Organization organization = getOrganization(organizationId);
-		if (!memberRepository.existsByOrganizationIdAndUserId(organizationId, userId)) {
+		if (!memberRepository.existsByOrganizationIdAndUserIdAndLeftAtIsNull(organizationId, userId)) {
 			throw new BusinessException(CommonErrorCode.FORBIDDEN)
 				.addContext("organizationId", organizationId)
 				.addContext("userId", userId);
@@ -144,7 +144,8 @@ public class OrganizationService {
 	public Organization getVisibleOrganization(Long organizationId, Long userId) {
 		Organization organization = getOrganization(organizationId);
 		if (organization.getReviewStatus() != ReviewStatus.APPROVED
-			&& (userId == null || !memberRepository.existsByOrganizationIdAndUserId(organizationId, userId))) {
+			&& (userId == null
+			|| !memberRepository.existsByOrganizationIdAndUserIdAndLeftAtIsNull(organizationId, userId))) {
 			throw new BusinessException(OrganizationErrorCode.ORGANIZATION_NOT_FOUND)
 				.addContext("organizationId", organizationId);
 		}

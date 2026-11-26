@@ -31,6 +31,7 @@ import com.mozip.domain.organization.repository.OrganizationFieldTagRepository;
 import com.mozip.domain.organization.repository.OrganizationKeywordRepository;
 import com.mozip.domain.organization.repository.OrganizationLinkRepository;
 import com.mozip.domain.organization.repository.TeamRepository;
+import com.mozip.domain.organization.service.MemberService;
 import com.mozip.domain.organization.service.OrganizationService;
 import com.mozip.global.exception.BusinessException;
 import com.mozip.global.exception.CommonErrorCode;
@@ -44,6 +45,7 @@ import lombok.RequiredArgsConstructor;
 public class OrganizationGraphqlController {
 
 	private final OrganizationService organizationService;
+	private final MemberService memberService;
 	private final TeamRepository teamRepository;
 	private final MemberRepository memberRepository;
 	private final OrganizationKeywordRepository keywordRepository;
@@ -76,6 +78,18 @@ public class OrganizationGraphqlController {
 	@QueryMapping
 	public List<String> keywordSuggestions(@Argument String prefix) {
 		return organizationService.getKeywordSuggestions(prefix);
+	}
+
+	@QueryMapping
+	public List<Member> members(@Argument Long organizationId, @AuthenticationPrincipal AuthUser authUser) {
+		return memberService.getMembers(authUser.userId(), organizationId);
+	}
+
+	// 성공하면 true, 실패는 errors[]로 응답
+	@MutationMapping
+	public boolean removeMember(@Argument Long memberId, @AuthenticationPrincipal AuthUser authUser) {
+		memberService.removeMember(authUser.userId(), memberId);
+		return true;
 	}
 
 	@BatchMapping(typeName = "Organization")
