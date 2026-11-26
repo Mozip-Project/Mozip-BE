@@ -6,7 +6,7 @@ data:
   SPRING_PROFILES_ACTIVE: "prod"
   REDIS_HOST: "10.0.2.10"
   REDIS_PORT: "6379"
-  CORS_ALLOWED_ORIGINS: "https://mo-zip.com"
+  CORS_ALLOWED_ORIGINS: "https://mo-zip.com,https://www.mo-zip.com"
   # 공용 초대 링크 주소 앞부분 (프론트 주소)
   INVITE_BASE_URL: "https://mo-zip.com/invite/"
   # dev와 분리된 운영 전용 버킷 (실제 버킷 이름으로 교체 필요)

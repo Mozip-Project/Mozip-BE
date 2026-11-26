@@ -40,7 +40,6 @@ import com.mozip.domain.posting.dto.PostingPage;
 import com.mozip.domain.posting.dto.QuestionInput;
 import com.mozip.domain.posting.dto.QuestionOptionsInput;
 import com.mozip.domain.posting.entity.AssignRule;
-import com.mozip.domain.posting.entity.InterviewMethod;
 import com.mozip.domain.posting.entity.InterviewTimeRange;
 import com.mozip.domain.posting.entity.Position;
 import com.mozip.domain.posting.entity.Posting;
@@ -281,12 +280,12 @@ class PostingServiceTest {
 			withPositions(List.of(new PositionInput(null, "백엔드", 1, 0))));
 		Long positionId = positionRepository.findAllByPostingOrderBySortOrder(posting).get(0).getId();
 		postingService.saveDraft(operator.getId(), organization.getId(), posting.getId(),
-			withInterview(true, InterviewMethod.ONLINE, 20, 5, AssignRule.SAME_TEAM, 1, 2,
+			withInterview(true, 20, 5, AssignRule.SAME_TEAM, 1, 2,
 				List.of(new InterviewTimeRangeInput(positionId, LocalDate.now().plusDays(3), LocalTime.of(10, 0),
 					LocalTime.of(12, 0), null))));
 
 		postingService.saveDraft(operator.getId(), organization.getId(), posting.getId(),
-			withInterview(false, null, null, null, null, null, null, null));
+			withInterview(false, null, null, null, null, null, null));
 
 		List<InterviewTimeRange> ranges = interviewTimeRangeRepository
 			.findAllByPostingOrderByDateAscStartTimeAsc(posting);
@@ -298,15 +297,14 @@ class PostingServiceTest {
 	void touchingOnlyInterviewMinutesStillUpdatesIt() {
 		Posting posting = postingService.saveDraft(operator.getId(), organization.getId(), null, basicInput("제목"));
 		posting = postingService.saveDraft(operator.getId(), organization.getId(), posting.getId(),
-			withInterview(true, InterviewMethod.ONLINE, 30, 5, AssignRule.SAME_TEAM, 1, 2, null));
+			withInterview(true, 30, 5, AssignRule.SAME_TEAM, 1, 2, null));
 
 		Posting updated = postingService.saveDraft(operator.getId(), organization.getId(), posting.getId(),
-			withInterview(null, null, 20, null, null, null, null, null));
+			withInterview(null, 20, null, null, null, null, null));
 
 		assertThat(updated.getInterviewMinutes()).isEqualTo(20);
 		// hasInterview를 안 보냈으니 기존 값과 다른 면접 설정은 그대로 유지됨
 		assertThat(updated.isHasInterview()).isTrue();
-		assertThat(updated.getInterviewMethod()).isEqualTo(InterviewMethod.ONLINE);
 		assertThat(updated.getBreakMinutes()).isEqualTo(5);
 	}
 
@@ -315,11 +313,11 @@ class PostingServiceTest {
 	void touchingOnlyInterviewTimeRangesStillUpdatesThem() {
 		Posting posting = postingService.saveDraft(operator.getId(), organization.getId(), null, basicInput("제목"));
 		posting = postingService.saveDraft(operator.getId(), organization.getId(), posting.getId(),
-			withInterview(true, InterviewMethod.ONLINE, 30, 5, AssignRule.SAME_TEAM, 1, 2, null));
+			withInterview(true, 30, 5, AssignRule.SAME_TEAM, 1, 2, null));
 		LocalDate date = LocalDate.now().plusDays(3);
 
 		postingService.saveDraft(operator.getId(), organization.getId(), posting.getId(),
-			withInterview(null, null, null, null, null, null, null,
+			withInterview(null, null, null, null, null, null,
 				List.of(new InterviewTimeRangeInput(null, date, LocalTime.of(10, 0), LocalTime.of(12, 0), null))));
 
 		List<InterviewTimeRange> ranges = interviewTimeRangeRepository
@@ -440,7 +438,7 @@ class PostingServiceTest {
 		Posting posting = postingService.saveDraft(operator.getId(), organization.getId(), null, basicInput("제목"));
 
 		assertThatThrownBy(() -> postingService.saveDraft(operator.getId(), organization.getId(), posting.getId(),
-			withInterview(true, InterviewMethod.ONLINE, 20, 5, AssignRule.SAME_TEAM, 1, 2,
+			withInterview(true, 20, 5, AssignRule.SAME_TEAM, 1, 2,
 				List.of(new InterviewTimeRangeInput(999_999L, LocalDate.now().plusDays(3), LocalTime.of(10, 0),
 					LocalTime.of(12, 0), null)))))
 			.isInstanceOf(BusinessException.class)
@@ -454,7 +452,7 @@ class PostingServiceTest {
 		Posting posting = postingService.saveDraft(operator.getId(), organization.getId(), null, basicInput("제목"));
 
 		postingService.saveDraft(operator.getId(), organization.getId(), posting.getId(),
-			withInterview(true, InterviewMethod.ONLINE, 20, 5, AssignRule.SAME_TEAM, 1, 2,
+			withInterview(true, 20, 5, AssignRule.SAME_TEAM, 1, 2,
 				List.of(new InterviewTimeRangeInput(null, LocalDate.now().plusDays(3), LocalTime.of(10, 0),
 					LocalTime.of(12, 0), null))));
 
@@ -469,7 +467,7 @@ class PostingServiceTest {
 		Posting posting = postingService.saveDraft(operator.getId(), organization.getId(), null, basicInput("제목"));
 
 		assertThatThrownBy(() -> postingService.saveDraft(operator.getId(), organization.getId(), posting.getId(),
-			withInterview(true, InterviewMethod.ONLINE, 20, 5, AssignRule.SAME_TEAM, 1, 2,
+			withInterview(true, 20, 5, AssignRule.SAME_TEAM, 1, 2,
 				List.of(new InterviewTimeRangeInput(null, LocalDate.now().plusDays(3), LocalTime.of(12, 0),
 					LocalTime.of(10, 0), null)))))
 			.isInstanceOf(BusinessException.class)
@@ -484,7 +482,7 @@ class PostingServiceTest {
 		LocalDate date = LocalDate.now().plusDays(3);
 
 		assertThatThrownBy(() -> postingService.saveDraft(operator.getId(), organization.getId(), posting.getId(),
-			withInterview(true, InterviewMethod.ONLINE, 20, 5, AssignRule.SAME_TEAM, 1, 2,
+			withInterview(true, 20, 5, AssignRule.SAME_TEAM, 1, 2,
 				List.of(
 					new InterviewTimeRangeInput(null, date, LocalTime.of(10, 0), LocalTime.of(12, 0), null),
 					new InterviewTimeRangeInput(null, date, LocalTime.of(11, 0), LocalTime.of(13, 0), null)))))
@@ -707,7 +705,7 @@ class PostingServiceTest {
 	void listsPostingsFilteredByHasInterview() {
 		Posting interviewPosting = publishablePosting("면접 있는 모집");
 		postingService.saveDraft(operator.getId(), organization.getId(), interviewPosting.getId(),
-			withInterview(true, InterviewMethod.ONLINE, 20, 5, AssignRule.ALL_MEMBERS, null, null, null));
+			withInterview(true, 20, 5, AssignRule.ALL_MEMBERS, null, null, null));
 		postingService.publish(operator.getId(), interviewPosting.getId());
 		postingService.publish(operator.getId(), publishablePosting("면접 없는 모집").getId());
 
@@ -811,19 +809,6 @@ class PostingServiceTest {
 	}
 
 	@Test
-	@DisplayName("면접이 있는데 면접 방식이 없으면 게시 시 POSTING_400을 던진다")
-	void rejectsPublishingInterviewPostingWithoutMethod() {
-		Posting posting = publishablePosting("면접 모집");
-		postingService.saveDraft(operator.getId(), organization.getId(), posting.getId(),
-			withInterview(true, null, null, null, null, null, null, null));
-
-		assertThatThrownBy(() -> postingService.publish(operator.getId(), posting.getId()))
-			.isInstanceOf(BusinessException.class)
-			.extracting(e -> ((BusinessException)e).getErrorCode())
-			.isEqualTo(PostingErrorCode.INVALID_INPUT);
-	}
-
-	@Test
 	@DisplayName("면접 단계를 저장하면 면접 가능 시간대가 포지션과 함께 저장된다")
 	void savesInterviewTimeRanges() {
 		Posting posting = postingService.saveDraft(operator.getId(), organization.getId(), null,
@@ -834,7 +819,7 @@ class PostingServiceTest {
 
 		LocalDate date = LocalDate.now().plusDays(3);
 		postingService.saveDraft(operator.getId(), organization.getId(), posting.getId(),
-			withInterview(true, InterviewMethod.ONLINE, 20, 5, AssignRule.SAME_TEAM, 1, 2,
+			withInterview(true, 20, 5, AssignRule.SAME_TEAM, 1, 2,
 				List.of(new InterviewTimeRangeInput(positionId, date, LocalTime.of(10, 0), LocalTime.of(12, 0),
 					null))));
 
@@ -903,9 +888,9 @@ class PostingServiceTest {
 
 	// 1 title, 2 content, 3 semester, 4 region, 5 fee, 6 allowEnrolled, 7 allowOnLeave, 8 eligibilityNote,
 	// 9 activityStartedOn, 10 activityEndedOn, 11 recruitStartAt, 12 recruitEndAt, 13 images,
-	// 14 noPosition, 15 positions, 16 hasInterview, 17 interviewMethod, 18 interviewMinutes, 19 breakMinutes,
-	// 20 assignRule, 21 maxApplicantsPerInterview, 22 maxParallelInterviews, 23 interviewTimeRanges,
-	// 24 docScorePerQuestion, 25 questions
+	// 14 noPosition, 15 positions, 16 hasInterview, 17 interviewMinutes, 18 breakMinutes,
+	// 19 assignRule, 20 maxApplicantsPerInterview, 21 maxParallelInterviews, 22 interviewTimeRanges,
+	// 23 docScorePerQuestion, 24 questions
 	private PostingDraftInput basicInput(String title) {
 		return basicInput(title, LocalDateTime.now().plusDays(7));
 	}
@@ -915,7 +900,7 @@ class PostingServiceTest {
 			ArgumentValue.ofNullable("서울"), ArgumentValue.ofNullable("무료"), true, false, null,
 			null, null, LocalDateTime.now(), recruitEndAt, null,
 			null, null,
-			null, null, null, null, null, null, null, null,
+			null, null, null, null, null, null, null,
 			null, null);
 	}
 
@@ -926,7 +911,7 @@ class PostingServiceTest {
 			ArgumentValue.ofNullable(activityStartedOn), ArgumentValue.ofNullable(activityEndedOn), recruitStartAt,
 			recruitEndAt, null,
 			null, null,
-			null, null, null, null, null, null, null, null,
+			null, null, null, null, null, null, null,
 			null, null);
 	}
 
@@ -934,7 +919,7 @@ class PostingServiceTest {
 		return new PostingDraftInput(null, null, null, null, null, null, null, null,
 			null, null, null, null, null,
 			false, positions,
-			null, null, null, null, null, null, null, null,
+			null, null, null, null, null, null, null,
 			null, null);
 	}
 
@@ -942,7 +927,7 @@ class PostingServiceTest {
 		return new PostingDraftInput(null, null, null, null, null, null, null, eligibilityNote,
 			null, null, null, null, null,
 			null, null,
-			null, null, null, null, null, null, null, null,
+			null, null, null, null, null, null, null,
 			null, null);
 	}
 
@@ -950,7 +935,7 @@ class PostingServiceTest {
 		return new PostingDraftInput(null, null, null, null, null, null, null, null,
 			null, null, null, null, null,
 			noPosition, null,
-			null, null, null, null, null, null, null, null,
+			null, null, null, null, null, null, null,
 			null, null);
 	}
 
@@ -958,7 +943,7 @@ class PostingServiceTest {
 		return new PostingDraftInput(null, null, null, null, null, null, null, null,
 			null, null, null, null, null,
 			null, null,
-			null, null, null, null, null, null, null, null,
+			null, null, null, null, null, null, null,
 			true, questions);
 	}
 
@@ -966,17 +951,17 @@ class PostingServiceTest {
 		return new PostingDraftInput(null, null, null, null, null, null, null, null,
 			null, null, null, null, images,
 			null, null,
-			null, null, null, null, null, null, null, null,
+			null, null, null, null, null, null, null,
 			null, null);
 	}
 
-	private PostingDraftInput withInterview(Boolean hasInterview, InterviewMethod interviewMethod,
+	private PostingDraftInput withInterview(Boolean hasInterview,
 		Integer interviewMinutes, Integer breakMinutes, AssignRule assignRule, Integer maxApplicantsPerInterview,
 		Integer maxParallelInterviews, List<InterviewTimeRangeInput> interviewTimeRanges) {
 		return new PostingDraftInput(null, null, null, null, null, null, null, null,
 			null, null, null, null, null,
 			null, null,
-			hasInterview, interviewMethod, interviewMinutes, breakMinutes, assignRule, maxApplicantsPerInterview,
+			hasInterview, interviewMinutes, breakMinutes, assignRule, maxApplicantsPerInterview,
 			maxParallelInterviews, interviewTimeRanges,
 			null, null);
 	}
@@ -1006,7 +991,7 @@ class PostingServiceTest {
 	void advancesInterviewPostingThroughInterviewStep() {
 		Posting posting = publishablePosting("면접 공고");
 		postingService.saveDraft(operator.getId(), organization.getId(), posting.getId(),
-			withInterview(true, InterviewMethod.ONLINE, 20, 5, AssignRule.ALL_MEMBERS, null, null, null));
+			withInterview(true, 20, 5, AssignRule.ALL_MEMBERS, null, null, null));
 		postingService.publish(operator.getId(), posting.getId());
 		postingService.advanceStatus(operator.getId(), posting.getId(), PostingStatus.DOC_REVIEW);
 

@@ -62,10 +62,6 @@ public class Posting extends BaseEntity {
 	@Column(nullable = false)
 	private boolean hasInterview;
 
-	@Enumerated(EnumType.STRING)
-	@Column(length = 30)
-	private InterviewMethod interviewMethod;
-
 	@Column(nullable = false)
 	private boolean noPosition;
 
@@ -181,11 +177,10 @@ public class Posting extends BaseEntity {
 	}
 
 	// 3단계: 면접 (InterviewTimeRange 목록은 리포지토리에서 통째로 교체)
-	public void updateInterviewStep(boolean hasInterview, InterviewMethod interviewMethod, Integer interviewMinutes,
+	public void updateInterviewStep(boolean hasInterview, Integer interviewMinutes,
 		Integer breakMinutes, AssignRule assignRule, Integer maxApplicantsPerInterview,
 		Integer maxParallelInterviews) {
 		this.hasInterview = hasInterview;
-		this.interviewMethod = hasInterview ? interviewMethod : null;
 		this.interviewMinutes = hasInterview ? interviewMinutes : null;
 		this.breakMinutes = hasInterview ? breakMinutes : null;
 		this.assignRule = hasInterview ? assignRule : null;

@@ -346,7 +346,6 @@ public class PostingService {
 		boolean hasInterview = orElse(input.hasInterview(), posting.isHasInterview());
 		posting.updateInterviewStep(
 			hasInterview,
-			orElse(input.interviewMethod(), posting.getInterviewMethod()),
 			orElse(input.interviewMinutes(), posting.getInterviewMinutes()),
 			orElse(input.breakMinutes(), posting.getBreakMinutes()),
 			orElse(input.assignRule(), posting.getAssignRule()),
@@ -516,9 +515,6 @@ public class PostingService {
 		if (!posting.isNoPosition() && positionRepository.findAllByPostingOrderBySortOrder(posting).isEmpty()) {
 			fieldErrors.add(new FieldErrorResponse("positionsStep", "모집 포지션을 1개 이상 추가해주세요."));
 		}
-		if (posting.isHasInterview() && posting.getInterviewMethod() == null) {
-			fieldErrors.add(new FieldErrorResponse("interviewStep", "면접 방식을 선택해주세요."));
-		}
 		if (questionRepository.findAllByPostingOrderBySortOrder(posting).isEmpty()) {
 			fieldErrors.add(new FieldErrorResponse("questionsStep", "지원서 문항을 1개 이상 추가해주세요."));
 		}
@@ -553,7 +549,7 @@ public class PostingService {
 	}
 
 	private static boolean touchesInterviewStep(PostingDraftInput input) {
-		return input.hasInterview() != null || input.interviewMethod() != null
+		return input.hasInterview() != null
 			|| input.interviewMinutes() != null || input.breakMinutes() != null
 			|| input.assignRule() != null || input.maxApplicantsPerInterview() != null
 			|| input.maxParallelInterviews() != null || input.interviewTimeRanges() != null;

@@ -36,7 +36,6 @@ import com.mozip.domain.posting.dto.PositionInput;
 import com.mozip.domain.posting.dto.PostingDraftInput;
 import com.mozip.domain.posting.dto.QuestionInput;
 import com.mozip.domain.posting.entity.AssignRule;
-import com.mozip.domain.posting.entity.InterviewMethod;
 import com.mozip.domain.posting.entity.Posting;
 import com.mozip.domain.posting.entity.QuestionType;
 import com.mozip.domain.posting.repository.PositionRepository;
@@ -288,7 +287,7 @@ class PostingGraphqlControllerTest {
 		postingService.saveDraft(operator.getId(), organization.getId(), posting.getId(),
 			withQuestions(List.of(new QuestionInput(null, QuestionType.TEXT, "자기소개", null, true, 500, null, 0))));
 		postingService.saveDraft(operator.getId(), organization.getId(), posting.getId(),
-			withInterview(true, InterviewMethod.ONLINE, 20, 5, AssignRule.SAME_TEAM, 1, 2,
+			withInterview(true, 20, 5, AssignRule.SAME_TEAM, 1, 2,
 				List.of(new InterviewTimeRangeInput(null, LocalDate.now().plusDays(3), LocalTime.of(10, 0),
 					LocalTime.of(12, 0), null))));
 		postingService.publish(operator.getId(), posting.getId());
@@ -310,7 +309,7 @@ class PostingGraphqlControllerTest {
 			ArgumentValue.ofNullable("서울"), ArgumentValue.ofNullable("무료"), true, false, null,
 			null, null, LocalDateTime.now(), LocalDateTime.now().plusDays(7), null,
 			null, null,
-			null, null, null, null, null, null, null, null,
+			null, null, null, null, null, null, null,
 			null, null);
 	}
 
@@ -318,7 +317,7 @@ class PostingGraphqlControllerTest {
 		return new PostingDraftInput(null, null, null, null, null, null, null, null,
 			null, null, null, null, null,
 			false, positions,
-			null, null, null, null, null, null, null, null,
+			null, null, null, null, null, null, null,
 			null, null);
 	}
 
@@ -326,17 +325,17 @@ class PostingGraphqlControllerTest {
 		return new PostingDraftInput(null, null, null, null, null, null, null, null,
 			null, null, null, null, null,
 			null, null,
-			null, null, null, null, null, null, null, null,
+			null, null, null, null, null, null, null,
 			true, questions);
 	}
 
-	private PostingDraftInput withInterview(Boolean hasInterview, InterviewMethod interviewMethod,
+	private PostingDraftInput withInterview(Boolean hasInterview,
 		Integer interviewMinutes, Integer breakMinutes, AssignRule assignRule, Integer maxApplicantsPerInterview,
 		Integer maxParallelInterviews, List<InterviewTimeRangeInput> interviewTimeRanges) {
 		return new PostingDraftInput(null, null, null, null, null, null, null, null,
 			null, null, null, null, null,
 			null, null,
-			hasInterview, interviewMethod, interviewMinutes, breakMinutes, assignRule, maxApplicantsPerInterview,
+			hasInterview, interviewMinutes, breakMinutes, assignRule, maxApplicantsPerInterview,
 			maxParallelInterviews, interviewTimeRanges,
 			null, null);
 	}
