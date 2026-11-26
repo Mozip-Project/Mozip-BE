@@ -29,9 +29,10 @@ public interface PostingRepository extends JpaRepository<Posting, Long>, JpaSpec
 		List<PostingStatus> statuses);
 
 	// 모집 마감 스케줄러. 조건부 UPDATE라 worker 파드가 여러 개여도 행 하나는 딱 한 번만 바뀜
+	// bulk update는 AuditingEntityListener를 안 타서 updatedAt을 직접 같이 SET함
 	@Modifying(flushAutomatically = true, clearAutomatically = true)
 	@Query("""
-		UPDATE Posting p SET p.status = com.mozip.domain.posting.entity.PostingStatus.DOC_REVIEW
+		UPDATE Posting p SET p.status = com.mozip.domain.posting.entity.PostingStatus.DOC_REVIEW, p.updatedAt = :now
 		WHERE p.status = com.mozip.domain.posting.entity.PostingStatus.RECRUITING
 			AND p.recruitEndAt <= :now
 		""")
