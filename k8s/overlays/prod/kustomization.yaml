@@ -12,10 +12,10 @@ resources:
 images:
 - name: ghcr.io/mozip-project/mozip-api
   newName: ghcr.io/mozip-project/mozip-api
-  newTag: 3fba29fb29e1478514121f267412fa4295eafcff
+  newTag: 5835494934808c1a8a42c7c63c04a27df69671de
 - name: ghcr.io/mozip-project/mozip-worker
   newName: ghcr.io/mozip-project/mozip-worker
-  newTag: 3fba29fb29e1478514121f267412fa4295eafcff
+  newTag: 5835494934808c1a8a42c7c63c04a27df69671de
 
 
 patches:
