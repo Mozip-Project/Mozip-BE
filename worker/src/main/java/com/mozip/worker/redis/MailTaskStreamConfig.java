@@ -17,7 +17,8 @@ import com.mozip.global.redis.MailTaskStream;
 
 import lombok.extern.slf4j.Slf4j;
 
-// MailTaskStream.KEY를 polling하는 컨테이너. 컨슈머 그룹이 없으면 MKSTREAM으로 같이 만듦(이미 있으면 BUSYGROUP 무시)
+// MailTaskStream.KEY를 polling하는 컨테이너. 컨슈머 그룹이 없으면 MKSTREAM으로 같이 만듦(이미 있으면 BUSYGROUP 무시).
+// BUSYGROUP이 아닌 다른 에러(Redis 연결 장애 등)는 삼키지 않고 기동을 실패시킴
 @Slf4j
 @Configuration
 public class MailTaskStreamConfig {
@@ -44,13 +45,29 @@ public class MailTaskStreamConfig {
 		return container;
 	}
 
-	private void ensureConsumerGroup(StringRedisTemplate redisTemplate) {
+	void ensureConsumerGroup(StringRedisTemplate redisTemplate) {
 		try {
 			redisTemplate.opsForStream().createGroup(MailTaskStream.KEY, ReadOffset.from("0"), MailTaskStream.CONSUMER_GROUP);
 		} catch (DataAccessException e) {
-			// 그룹이 이미 있으면 BUSYGROUP 에러. 정상 상황이라 무시
-			log.debug("mail-tasks 컨슈머 그룹 생성 스킵(이미 있음): cause={}", e.getClass().getSimpleName());
+			if (isBusyGroup(e)) {
+				// 그룹이 이미 있으면 BUSYGROUP 에러. 정상 상황이라 무시
+				log.debug("mail-tasks 컨슈머 그룹 생성 스킵(이미 있음)");
+				return;
+			}
+			// BUSYGROUP이 아니면 Redis 연결 장애 등 실제 문제. 조용히 넘기면 그룹 없이 기동돼 이후 polling마다
+			// NOGROUP 에러가 반복되므로 여기서 바로 실패시킴
+			log.error("mail-tasks 컨슈머 그룹 생성 실패: cause={}", e.getClass().getSimpleName(), e);
+			throw e;
 		}
+	}
+
+	private static boolean isBusyGroup(Throwable e) {
+		for (Throwable current = e; current != null; current = current.getCause()) {
+			if (current.getMessage() != null && current.getMessage().contains("BUSYGROUP")) {
+				return true;
+			}
+		}
+		return false;
 	}
 
 }
