@@ -95,9 +95,9 @@ public class Application extends BaseEntity {
 		this.availableTimes = availableTimes == null ? List.of() : availableTimes;
 	}
 
-	public void submit(String profileSnapshot) {
+	public void submit(String profileSnapshot, LocalDateTime now) {
 		this.status = ApplicationStatus.SUBMITTED;
-		this.submittedAt = LocalDateTime.now();
+		this.submittedAt = now;
 		this.profileSnapshot = profileSnapshot;
 	}
 
