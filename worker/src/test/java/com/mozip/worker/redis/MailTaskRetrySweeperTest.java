@@ -48,7 +48,7 @@ class MailTaskRetrySweeperTest {
 	@Test
 	@DisplayName("idle 시간이 지났고 재시도 횟수가 남았으면 claim해서 다시 처리하고 DLQ로는 안 보낸다")
 	void retriesStaleMessageUnderMaxAttempts() {
-		stubPending(pendingMessage("1-1", Duration.ofSeconds(90), 2));
+		stubPending(pendingMessage("1-1", Duration.ofSeconds(90), 3));
 		MapRecord<String, String, String> claimed = claimedRecord();
 		stubClaim(claimed);
 
@@ -59,9 +59,9 @@ class MailTaskRetrySweeperTest {
 	}
 
 	@Test
-	@DisplayName("idle 시간이 지났고 재시도 횟수(3)를 다 썼으면 DLQ로 옮기고 원본은 ACK한다")
+	@DisplayName("idle 시간이 지났고 총 전달 횟수(4)를 다 썼으면 DLQ로 옮기고 원본은 ACK한다")
 	void movesExhaustedMessageToDeadLetter() {
-		stubPending(pendingMessage("1-1", Duration.ofSeconds(90), 3));
+		stubPending(pendingMessage("1-1", Duration.ofSeconds(90), 4));
 		MapRecord<String, String, String> claimed = claimedRecord();
 		stubClaim(claimed);
 
@@ -99,8 +99,8 @@ class MailTaskRetrySweeperTest {
 	}
 
 	private PendingMessage pendingMessage(String id, Duration elapsed, long deliveryCount) {
-		return new PendingMessage(RecordId.of(id), Consumer.from(MailTaskStream.CONSUMER_GROUP, "worker-1"), elapsed,
-			deliveryCount);
+		return new PendingMessage(RecordId.of(id), Consumer.from(MailTaskStream.CONSUMER_GROUP, MailTaskStream.CONSUMER_NAME),
+			elapsed, deliveryCount);
 	}
 
 }

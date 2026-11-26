@@ -21,15 +21,15 @@ import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 
 // MailTaskStream.KEY의 pending(ACK 안 된) 항목을 주기적으로 살펴 재시도하거나 DLQ로 옮김.
-// 재시도는 최대 3번(처음 시도 포함 총 3번 전달), 60초 이상 idle된 항목만 대상으로 함(처리 중인데 뺏는 걸 방지)
+// 최초 시도 포함 총 4번 전달될 때까지 재시도하고, 60초 이상 idle된 항목만 대상으로 함(처리 중인데 뺏는 걸 방지)
 @Slf4j
 @Component
 @RequiredArgsConstructor
 public class MailTaskRetrySweeper {
 
-	private static final int MAX_DELIVERY_COUNT = 3;
+	// 최초 시도(1) + 재시도(MAX_DELIVERY_COUNT - 1)까지 총 시도 횟수 기준
+	private static final int MAX_DELIVERY_COUNT = 4;
 	private static final Duration RETRY_IDLE = Duration.ofSeconds(60);
-	private static final String CONSUMER_NAME = "worker-1";
 	private static final int SWEEP_BATCH_SIZE = 100;
 
 	private final StringRedisTemplate redisTemplate;
@@ -41,7 +41,7 @@ public class MailTaskRetrySweeper {
 		try {
 			pending = redisTemplate.opsForStream().pending(
 				MailTaskStream.KEY,
-				Consumer.from(MailTaskStream.CONSUMER_GROUP, CONSUMER_NAME),
+				Consumer.from(MailTaskStream.CONSUMER_GROUP, MailTaskStream.CONSUMER_NAME),
 				Range.unbounded(),
 				SWEEP_BATCH_SIZE);
 		} catch (RuntimeException e) {
@@ -75,7 +75,7 @@ public class MailTaskRetrySweeper {
 
 	private List<MapRecord<String, String, String>> claim(RecordId id) {
 		return redisTemplate.<String, String>opsForStream().claim(MailTaskStream.KEY, MailTaskStream.CONSUMER_GROUP,
-			CONSUMER_NAME, XClaimOptions.minIdle(RETRY_IDLE).ids(id));
+			MailTaskStream.CONSUMER_NAME, XClaimOptions.minIdle(RETRY_IDLE).ids(id));
 	}
 
 }

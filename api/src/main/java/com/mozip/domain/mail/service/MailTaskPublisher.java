@@ -26,7 +26,7 @@ public class MailTaskPublisher {
 	private final StringRedisTemplate redisTemplate;
 	private final ObjectMapper objectMapper;
 
-	// 운영진이 보내는 일반 메일(결과 안내 등). MailTaskStream(Redis Stream)에 넣어 worker가 실패 시 최대 3번 재시도하고,
+	// 운영진이 보내는 일반 메일(결과 안내 등). MailTaskStream(Redis Stream)에 넣어 worker가 실패 시 최초 시도 포함 총 4번까지 재시도하고,
 	// 다 소진하면 DLQ로 옮김. 여기서 보장하는 건 "스트림에 들어갔다"뿐이고 실제 발송 성공 여부는 worker가 결정함
 	public void publishSendMail(String to, String subject, String body) {
 		Map<String, String> fields = Map.of(

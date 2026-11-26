@@ -22,8 +22,6 @@ import lombok.extern.slf4j.Slf4j;
 @Configuration
 public class MailTaskStreamConfig {
 
-	private static final String CONSUMER_NAME = "worker-1";
-
 	@Bean(initMethod = "start", destroyMethod = "stop")
 	public StreamMessageListenerContainer<String, MapRecord<String, String, String>> mailTaskStreamContainer(
 		StringRedisTemplate redisTemplate,
@@ -39,7 +37,7 @@ public class MailTaskStreamConfig {
 			StreamMessageListenerContainer.create(redisTemplate.getConnectionFactory(), options);
 
 		container.receive(
-			Consumer.from(MailTaskStream.CONSUMER_GROUP, CONSUMER_NAME),
+			Consumer.from(MailTaskStream.CONSUMER_GROUP, MailTaskStream.CONSUMER_NAME),
 			StreamOffset.create(MailTaskStream.KEY, ReadOffset.lastConsumed()),
 			listener);
 

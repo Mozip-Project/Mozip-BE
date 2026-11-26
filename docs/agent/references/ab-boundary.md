@@ -83,7 +83,7 @@
   - B가 결과 안내 메일을 보낼 때는 `MailSender.send(...)`를 직접 부르지 않고 `MailTaskPublisher.publishSendMail(to, subject, body)`를 부른다.
     실제 발송(`MailSender`/`SesMailSender`)은 worker에만 있고 api에서는 안 보임(결정 006). 메일은 HTML 없이 text 전용으로만 보냄
   - `publishSendMail`은 `mozip:worker:mail-tasks` Redis Stream에 `{"type": "SEND_MAIL", "to", "subject", "body"}` 필드로 들어감.
-    worker가 실패하면 최대 3번(총 전달 횟수 기준) 재시도하고, 다 소진하면 `mozip:worker:mail-tasks:dlq`로 옮김(`MailTaskRetrySweeper`).
+    worker가 실패하면 최초 시도 포함 총 4번(전달 횟수 기준) 시도하고, 다 소진하면 `mozip:worker:mail-tasks:dlq`로 옮김(`MailTaskRetrySweeper`).
     학교 인증 메일만 예외로 재시도 없이 `mozip:worker:tasks`(pub/sub)를 그대로 씀 — 코드가 금방 만료돼서 재시도보다 재요청이 더 빠름
   - 재학증명서 인증(`submitEnrollmentCertificate`)은 제거됨. 학교 인증은 메일 인증(`requestSchoolEmailVerification`/`verifySchoolEmail`)만 지원
   - `requestSchoolEmailVerification`(인증번호 발송)은 `@public`. 로그인 없이도 호출 가능하며 이때는 userId가 없어
