@@ -66,3 +66,9 @@
 - 2026-11-27: `verifyForSignup`이 confirmed 표시를 지우는 시점을 `User` 저장 이전에서 이후(`completeSignupVerification`)로
   옮김. Redis 삭제는 DB 트랜잭션에 묶이지 않아서, 저장 전에 지우면 가입이 다른 이유(동시 가입 등)로 실패해도
   confirmed 표시가 복구되지 않는 문제가 있었음
+- 2026-11-27: 인증번호 요청/검증/confirmed 상태(cooldown, code, attempts, confirmed) 로직을 `EmailVerificationCodeStore`
+  인터페이스와 `RedisEmailVerificationCodeStore`(namespace로 키를 나누는 범용 구현)로 뽑아 `common/src/main/java/com/mozip/global/email/`에
+  둠. `SchoolEmailVerificationCodeRepository`는 `namespace="school"`로 이 구현에 위임하도록 바뀌었고 공개 API와 Redis
+  키 형식은 그대로라 `SchoolVerificationService`를 포함해 다른 코드는 안 바뀜. 단체 이메일 인증처럼 같은 "메일 발송 →
+  코드 확인" 패턴이 필요한 도메인은 같은 인터페이스를 `namespace`만 다르게 구현해 재사용할 수 있음(발송 상태 추적처럼
+  도메인마다 다른 부분은 인터페이스에 넣지 않고 각자 리포지토리에 남김)

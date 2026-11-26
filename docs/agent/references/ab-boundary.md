@@ -98,3 +98,7 @@
     학교 인증을 끝낸 상태로만 끝난다(결정 010). confirmed 확인과 소비, `SchoolVerification` 레코드 생성,
     `user.school` 채움은 `SchoolVerificationService.verifyForSignup`/`completeSignupVerification`이 처리하고
     `AuthService`는 결과만 씀
+  - 인증번호 요청/검증/confirmed 상태 로직은 `common/.../global/email/EmailVerificationCodeStore`(인터페이스)와
+    `RedisEmailVerificationCodeStore`(namespace로 키를 나누는 범용 구현)로 공통화돼 있음. `SchoolEmailVerificationCodeRepository`는
+    `namespace="school"`로 위임만 함. 단체 메일 인증처럼 같은 "메일 발송 → 코드 확인" 패턴이 필요하면 이 인터페이스를
+    다른 namespace로 재사용하면 됨(실제 메일 발송과 발송 상태 추적은 도메인마다 달라서 포함 안 함)

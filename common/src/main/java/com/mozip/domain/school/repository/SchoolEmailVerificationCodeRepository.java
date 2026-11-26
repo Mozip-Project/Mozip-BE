@@ -7,62 +7,77 @@ import org.springframework.data.redis.core.StringRedisTemplate;
 import org.springframework.stereotype.Repository;
 
 import com.mozip.domain.school.entity.SchoolEmailVerificationStatus;
+import com.mozip.global.email.EmailVerificationCodeStore;
+import com.mozip.global.email.RedisEmailVerificationCodeStore;
 
-import lombok.RequiredArgsConstructor;
-
-// Redis에 school:verify:code:{email} → 인증번호 저장(TTL 5분), 같은 TTL로 틀린 횟수(attempts)를 같이 관리.
-// cooldown 키로 재요청 간격을 제한함. status 키는 worker가 실제로 메일을 보냈는지 api/클라이언트가 조회하는 용도.
-// confirmed 키는 verifySchoolEmail로 코드 확인까지 끝낸 메일을 표시(가입 전까지 10분 유지)
+// 학교 인증 전용 래퍼. 인증번호 요청/검증/confirmed 상태(cooldown, code, attempts, confirmed)는
+// EmailVerificationCodeStore(공통, namespace="school")에 맡기고, worker 발송 상태(status)만 여기서 따로 관리함.
+// 같은 메커니즘(메일 발송 → 코드 확인)이 필요한 다른 도메인(단체 인증 등)도 EmailVerificationCodeStore를 재사용할 수 있음
 @Repository
-@RequiredArgsConstructor
-public class SchoolEmailVerificationCodeRepository {
+public class SchoolEmailVerificationCodeRepository implements EmailVerificationCodeStore {
 
-	public static final Duration CODE_TTL = Duration.ofMinutes(5);
-	public static final Duration REQUEST_COOLDOWN = Duration.ofSeconds(60);
-	public static final Duration CONFIRMED_TTL = Duration.ofMinutes(10);
-	public static final int MAX_ATTEMPTS = 5;
-
-	private static final String CODE_KEY_PREFIX = "school:verify:code:";
-	private static final String ATTEMPTS_KEY_PREFIX = "school:verify:attempts:";
-	private static final String COOLDOWN_KEY_PREFIX = "school:verify:cooldown:";
+	private static final String NAMESPACE = "school";
 	private static final String STATUS_KEY_PREFIX = "school:verify:status:";
-	private static final String CONFIRMED_KEY_PREFIX = "school:verify:confirmed:";
 
+	public static final Duration CODE_TTL = RedisEmailVerificationCodeStore.CODE_TTL;
+	public static final Duration REQUEST_COOLDOWN = RedisEmailVerificationCodeStore.REQUEST_COOLDOWN;
+	public static final Duration CONFIRMED_TTL = RedisEmailVerificationCodeStore.CONFIRMED_TTL;
+	public static final int MAX_ATTEMPTS = RedisEmailVerificationCodeStore.MAX_ATTEMPTS;
+
+	private final EmailVerificationCodeStore codeStore;
 	private final StringRedisTemplate redisTemplate;
 
-	// 재요청 간격 안이면 true (SCHOOL_429)
+	public SchoolEmailVerificationCodeRepository(StringRedisTemplate redisTemplate) {
+		this.redisTemplate = redisTemplate;
+		this.codeStore = new RedisEmailVerificationCodeStore(redisTemplate, NAMESPACE);
+	}
+
+	@Override
 	public boolean isOnCooldown(String email) {
-		return Boolean.TRUE.equals(redisTemplate.hasKey(cooldownKey(email)));
+		return codeStore.isOnCooldown(email);
 	}
 
+	@Override
 	public void markRequested(String email) {
-		redisTemplate.opsForValue().set(cooldownKey(email), "1", REQUEST_COOLDOWN);
+		codeStore.markRequested(email);
 	}
 
-	// 인증번호를 새로 저장하며 이전 틀린 횟수와 예전 코드로 받은 confirmed 상태는 초기화
+	@Override
 	public void saveCode(String email, String code) {
-		redisTemplate.opsForValue().set(codeKey(email), code, CODE_TTL);
-		redisTemplate.delete(attemptsKey(email));
-		redisTemplate.delete(confirmedKey(email));
+		codeStore.saveCode(email, code);
 	}
 
+	@Override
 	public Optional<String> findCode(String email) {
-		return Optional.ofNullable(redisTemplate.opsForValue().get(codeKey(email)));
+		return codeStore.findCode(email);
 	}
 
+	@Override
 	public void deleteCode(String email) {
-		redisTemplate.delete(codeKey(email));
-		redisTemplate.delete(attemptsKey(email));
+		codeStore.deleteCode(email);
 	}
 
-	// 틀린 횟수를 올리고, MAX_ATTEMPTS를 넘으면 코드를 바로 지움(다음 확인은 CODE_EXPIRED로 응답됨)
+	@Override
 	public void recordWrongAttempt(String email) {
-		Long attempts = redisTemplate.opsForValue().increment(attemptsKey(email));
-		redisTemplate.expire(attemptsKey(email), CODE_TTL);
-		if (attempts != null && attempts >= MAX_ATTEMPTS) {
-			deleteCode(email);
-		}
+		codeStore.recordWrongAttempt(email);
 	}
+
+	@Override
+	public boolean isConfirmed(String email) {
+		return codeStore.isConfirmed(email);
+	}
+
+	@Override
+	public void markConfirmed(String email) {
+		codeStore.markConfirmed(email);
+	}
+
+	@Override
+	public void deleteConfirmed(String email) {
+		codeStore.deleteConfirmed(email);
+	}
+
+	// 아래는 학교 인증에서만 쓰는 발송 상태. 공통 인터페이스에는 없음(도메인마다 발송 방식이 다를 수 있어서)
 
 	// api가 Redis 발행까지 성공한 뒤에 호출. worker가 이어서 markSent/markFailed로 덮어씀
 	public void markPending(String email) {
@@ -83,37 +98,8 @@ public class SchoolEmailVerificationCodeRepository {
 			.map(SchoolEmailVerificationStatus::valueOf);
 	}
 
-	// verifySchoolEmail로 코드 확인에 성공하면 호출. 가입(verifyForSignup)이 끝나면 지움
-	public boolean isConfirmed(String email) {
-		return Boolean.TRUE.equals(redisTemplate.hasKey(confirmedKey(email)));
-	}
-
-	public void markConfirmed(String email) {
-		redisTemplate.opsForValue().set(confirmedKey(email), "1", CONFIRMED_TTL);
-	}
-
-	public void deleteConfirmed(String email) {
-		redisTemplate.delete(confirmedKey(email));
-	}
-
-	private static String codeKey(String email) {
-		return CODE_KEY_PREFIX + email;
-	}
-
-	private static String attemptsKey(String email) {
-		return ATTEMPTS_KEY_PREFIX + email;
-	}
-
-	private static String cooldownKey(String email) {
-		return COOLDOWN_KEY_PREFIX + email;
-	}
-
 	private static String statusKey(String email) {
 		return STATUS_KEY_PREFIX + email;
-	}
-
-	private static String confirmedKey(String email) {
-		return CONFIRMED_KEY_PREFIX + email;
 	}
 
 }
