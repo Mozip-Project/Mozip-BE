@@ -81,24 +81,36 @@ public class SchoolVerificationService {
 		return true;
 	}
 
-	// 가입 폼의 나머지 입력(전화번호, 비밀번호 등)을 채우기 전에 코드가 맞는지만 확인. 로그인 불필요(@public).
-	// 성공/실패를 에러 없이 boolean으로만 알려줌(틀린 코드 기록 같은 부수효과는 그대로 남음). 코드를 지우지 않아서,
-	// 실제 가입(verifyForSignup)에서 같은 코드를 그대로 다시 씀
+	// 가입 폼의 나머지 입력(전화번호, 비밀번호 등)을 채우기 전에 코드가 맞는지 확인. 로그인 불필요(@public).
+	// 이미 확인을 마친 메일로 다시 부르면 에러(SCHOOL_409, EMAIL_ALREADY_CONFIRMED)를 던짐.
+	// 그 외 코드 불일치/만료/모르는 도메인은 에러 없이 false만 반환함(틀린 코드 기록 같은 부수효과는 남음).
+	// 성공하면 코드는 지우고 confirmed로 표시(10분), 실제 가입(verifyForSignup)은 이 표시만 확인함
 	@Transactional
 	public boolean verifySchoolEmail(String email, String code) {
+		if (codeRepository.isConfirmed(email)) {
+			throw new BusinessException(SchoolErrorCode.CONFLICT, SchoolConflictReason.EMAIL_ALREADY_CONFIRMED)
+				.addContext("email", email);
+		}
 		try {
-			requireValidCode(email, code);
-			return true;
+			consumeValidCode(email, code);
 		} catch (BusinessException e) {
 			return false;
 		}
+		codeRepository.markConfirmed(email);
+		return true;
 	}
 
-	// 회원가입 시 학교 메일 인증을 끝냄. 아직 User가 없어 School만 반환하고, 가입 자체는 호출자(AuthService)가 처리.
-	// 성공하면 코드가 지워지므로, 이후 가입이 다른 이유(중복 번호 등)로 실패해도 같은 코드로 다시 시도할 수 없음
+	// 회원가입 시 학교 메일 인증을 끝냄. verifySchoolEmail로 confirmed 표시가 남아 있어야 하고(10분 안에 가입해야 함),
+	// 없으면 SCHOOL_400(EMAIL_NOT_VERIFIED). 아직 User가 없어 School만 반환하고, 가입 자체는 호출자(AuthService)가 처리
 	@Transactional
-	public School verifyForSignup(String email, String code) {
-		return consumeValidCode(email, code);
+	public School verifyForSignup(String email) {
+		if (!codeRepository.isConfirmed(email)) {
+			throw new BusinessException(SchoolErrorCode.INVALID_INPUT, SchoolInputReason.EMAIL_NOT_VERIFIED)
+				.addContext("email", email);
+		}
+		School school = findSchoolByEmailDomain(email);
+		codeRepository.deleteConfirmed(email);
+		return school;
 	}
 
 	// 가입으로 생성된 User에 학교 인증 완료를 반영. verifyForSignup과 분리된 건 User 저장(가입) 전에는

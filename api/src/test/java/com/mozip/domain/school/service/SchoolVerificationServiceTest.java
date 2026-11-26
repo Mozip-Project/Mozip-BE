@@ -22,6 +22,7 @@ import com.mozip.domain.school.entity.SchoolEmailVerificationStatus;
 import com.mozip.domain.school.entity.SchoolVerification;
 import com.mozip.domain.school.exception.SchoolConflictReason;
 import com.mozip.domain.school.exception.SchoolErrorCode;
+import com.mozip.domain.school.exception.SchoolInputReason;
 import com.mozip.domain.school.repository.SchoolEmailVerificationCodeRepository;
 import com.mozip.domain.school.repository.SchoolRepository;
 import com.mozip.domain.school.repository.SchoolVerificationRepository;
@@ -88,8 +89,8 @@ class SchoolVerificationServiceTest {
 	}
 
 	@Test
-	@DisplayName("인증번호를 요청하고 그 번호로 verifySchoolEmail을 호출하면 true를 반환하고, 코드를 지우지 않아 가입에서 다시 쓸 수 있다")
-	void requestAndVerifySchoolEmailSucceedsWithoutConsumingCode() {
+	@DisplayName("인증번호를 요청하고 그 번호로 verifySchoolEmail을 호출하면 true를 반환하고, 코드를 지우고 confirmed로 표시한다")
+	void requestAndVerifySchoolEmailSucceedsAndMarksConfirmed() {
 		schoolVerificationService.requestSchoolEmailVerification(applicant.getId(), email);
 		String code = redisTemplate.opsForValue().get("school:verify:code:" + email);
 		assertThat(code).matches("\\d{6}");
@@ -97,15 +98,43 @@ class SchoolVerificationServiceTest {
 		boolean result = schoolVerificationService.verifySchoolEmail(email, code);
 
 		assertThat(result).isTrue();
-		assertThat(redisTemplate.opsForValue().get("school:verify:code:" + email)).isEqualTo(code);
-		School verifiedSchool = schoolVerificationService.verifyForSignup(email, code);
+		assertThat(redisTemplate.hasKey("school:verify:code:" + email)).isFalse();
+		School verifiedSchool = schoolVerificationService.verifyForSignup(email);
 		assertThat(verifiedSchool.getId()).isEqualTo(school.getId());
+	}
+
+	@Test
+	@DisplayName("이미 확인을 마친 메일로 verifySchoolEmail을 다시 호출하면 SCHOOL_409(EMAIL_ALREADY_CONFIRMED)를 던진다")
+	void verifySchoolEmailRejectsAlreadyConfirmedEmail() {
+		schoolVerificationService.requestSchoolEmailVerification(applicant.getId(), email);
+		String code = redisTemplate.opsForValue().get("school:verify:code:" + email);
+		schoolVerificationService.verifySchoolEmail(email, code);
+
+		assertThatThrownBy(() -> schoolVerificationService.verifySchoolEmail(email, code))
+			.isInstanceOf(BusinessException.class)
+			.satisfies(e -> {
+				BusinessException ex = (BusinessException)e;
+				assertThat(ex.getErrorCode()).isEqualTo(SchoolErrorCode.CONFLICT);
+				assertThat(ex.getReason()).isEqualTo(SchoolConflictReason.EMAIL_ALREADY_CONFIRMED.name());
+			});
 	}
 
 	@Test
 	@DisplayName("verifySchoolEmail은 메일 도메인과 일치하는 학교가 없으면 에러 없이 false를 반환한다")
 	void verifySchoolEmailReturnsFalseForUnknownDomain() {
 		assertThat(schoolVerificationService.verifySchoolEmail("student@unknown-domain.ac.kr", "123456")).isFalse();
+	}
+
+	@Test
+	@DisplayName("verifySchoolEmail로 확인한 적 없으면 verifyForSignup은 SCHOOL_400(EMAIL_NOT_VERIFIED)을 던진다")
+	void verifyForSignupRejectsUnconfirmedEmail() {
+		assertThatThrownBy(() -> schoolVerificationService.verifyForSignup(email))
+			.isInstanceOf(BusinessException.class)
+			.satisfies(e -> {
+				BusinessException ex = (BusinessException)e;
+				assertThat(ex.getErrorCode()).isEqualTo(SchoolErrorCode.INVALID_INPUT);
+				assertThat(ex.getReason()).isEqualTo(SchoolInputReason.EMAIL_NOT_VERIFIED.name());
+			});
 	}
 
 	@Test

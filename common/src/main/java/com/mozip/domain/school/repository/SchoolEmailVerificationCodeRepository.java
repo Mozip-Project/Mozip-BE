@@ -11,19 +11,22 @@ import com.mozip.domain.school.entity.SchoolEmailVerificationStatus;
 import lombok.RequiredArgsConstructor;
 
 // Redis에 school:verify:code:{email} → 인증번호 저장(TTL 5분), 같은 TTL로 틀린 횟수(attempts)를 같이 관리.
-// cooldown 키로 재요청 간격을 제한함. status 키는 worker가 실제로 메일을 보냈는지 api/클라이언트가 조회하는 용도
+// cooldown 키로 재요청 간격을 제한함. status 키는 worker가 실제로 메일을 보냈는지 api/클라이언트가 조회하는 용도.
+// confirmed 키는 verifySchoolEmail로 코드 확인까지 끝낸 메일을 표시(가입 전까지 10분 유지)
 @Repository
 @RequiredArgsConstructor
 public class SchoolEmailVerificationCodeRepository {
 
 	public static final Duration CODE_TTL = Duration.ofMinutes(5);
 	public static final Duration REQUEST_COOLDOWN = Duration.ofSeconds(60);
+	public static final Duration CONFIRMED_TTL = Duration.ofMinutes(10);
 	public static final int MAX_ATTEMPTS = 5;
 
 	private static final String CODE_KEY_PREFIX = "school:verify:code:";
 	private static final String ATTEMPTS_KEY_PREFIX = "school:verify:attempts:";
 	private static final String COOLDOWN_KEY_PREFIX = "school:verify:cooldown:";
 	private static final String STATUS_KEY_PREFIX = "school:verify:status:";
+	private static final String CONFIRMED_KEY_PREFIX = "school:verify:confirmed:";
 
 	private final StringRedisTemplate redisTemplate;
 
@@ -36,10 +39,11 @@ public class SchoolEmailVerificationCodeRepository {
 		redisTemplate.opsForValue().set(cooldownKey(email), "1", REQUEST_COOLDOWN);
 	}
 
-	// 인증번호를 새로 저장하며 이전 틀린 횟수는 초기화
+	// 인증번호를 새로 저장하며 이전 틀린 횟수와 예전 코드로 받은 confirmed 상태는 초기화
 	public void saveCode(String email, String code) {
 		redisTemplate.opsForValue().set(codeKey(email), code, CODE_TTL);
 		redisTemplate.delete(attemptsKey(email));
+		redisTemplate.delete(confirmedKey(email));
 	}
 
 	public Optional<String> findCode(String email) {
@@ -79,6 +83,19 @@ public class SchoolEmailVerificationCodeRepository {
 			.map(SchoolEmailVerificationStatus::valueOf);
 	}
 
+	// verifySchoolEmail로 코드 확인에 성공하면 호출. 가입(verifyForSignup)이 끝나면 지움
+	public boolean isConfirmed(String email) {
+		return Boolean.TRUE.equals(redisTemplate.hasKey(confirmedKey(email)));
+	}
+
+	public void markConfirmed(String email) {
+		redisTemplate.opsForValue().set(confirmedKey(email), "1", CONFIRMED_TTL);
+	}
+
+	public void deleteConfirmed(String email) {
+		redisTemplate.delete(confirmedKey(email));
+	}
+
 	private static String codeKey(String email) {
 		return CODE_KEY_PREFIX + email;
 	}
@@ -93,6 +110,10 @@ public class SchoolEmailVerificationCodeRepository {
 
 	private static String statusKey(String email) {
 		return STATUS_KEY_PREFIX + email;
+	}
+
+	private static String confirmedKey(String email) {
+		return CONFIRMED_KEY_PREFIX + email;
 	}
 
 }

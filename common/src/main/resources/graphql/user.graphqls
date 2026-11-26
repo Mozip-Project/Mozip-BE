@@ -161,9 +161,10 @@ extend type Mutation {
     """
     requestSchoolEmailVerification(email: String!): Boolean! @public
     """
-    로그인 없이도 호출 가능. 가입 폼의 나머지 입력을 채우기 전에 인증번호가 맞는지만 확인함(코드는 지우지 않음).
-    실제 가입(POST /auth/signup)에서 같은 email/code로 다시 검증하며, 그때 코드가 소비됨.
-    에러를 던지지 않고 성공 여부를 그대로 true/false로 반환함(코드 불일치, 만료, 모르는 메일 도메인 모두 false)
+    로그인 없이도 호출 가능. 가입 폼의 나머지 입력을 채우기 전에 인증번호를 확인함.
+    성공하면 코드를 지우고 10분간 "확인됨"으로 표시하며, 그 안에 같은 email로 가입(POST /auth/signup)해야 함.
+    이미 확인된 메일로 다시 부르면 SCHOOL_409(reason: EMAIL_ALREADY_CONFIRMED)를 던짐.
+    그 외 코드 불일치/만료/모르는 메일 도메인은 에러 없이 false로만 응답함
     """
     verifySchoolEmail(email: String!, code: String!): Boolean! @public
 }

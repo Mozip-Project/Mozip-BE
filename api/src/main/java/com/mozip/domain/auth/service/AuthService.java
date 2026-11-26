@@ -62,14 +62,14 @@ public class AuthService {
 		this.dummyPasswordHash = passwordEncoder.encode("dummy-password-for-timing");
 	}
 
-	// 학교 메일 인증(requestSchoolEmailVerification으로 받은 코드)을 끝내야 가입할 수 있음.
-	// 코드 검증은 중복 번호 체크 뒤에 해서, 번호가 중복이면 코드를 쓰지 않고 다시 쓸 수 있게 함
+	// verifySchoolEmail로 미리 코드 확인을 끝낸 메일이어야 가입할 수 있음(확인 후 10분 안).
+	// 확인 여부는 중복 번호 체크 뒤에 봐서, 번호가 중복이면 confirmed 표시를 쓰지 않고 남겨 둠
 	@Transactional
 	public SignupResponse signup(SignupRequest request) {
 		if (userRepository.existsByPhone(request.phone())) {
 			throw new BusinessException(UserErrorCode.DUPLICATE_PHONE);
 		}
-		School school = schoolVerificationService.verifyForSignup(request.schoolEmail(), request.schoolVerificationCode());
+		School school = schoolVerificationService.verifyForSignup(request.schoolEmail());
 		User user = User.create(request.phone(), passwordEncoder.encode(request.password()), request.name(),
 			request.marketingAgreed(), LocalDateTime.now(clock));
 		try {

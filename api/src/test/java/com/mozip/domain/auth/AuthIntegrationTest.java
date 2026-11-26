@@ -111,52 +111,19 @@ class AuthIntegrationTest {
 	}
 
 	@Test
-	@DisplayName("학교 메일 인증번호를 요청한 적 없이 가입하면 SCHOOL_400(CODE_EXPIRED)으로 응답한다")
-	void signupWithoutRequestingCodeFails() throws Exception {
+	@DisplayName("verifySchoolEmail로 확인한 적 없는 메일로 가입하면 SCHOOL_400(EMAIL_NOT_VERIFIED)으로 응답한다")
+	void signupWithoutConfirmingEmailFails() throws Exception {
 		String schoolEmail = "auth" + ThreadLocalRandom.current().nextInt(1_000_000) + "@" + schoolEmailDomain;
 
 		mockMvc.perform(post("/auth/signup")
 				.contentType(MediaType.APPLICATION_JSON)
 				.content("""
 					{"phone": "%s", "password": "%s", "name": "김모집", "termsAgreed": true, "marketingAgreed": false,
-					"schoolEmail": "%s", "schoolVerificationCode": "123456"}
+					"schoolEmail": "%s"}
 					""".formatted(randomPhone(), PASSWORD, schoolEmail)))
 			.andExpect(status().isBadRequest())
 			.andExpect(jsonPath("$.code").value("SCHOOL_400"))
-			.andExpect(jsonPath("$.reason").value("CODE_EXPIRED"));
-	}
-
-	@Test
-	@DisplayName("학교 메일 인증번호가 틀리면 SCHOOL_400(CODE_MISMATCH)으로 응답한다")
-	void signupWithWrongCodeFails() throws Exception {
-		String schoolEmail = "auth" + ThreadLocalRandom.current().nextInt(1_000_000) + "@" + schoolEmailDomain;
-		redisTemplate.opsForValue().set("school:verify:code:" + schoolEmail, "123456", Duration.ofMinutes(5));
-
-		mockMvc.perform(post("/auth/signup")
-				.contentType(MediaType.APPLICATION_JSON)
-				.content("""
-					{"phone": "%s", "password": "%s", "name": "김모집", "termsAgreed": true, "marketingAgreed": false,
-					"schoolEmail": "%s", "schoolVerificationCode": "000000"}
-					""".formatted(randomPhone(), PASSWORD, schoolEmail)))
-			.andExpect(status().isBadRequest())
-			.andExpect(jsonPath("$.code").value("SCHOOL_400"))
-			.andExpect(jsonPath("$.reason").value("CODE_MISMATCH"));
-	}
-
-	@Test
-	@DisplayName("학교 메일 도메인과 일치하는 학교가 없으면 SCHOOL_404로 응답한다")
-	void signupWithUnknownSchoolDomainFails() throws Exception {
-		String unknownEmail = "student@unknown-" + ThreadLocalRandom.current().nextInt(1_000_000) + ".ac.kr";
-		redisTemplate.opsForValue().set("school:verify:code:" + unknownEmail, "123456", Duration.ofMinutes(5));
-
-		mockMvc.perform(post("/auth/signup")
-				.contentType(MediaType.APPLICATION_JSON)
-				.content("""
-					{"phone": "%s", "password": "%s", "name": "김모집", "termsAgreed": true, "marketingAgreed": false,
-					"schoolEmail": "%s", "schoolVerificationCode": "123456"}
-					""".formatted(randomPhone(), PASSWORD, unknownEmail)))
-			.andExpect(status().isNotFound())
-			.andExpect(jsonPath("$.code").value("SCHOOL_404"));
+			.andExpect(jsonPath("$.reason").value("EMAIL_NOT_VERIFIED"));
 	}
 
 	@Test
@@ -387,15 +354,14 @@ class AuthIntegrationTest {
 		return signupJson(phone, PASSWORD, termsAgreed);
 	}
 
-	// 학교 메일 인증번호를 Redis에 미리 넣어 요청 JSON에 같이 실어 보냄(실제로는 requestSchoolEmailVerification으로 받는 값)
+	// verifySchoolEmail로 이미 코드 확인을 끝낸 상태를 흉내냄(실제로는 requestSchoolEmailVerification + verifySchoolEmail로 만들어짐)
 	private String signupJson(String phone, String password, boolean termsAgreed) {
 		String schoolEmail = "auth" + ThreadLocalRandom.current().nextInt(1_000_000) + "@" + schoolEmailDomain;
-		String code = "123456";
-		redisTemplate.opsForValue().set("school:verify:code:" + schoolEmail, code, Duration.ofMinutes(5));
+		redisTemplate.opsForValue().set("school:verify:confirmed:" + schoolEmail, "1", Duration.ofMinutes(10));
 		return """
 			{"phone": "%s", "password": "%s", "name": "김모집", "termsAgreed": %s, "marketingAgreed": false,
-			"schoolEmail": "%s", "schoolVerificationCode": "%s"}
-			""".formatted(phone, password, termsAgreed, schoolEmail, code);
+			"schoolEmail": "%s"}
+			""".formatted(phone, password, termsAgreed, schoolEmail);
 	}
 
 	private static String loginJson(String phone, String password) {

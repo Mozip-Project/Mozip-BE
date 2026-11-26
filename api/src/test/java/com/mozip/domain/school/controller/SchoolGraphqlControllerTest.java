@@ -50,8 +50,8 @@ class SchoolGraphqlControllerTest {
 	}
 
 	@Test
-	@DisplayName("메일 인증번호를 요청하고 확인하면(verifySchoolEmail) true를 반환하고, 코드는 지우지 않는다")
-	void requestAndVerifySchoolEmailSucceedsWithoutConsumingCode() {
+	@DisplayName("메일 인증번호를 요청하고 확인하면(verifySchoolEmail) true를 반환하고, 코드를 지우고 confirmed로 표시한다")
+	void requestAndVerifySchoolEmailSucceedsAndMarksConfirmed() {
 		School school = schoolRepository.save(School.create("이메일인증테스트대학교 " + ThreadLocalRandom.current().nextInt(1_000_000),
 			"emailverify" + ThreadLocalRandom.current().nextInt(1_000_000) + ".ac.kr"));
 		String email = "student@" + school.getEmailDomain();
@@ -78,7 +78,46 @@ class SchoolGraphqlControllerTest {
 			.execute()
 			.path("verifySchoolEmail").entity(Boolean.class).isEqualTo(true);
 
-		assertThat(redisTemplate.opsForValue().get("school:verify:code:" + email)).isEqualTo(code);
+		assertThat(redisTemplate.hasKey("school:verify:code:" + email)).isFalse();
+		assertThat(redisTemplate.hasKey("school:verify:confirmed:" + email)).isTrue();
+	}
+
+	@Test
+	@DisplayName("이미 확인을 마친 메일로 verifySchoolEmail을 다시 호출하면 SCHOOL_409(EMAIL_ALREADY_CONFIRMED)로 응답한다")
+	void verifySchoolEmailRejectsAlreadyConfirmedEmail() {
+		School school = schoolRepository.save(School.create("중복확인테스트대학교 " + ThreadLocalRandom.current().nextInt(1_000_000),
+			"doubleconfirm" + ThreadLocalRandom.current().nextInt(1_000_000) + ".ac.kr"));
+		String email = "student@" + school.getEmailDomain();
+		graphQlTester.document("""
+			mutation($email: String!) {
+				requestSchoolEmailVerification(email: $email)
+			}
+			""")
+			.variable("email", email)
+			.execute();
+		String code = redisTemplate.opsForValue().get("school:verify:code:" + email);
+		graphQlTester.document("""
+			mutation($email: String!, $code: String!) {
+				verifySchoolEmail(email: $email, code: $code)
+			}
+			""")
+			.variable("email", email)
+			.variable("code", code)
+			.execute();
+
+		graphQlTester.document("""
+			mutation($email: String!, $code: String!) {
+				verifySchoolEmail(email: $email, code: $code)
+			}
+			""")
+			.variable("email", email)
+			.variable("code", code)
+			.execute()
+			.errors()
+			.satisfy(errors -> {
+				assertThat(errors.getFirst().getExtensions()).containsEntry("code", "SCHOOL_409");
+				assertThat(errors.getFirst().getExtensions()).containsEntry("reason", "EMAIL_ALREADY_CONFIRMED");
+			});
 	}
 
 	@Test

@@ -97,12 +97,12 @@ class AuthTokenStoreFailureTest {
 		School school = schoolRepository.save(School.create("인증실패테스트대학교 " + ThreadLocalRandom.current().nextInt(1_000_000),
 			"tokenfail" + ThreadLocalRandom.current().nextInt(1_000_000) + ".ac.kr"));
 		String schoolEmail = "student@" + school.getEmailDomain();
-		redisTemplate.opsForValue().set("school:verify:code:" + schoolEmail, "123456", Duration.ofMinutes(5));
+		redisTemplate.opsForValue().set("school:verify:confirmed:" + schoolEmail, "1", Duration.ofMinutes(10));
 		mockMvc.perform(post("/auth/signup")
 				.contentType(MediaType.APPLICATION_JSON)
 				.content("""
 					{"phone": "%s", "password": "mozip1234", "name": "김모집", "termsAgreed": true, "marketingAgreed": false,
-					"schoolEmail": "%s", "schoolVerificationCode": "123456"}
+					"schoolEmail": "%s"}
 					""".formatted(phone, schoolEmail)))
 			.andExpect(status().isCreated());
 		return mockMvc.perform(post("/auth/login")

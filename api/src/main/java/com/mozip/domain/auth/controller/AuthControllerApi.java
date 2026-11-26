@@ -20,10 +20,11 @@ public interface AuthControllerApi {
 
 	@Operation(summary = "회원가입", description = """
 		휴대폰 번호와 비밀번호로 가입합니다. 가입 후 로그인 API를 따로 호출해야 합니다.
-		가입 전에 school 쿼리 `requestSchoolEmailVerification`으로 학교 메일 인증번호를 먼저 받아야 하며,
-		그 메일과 인증번호를 `schoolEmail`/`schoolVerificationCode`로 같이 보내야 가입이 끝납니다 (가입과 학교 인증이 한 번에 처리됨).""")
+		가입 전에 school 뮤테이션 `requestSchoolEmailVerification`으로 학교 메일 인증번호를 받고 `verifySchoolEmail`로
+		코드 확인까지 끝내야 합니다. 그 메일을 `schoolEmail`로 보내면 가입이 끝납니다(확인 후 10분 안에 가입해야 함,
+		지나면 SCHOOL_400 EMAIL_NOT_VERIFIED).""")
 	@SecurityRequirements
-	@ApiErrorCodes({"COMMON_400", "USER_001", "SCHOOL_400", "SCHOOL_404"})
+	@ApiErrorCodes({"COMMON_400", "USER_001", "SCHOOL_400"})
 	ApiResponse<SignupResponse> signup(SignupRequest request);
 
 	@Operation(summary = "로그인", description = """

@@ -34,16 +34,11 @@ public record SignupRequest(
 	@Schema(description = "마케팅 수신 동의 (선택)", example = "false")
 	boolean marketingAgreed,
 
-	@Schema(description = "학교 메일. requestSchoolEmailVerification으로 인증번호를 받은 그 메일이어야 함",
+	@Schema(description = "학교 메일. verifySchoolEmail로 인증번호 확인까지 끝낸 그 메일이어야 함(10분 안에 가입해야 함)",
 		example = "student@sookmyung.ac.kr")
 	@NotBlank
 	@Email(message = "학교 메일 형식이 올바르지 않습니다.")
-	String schoolEmail,
-
-	@Schema(description = "학교 메일로 받은 6자리 인증번호", example = "123456")
-	@NotBlank
-	@Pattern(regexp = "^\\d{6}$", message = "인증번호는 6자리 숫자여야 합니다.")
-	String schoolVerificationCode
+	String schoolEmail
 
 ) {
 }
