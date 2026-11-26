@@ -9,7 +9,7 @@ import org.springframework.security.core.annotation.AuthenticationPrincipal;
 import org.springframework.stereotype.Controller;
 
 import com.mozip.domain.school.entity.School;
-import com.mozip.domain.school.entity.SchoolVerification;
+import com.mozip.domain.school.entity.SchoolEmailVerificationStatus;
 import com.mozip.domain.school.service.SchoolVerificationService;
 import com.mozip.domain.user.dto.Me;
 import com.mozip.global.security.AuthUser;
@@ -27,6 +27,11 @@ public class SchoolGraphqlController {
 		return schoolVerificationService.search(keyword);
 	}
 
+	@QueryMapping
+	public SchoolEmailVerificationStatus schoolEmailVerificationStatus(@Argument String email) {
+		return schoolVerificationService.emailVerificationStatus(email);
+	}
+
 	@MutationMapping
 	public boolean requestSchoolEmailVerification(@Argument String email,
 		@AuthenticationPrincipal AuthUser authUser) {
@@ -38,12 +43,6 @@ public class SchoolGraphqlController {
 	public Me verifySchoolEmail(@Argument String email, @Argument String code,
 		@AuthenticationPrincipal AuthUser authUser) {
 		return schoolVerificationService.verifySchoolEmail(authUser.userId(), email, code);
-	}
-
-	@MutationMapping
-	public SchoolVerification submitEnrollmentCertificate(@Argument Long schoolId, @Argument String fileKey,
-		@AuthenticationPrincipal AuthUser authUser) {
-		return schoolVerificationService.submitEnrollmentCertificate(authUser.userId(), schoolId, fileKey);
 	}
 
 }

@@ -18,6 +18,7 @@ import org.springframework.transaction.annotation.Transactional;
 
 import com.mozip.TestcontainersConfiguration;
 import com.mozip.domain.school.entity.School;
+import com.mozip.domain.school.entity.SchoolEmailVerificationStatus;
 import com.mozip.domain.school.entity.SchoolVerification;
 import com.mozip.domain.school.exception.SchoolConflictReason;
 import com.mozip.domain.school.exception.SchoolErrorCode;
@@ -112,6 +113,21 @@ class SchoolVerificationServiceTest {
 	}
 
 	@Test
+	@DisplayName("인증번호를 요청하면 emailVerificationStatus가 PENDING이 된다 (true는 접수됐다는 뜻일 뿐, 발송 자체는 worker가 비동기로 확정)")
+	void requestMarksStatusPending() {
+		schoolVerificationService.requestSchoolEmailVerification(applicant.getId(), email);
+
+		assertThat(schoolVerificationService.emailVerificationStatus(email))
+			.isEqualTo(SchoolEmailVerificationStatus.PENDING);
+	}
+
+	@Test
+	@DisplayName("요청한 적 없는 이메일의 emailVerificationStatus는 null이다")
+	void statusIsNullWithoutRequest() {
+		assertThat(schoolVerificationService.emailVerificationStatus(email)).isNull();
+	}
+
+	@Test
 	@DisplayName("짧은 시간에 반복 요청하면 SCHOOL_429를 던진다")
 	void rejectsRepeatedRequestsWithinCooldown() {
 		schoolVerificationService.requestSchoolEmailVerification(applicant.getId(), email);
@@ -200,55 +216,6 @@ class SchoolVerificationServiceTest {
 				BusinessException ex = (BusinessException)e;
 				assertThat(ex.getErrorCode()).isEqualTo(SchoolErrorCode.CONFLICT);
 				assertThat(ex.getReason()).isEqualTo(SchoolConflictReason.EMAIL_ALREADY_VERIFIED.name());
-			});
-	}
-
-	@Test
-	@DisplayName("재학증명서를 제출하면 PENDING으로 저장된다")
-	void submitsCertificateAsPending() {
-		SchoolVerification verification = schoolVerificationService.submitEnrollmentCertificate(applicant.getId(),
-			school.getId(), "enrollment-cert/2026/11/" + ThreadLocalRandom.current().nextInt() + ".pdf");
-
-		assertThat(verification.getStatus()).isEqualTo(ReviewStatus.PENDING);
-		assertThat(verification.getSchool().getId()).isEqualTo(school.getId());
-	}
-
-	@Test
-	@DisplayName("다른 용도로 발급된 fileKey로 재학증명서를 제출하면 COMMON_400을 던진다")
-	void rejectsCertificateWithWrongFileKeyPrefix() {
-		assertThatThrownBy(() -> schoolVerificationService.submitEnrollmentCertificate(applicant.getId(),
-			school.getId(), "posting-image/2026/11/abc.png"))
-			.isInstanceOf(BusinessException.class);
-	}
-
-	@Test
-	@DisplayName("이미 PENDING인 재학증명서가 있으면 다시 제출해도 SCHOOL_409(PENDING_EXISTS)를 던진다")
-	void rejectsSecondCertificateWhilePending() {
-		schoolVerificationService.submitEnrollmentCertificate(applicant.getId(), school.getId(),
-			"enrollment-cert/2026/11/first.pdf");
-
-		assertThatThrownBy(() -> schoolVerificationService.submitEnrollmentCertificate(applicant.getId(),
-			school.getId(), "enrollment-cert/2026/11/second.pdf"))
-			.isInstanceOf(BusinessException.class)
-			.satisfies(e -> {
-				BusinessException ex = (BusinessException)e;
-				assertThat(ex.getErrorCode()).isEqualTo(SchoolErrorCode.CONFLICT);
-				assertThat(ex.getReason()).isEqualTo(SchoolConflictReason.PENDING_EXISTS.name());
-			});
-	}
-
-	@Test
-	@DisplayName("이미 학교 인증된 회원이 재학증명서를 제출하면 SCHOOL_409(ALREADY_VERIFIED)를 던진다")
-	void rejectsCertificateFromAlreadyVerifiedUser() {
-		applicant.verifySchool(school);
-
-		assertThatThrownBy(() -> schoolVerificationService.submitEnrollmentCertificate(applicant.getId(),
-			school.getId(), "enrollment-cert/2026/11/abc.pdf"))
-			.isInstanceOf(BusinessException.class)
-			.satisfies(e -> {
-				BusinessException ex = (BusinessException)e;
-				assertThat(ex.getErrorCode()).isEqualTo(SchoolErrorCode.CONFLICT);
-				assertThat(ex.getReason()).isEqualTo(SchoolConflictReason.ALREADY_VERIFIED.name());
 			});
 	}
 

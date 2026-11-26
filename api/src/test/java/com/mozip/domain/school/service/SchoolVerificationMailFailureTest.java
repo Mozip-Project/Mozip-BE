@@ -60,7 +60,7 @@ class SchoolVerificationMailFailureTest {
 		email = "student@" + school.getEmailDomain();
 		doThrow(new BusinessException(MailErrorCode.SEND_FAILED))
 			.when(mailTaskPublisher)
-			.publishSendMail(any(), any(), any());
+			.publishSchoolVerificationMail(any(), any(), any());
 	}
 
 	@Test

@@ -6,9 +6,9 @@ import java.util.List;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
-import com.mozip.domain.file.dto.FilePurpose;
 import com.mozip.domain.mail.service.MailTaskPublisher;
 import com.mozip.domain.school.entity.School;
+import com.mozip.domain.school.entity.SchoolEmailVerificationStatus;
 import com.mozip.domain.school.entity.SchoolVerification;
 import com.mozip.domain.school.exception.SchoolConflictReason;
 import com.mozip.domain.school.exception.SchoolErrorCode;
@@ -22,9 +22,7 @@ import com.mozip.domain.user.exception.UserErrorCode;
 import com.mozip.domain.user.repository.UserRepository;
 import com.mozip.domain.user.service.UserService;
 import com.mozip.global.common.ReviewStatus;
-import com.mozip.global.config.S3Properties;
 import com.mozip.global.exception.BusinessException;
-import com.mozip.global.exception.CommonErrorCode;
 
 import lombok.RequiredArgsConstructor;
 
@@ -41,7 +39,6 @@ public class SchoolVerificationService {
 	private final UserRepository userRepository;
 	private final UserService userService;
 	private final MailTaskPublisher mailTaskPublisher;
-	private final S3Properties s3Properties;
 
 	// 단체 만들기, 학교 인증 화면 자동완성
 	public List<School> search(String keyword) {
@@ -49,6 +46,11 @@ public class SchoolVerificationService {
 			return List.of();
 		}
 		return schoolRepository.findTop20ByNameContainingIgnoreCaseOrderByName(keyword.trim());
+	}
+
+	// 요청한 적 없거나 TTL(5분)이 지났으면 null. 클라이언트가 requestSchoolEmailVerification 이후 폴링으로 확인
+	public SchoolEmailVerificationStatus emailVerificationStatus(String email) {
+		return codeRepository.findDeliveryStatus(email).orElse(null);
 	}
 
 	// userId는 로그인한 상태로 호출했을 때만 있음(로그인 없이도 호출 가능, @public). 없으면 이미 인증된 회원인지는 건너뜀
@@ -70,12 +72,15 @@ public class SchoolVerificationService {
 		codeRepository.markRequested(email);
 		codeRepository.saveCode(email, code);
 		try {
-			mailTaskPublisher.publishSendMail(email, mailSubject(), mailBody(school.getName(), code));
+			mailTaskPublisher.publishSchoolVerificationMail(email, mailSubject(), mailBody(school.getName(), code));
 		} catch (RuntimeException e) {
 			// worker로 작업을 넘기지 못함. 다시 요청해야 하므로 방금 저장한 인증번호는 지움
 			codeRepository.deleteCode(email);
 			throw e;
 		}
+		// 여기까지는 Redis에 작업을 넘긴 것만 보장. 실제 발송 성공/실패는 worker가 markSent/markFailed로 남기고
+		// schoolEmailVerificationStatus로 조회함 (true는 "요청이 접수됐다"는 뜻이지 "메일이 갔다"는 뜻이 아님)
+		codeRepository.markPending(email);
 		return true;
 	}
 
@@ -98,26 +103,6 @@ public class SchoolVerificationService {
 		schoolVerificationRepository.save(SchoolVerification.createApprovedEmail(user, school, email));
 		user.verifySchool(school);
 		return userService.me(userId);
-	}
-
-	@Transactional
-	public SchoolVerification submitEnrollmentCertificate(Long userId, Long schoolId, String fileKey) {
-		User user = findUser(userId);
-		requireNotVerified(user);
-		if (schoolVerificationRepository.existsByUserIdAndStatus(userId, ReviewStatus.PENDING)) {
-			throw new BusinessException(SchoolErrorCode.CONFLICT, SchoolConflictReason.PENDING_EXISTS)
-				.addContext("userId", userId);
-		}
-		// 발급 당시 purpose와 다른 fileKey가 들어오는 것을 막음 (다른 purpose로 발급받은 키 재사용)
-		if (!fileKey.startsWith(FilePurpose.ENROLLMENT_CERT.keyPrefix() + "/")) {
-			throw new BusinessException(CommonErrorCode.INVALID_INPUT).addContext("fileKey", fileKey);
-		}
-		School school = schoolRepository.findById(schoolId)
-			.orElseThrow(() -> new BusinessException(SchoolErrorCode.NOT_FOUND).addContext("schoolId", schoolId));
-
-		String certificateUrl = s3Properties.cdnDomain() + "/" + fileKey;
-		return schoolVerificationRepository.save(
-			SchoolVerification.createPendingCertificate(user, school, certificateUrl));
 	}
 
 	private void requireNotVerified(User user) {

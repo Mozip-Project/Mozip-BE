@@ -6,10 +6,12 @@ import java.util.Optional;
 import org.springframework.data.redis.core.StringRedisTemplate;
 import org.springframework.stereotype.Repository;
 
+import com.mozip.domain.school.entity.SchoolEmailVerificationStatus;
+
 import lombok.RequiredArgsConstructor;
 
 // Redis에 school:verify:code:{email} → 인증번호 저장(TTL 5분), 같은 TTL로 틀린 횟수(attempts)를 같이 관리.
-// cooldown 키로 재요청 간격을 제한함
+// cooldown 키로 재요청 간격을 제한함. status 키는 worker가 실제로 메일을 보냈는지 api/클라이언트가 조회하는 용도
 @Repository
 @RequiredArgsConstructor
 public class SchoolEmailVerificationCodeRepository {
@@ -21,6 +23,7 @@ public class SchoolEmailVerificationCodeRepository {
 	private static final String CODE_KEY_PREFIX = "school:verify:code:";
 	private static final String ATTEMPTS_KEY_PREFIX = "school:verify:attempts:";
 	private static final String COOLDOWN_KEY_PREFIX = "school:verify:cooldown:";
+	private static final String STATUS_KEY_PREFIX = "school:verify:status:";
 
 	private final StringRedisTemplate redisTemplate;
 
@@ -57,6 +60,25 @@ public class SchoolEmailVerificationCodeRepository {
 		}
 	}
 
+	// api가 Redis 발행까지 성공한 뒤에 호출. worker가 이어서 markSent/markFailed로 덮어씀
+	public void markPending(String email) {
+		redisTemplate.opsForValue().set(statusKey(email), SchoolEmailVerificationStatus.PENDING.name(), CODE_TTL);
+	}
+
+	public void markSent(String email) {
+		redisTemplate.opsForValue().set(statusKey(email), SchoolEmailVerificationStatus.SENT.name(), CODE_TTL);
+	}
+
+	public void markFailed(String email) {
+		redisTemplate.opsForValue().set(statusKey(email), SchoolEmailVerificationStatus.FAILED.name(), CODE_TTL);
+	}
+
+	// 요청한 적 없거나 TTL이 지났으면 empty (클라이언트는 이걸 "아직 모름"으로 다룸)
+	public Optional<SchoolEmailVerificationStatus> findDeliveryStatus(String email) {
+		return Optional.ofNullable(redisTemplate.opsForValue().get(statusKey(email)))
+			.map(SchoolEmailVerificationStatus::valueOf);
+	}
+
 	private static String codeKey(String email) {
 		return CODE_KEY_PREFIX + email;
 	}
@@ -67,6 +89,10 @@ public class SchoolEmailVerificationCodeRepository {
 
 	private static String cooldownKey(String email) {
 		return COOLDOWN_KEY_PREFIX + email;
+	}
+
+	private static String statusKey(String email) {
+		return STATUS_KEY_PREFIX + email;
 	}
 
 }

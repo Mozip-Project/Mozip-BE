@@ -116,6 +116,44 @@ class SchoolGraphqlControllerTest {
 	}
 
 	@Test
+	@DisplayName("schoolEmailVerificationStatus는 로그인 없이도 요청 접수 상태(PENDING)를 반환한다")
+	void schoolEmailVerificationStatusIsPublicAndReflectsPending() {
+		School school = schoolRepository.save(School.create("상태조회테스트대학교 " + ThreadLocalRandom.current().nextInt(1_000_000),
+			"statuscheck" + ThreadLocalRandom.current().nextInt(1_000_000) + ".ac.kr"));
+		String email = "student@" + school.getEmailDomain();
+
+		graphQlTester.document("""
+			mutation($email: String!) {
+				requestSchoolEmailVerification(email: $email)
+			}
+			""")
+			.variable("email", email)
+			.execute();
+
+		graphQlTester.document("""
+			query($email: String!) {
+				schoolEmailVerificationStatus(email: $email)
+			}
+			""")
+			.variable("email", email)
+			.execute()
+			.path("schoolEmailVerificationStatus").entity(String.class).isEqualTo("PENDING");
+	}
+
+	@Test
+	@DisplayName("요청한 적 없는 이메일의 schoolEmailVerificationStatus는 null이다")
+	void schoolEmailVerificationStatusIsNullWithoutRequest() {
+		graphQlTester.document("""
+			query($email: String!) {
+				schoolEmailVerificationStatus(email: $email)
+			}
+			""")
+			.variable("email", "nobody-" + ThreadLocalRandom.current().nextInt(1_000_000) + "@example.com")
+			.execute()
+			.path("schoolEmailVerificationStatus").valueIsNull();
+	}
+
+	@Test
 	@DisplayName("인증번호가 틀리면 SCHOOL_400과 reason(CODE_MISMATCH)으로 응답한다")
 	void wrongCodeRespondsWithSchool400() {
 		School school = schoolRepository.save(School.create("오류테스트대학교 " + ThreadLocalRandom.current().nextInt(1_000_000),
