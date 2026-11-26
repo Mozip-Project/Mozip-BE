@@ -46,12 +46,12 @@ class PostingRepositoryTest {
 		Posting due = draft("마감 시간 지남");
 		due.updateBasicStep("마감 시간 지남", "본문", null, null, null, true, false, null, null, null,
 			null, LocalDateTime.now().minusMinutes(1));
-		due.publishNow();
+		due.publishNow(LocalDateTime.now());
 
 		Posting notDue = draft("마감 안 지남");
 		notDue.updateBasicStep("마감 안 지남", "본문", null, null, null, true, false, null, null, null,
 			null, LocalDateTime.now().plusDays(1));
-		notDue.publishNow();
+		notDue.publishNow(LocalDateTime.now());
 
 		LocalDateTime now = LocalDateTime.now();
 		int firstRun = postingRepository.closeRecruitingScheduled(now);

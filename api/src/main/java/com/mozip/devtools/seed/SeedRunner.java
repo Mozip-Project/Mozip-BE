@@ -38,7 +38,7 @@ public class SeedRunner implements ApplicationRunner {
 	public void run(ApplicationArguments args) {
 		Long operatorId = mockUserRegistry.get(MockRole.OPERATOR).userId();
 		// 대표자로 있는 단체만 재사용
-		Organization organization = memberRepository.findAllByUserId(operatorId).stream()
+		Organization organization = memberRepository.findAllByUserIdAndLeftAtIsNull(operatorId).stream()
 			.filter(member -> member.getRole() == MemberRole.REPRESENTATIVE)
 			.map(Member::getOrganization)
 			.filter(candidate -> SeedFixtures.ORGANIZATION_NAME.equals(candidate.getName()))

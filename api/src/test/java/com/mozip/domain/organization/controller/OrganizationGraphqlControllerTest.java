@@ -21,6 +21,13 @@ import org.springframework.graphql.execution.ErrorType;
 import org.springframework.graphql.test.tester.HttpGraphQlTester;
 
 import com.mozip.TestcontainersConfiguration;
+import com.mozip.domain.organization.entity.Member;
+import com.mozip.domain.organization.entity.MemberRole;
+import com.mozip.domain.organization.entity.Organization;
+import com.mozip.domain.organization.entity.Team;
+import com.mozip.domain.organization.repository.MemberRepository;
+import com.mozip.domain.organization.repository.OrganizationRepository;
+import com.mozip.domain.organization.repository.TeamRepository;
 import com.mozip.domain.school.entity.School;
 import com.mozip.domain.school.repository.SchoolRepository;
 import com.mozip.domain.user.entity.User;
@@ -65,6 +72,15 @@ class OrganizationGraphqlControllerTest {
 	private SchoolRepository schoolRepository;
 
 	@Autowired
+	private OrganizationRepository organizationRepository;
+
+	@Autowired
+	private MemberRepository memberRepository;
+
+	@Autowired
+	private TeamRepository teamRepository;
+
+	@Autowired
 	private JwtProvider jwtProvider;
 
 	@Autowired
@@ -76,6 +92,21 @@ class OrganizationGraphqlControllerTest {
 				id name lastRole
 				memberships { role organization { id name school { name } } team { id } }
 			}
+		}
+		""";
+
+	private static final String MEMBERS = """
+		query($organizationId: ID!) {
+			members(organizationId: $organizationId) {
+				id role user { id name school { name } } team { id organization { name } } createdAt
+				organization { name school { name } }
+			}
+		}
+		""";
+
+	private static final String REMOVE = """
+		mutation($memberId: ID!) {
+			removeMember(memberId: $memberId)
 		}
 		""";
 
@@ -276,6 +307,90 @@ class OrganizationGraphqlControllerTest {
 	}
 
 	@Test
+	@DisplayName("운영진 목록은 대표자 먼저 나오고, 대표자가 운영진을 내보내면 목록과 me.memberships에서 빠진다")
+	void membersThenRemove() {
+		User representative = saveUser();
+		User operator = saveUser();
+		HttpGraphQlTester asRepresentative = asUser(representative);
+		HttpGraphQlTester asOperator = asUser(operator);
+		String organizationId = asRepresentative.document(CREATE)
+			.variable("input", Map.of("name", "모집 동아리", "type", "CLUB", "scope", "UNION"))
+			.execute()
+			.path("createOrganization.id").entity(String.class).get();
+		Organization organization = organizationRepository.findById(Long.valueOf(organizationId)).orElseThrow();
+		Member operatorMember = memberRepository.save(Member.create(organization, operator, null, MemberRole.OPERATOR));
+
+		asOperator.document(MEMBERS)
+			.variable("organizationId", organizationId)
+			.execute()
+			.path("members").entityList(Object.class).hasSize(2)
+			.path("members[0].role").entity(String.class).isEqualTo("REPRESENTATIVE")
+			.path("members[0].user.id").entity(String.class).isEqualTo(representative.getId().toString())
+			.path("members[1].id").entity(String.class).isEqualTo(operatorMember.getId().toString())
+			.path("members[1].team").valueIsNull()
+			.path("members[1].organization.name").entity(String.class).isEqualTo("모집 동아리");
+
+		asUser(saveUser()).document(MEMBERS)
+			.variable("organizationId", organizationId)
+			.execute()
+			.errors()
+			.satisfy(errors -> assertThat(errors.getFirst().getExtensions()).containsEntry("code", "COMMON_403"));
+
+		asOperator.document(REMOVE)
+			.variable("memberId", operatorMember.getId().toString())
+			.execute()
+			.errors()
+			.satisfy(errors -> assertThat(errors.getFirst().getExtensions()).containsEntry("code", "COMMON_403"));
+
+		asRepresentative.document(REMOVE)
+			.variable("memberId", operatorMember.getId().toString())
+			.execute()
+			.path("removeMember").entity(Boolean.class).isEqualTo(true);
+
+		asRepresentative.document(MEMBERS)
+			.variable("organizationId", organizationId)
+			.execute()
+			.path("members").entityList(Object.class).hasSize(1);
+		asOperator.document(ME)
+			.execute()
+			.path("me.memberships").entityList(Object.class).hasSize(0);
+	}
+
+	@Test
+	@DisplayName("대표자 본인은 내보낼 수 없고(MEMBER_409 REPRESENTATIVE), 없는 운영진이면 MEMBER_404다")
+	void removeRepresentativeOrUnknown() {
+		User representative = saveUser();
+		HttpGraphQlTester asRepresentative = asUser(representative);
+		String organizationId = asRepresentative.document(CREATE)
+			.variable("input", Map.of("name", "모집 동아리", "type", "CLUB", "scope", "UNION"))
+			.execute()
+			.path("createOrganization.id").entity(String.class).get();
+		String representativeMemberId = asRepresentative.document(MEMBERS)
+			.variable("organizationId", organizationId)
+			.execute()
+			.path("members[0].id").entity(String.class).get();
+
+		asRepresentative.document(REMOVE)
+			.variable("memberId", representativeMemberId)
+			.execute()
+			.errors()
+			.satisfy(errors -> {
+				assertThat(errors.getFirst().getErrorType()).isEqualTo(ErrorType.BAD_REQUEST);
+				assertThat(errors.getFirst().getExtensions()).containsEntry("code", "MEMBER_409");
+				assertThat(errors.getFirst().getExtensions()).containsEntry("reason", "REPRESENTATIVE");
+			});
+
+		asRepresentative.document(REMOVE)
+			.variable("memberId", String.valueOf(Long.MAX_VALUE))
+			.execute()
+			.errors()
+			.satisfy(errors -> {
+				assertThat(errors.getFirst().getErrorType()).isEqualTo(ErrorType.NOT_FOUND);
+				assertThat(errors.getFirst().getExtensions()).containsEntry("code", "MEMBER_404");
+			});
+	}
+
+	@Test
 	@DisplayName("me는 로그인이 필요하다")
 	void meRequiresLogin() {
 		graphQlTester.document("{ me { id } }")
@@ -315,6 +430,112 @@ class OrganizationGraphqlControllerTest {
 			});
 	}
 
+	@Test
+	@DisplayName("팀을 저장하고 그 팀으로 초대하면, 초대받은 회원이 코드로 수락해 그 팀 운영진이 된다. 공용 링크는 url을 붙여 준다")
+	void saveTeamsThenInviteThenAccept() {
+		User representative = saveUser();
+		User invitee = saveUser();
+		HttpGraphQlTester asRepresentative = asUser(representative);
+		String organizationId = asRepresentative.document(CREATE)
+			.variable("input", Map.of("name", "초대 동아리", "type", "CLUB", "scope", "UNION"))
+			.execute()
+			.path("createOrganization.id").entity(String.class).get();
+
+		String teamId = asRepresentative.document("""
+				mutation($organizationId: ID!, $teams: [TeamInput!]!) {
+					saveTeams(organizationId: $organizationId, teams: $teams) { id name sortOrder }
+				}
+				""")
+			.variable("organizationId", organizationId)
+			.variable("teams", List.of(Map.of("name", "기획팀"), Map.of("name", "디자인팀")))
+			.execute()
+			.path("saveTeams[*].name").entityList(String.class).containsExactly("기획팀", "디자인팀")
+			.path("saveTeams[1].sortOrder").entity(Integer.class).isEqualTo(1)
+			.path("saveTeams[1].id").entity(String.class).get();
+
+		String code = asRepresentative.document("""
+				mutation($organizationId: ID!, $contact: String!, $teamId: ID) {
+					inviteMember(organizationId: $organizationId, contact: $contact, teamId: $teamId) {
+						status inviteeContact team { name } code
+					}
+				}
+				""")
+			.variable("organizationId", organizationId)
+			.variable("contact", invitee.getPhone())
+			.variable("teamId", teamId)
+			.execute()
+			.path("inviteMember.status").entity(String.class).isEqualTo("PENDING")
+			.path("inviteMember.team.name").entity(String.class).isEqualTo("디자인팀")
+			.path("inviteMember.code").entity(String.class).get();
+
+		asUser(invitee).document("""
+				mutation($code: String!) {
+					acceptInvitation(code: $code) { role team { name } organization { id } user { id } }
+				}
+				""")
+			.variable("code", code)
+			.execute()
+			.path("acceptInvitation.role").entity(String.class).isEqualTo("OPERATOR")
+			.path("acceptInvitation.team.name").entity(String.class).isEqualTo("디자인팀")
+			.path("acceptInvitation.organization.id").entity(String.class).isEqualTo(organizationId)
+			.path("acceptInvitation.user.id").entity(String.class).isEqualTo(invitee.getId().toString());
+
+		String token = asRepresentative.document("""
+				mutation($organizationId: ID!) { createInviteLink(organizationId: $organizationId) { token url } }
+				""")
+			.variable("organizationId", organizationId)
+			.execute()
+			.path("createInviteLink.token").entity(String.class).get();
+		asRepresentative.document("""
+				mutation($organizationId: ID!) { createInviteLink(organizationId: $organizationId) { url } }
+				""")
+			.variable("organizationId", organizationId)
+			.execute()
+			.path("createInviteLink.url").entity(String.class).isEqualTo("https://mo-zip.com/invite/" + token);
+	}
+
+	@Test
+	@DisplayName("대표자 인수를 요청하고 대상이 수락하면 from은 OPERATOR, to는 REPRESENTATIVE로 응답한다")
+	void representativeTransfer() {
+		User representative = saveUser();
+		User operator = saveUser();
+		HttpGraphQlTester asRepresentative = asUser(representative);
+		String organizationId = asRepresentative.document(CREATE)
+			.variable("input", Map.of("name", "인수 동아리", "type", "CLUB", "scope", "UNION"))
+			.execute()
+			.path("createOrganization.id").entity(String.class).get();
+		Organization organization = organizationRepository.findById(Long.valueOf(organizationId)).orElseThrow();
+		Team team = teamRepository.save(Team.create(organization, "기획팀", 0));
+		Member operatorMember = memberRepository.save(Member.create(organization, operator, team, MemberRole.OPERATOR));
+		String fields = "id status organization { name } from { role user { name } team { name } } "
+			+ "to { role user { id name } team { name } }";
+
+		String transferId = asRepresentative.document(
+				"mutation($memberId: ID!) { requestRepresentativeTransfer(memberId: $memberId) { " + fields + " } }")
+			.variable("memberId", operatorMember.getId().toString())
+			.execute()
+			.path("requestRepresentativeTransfer.status").entity(String.class).isEqualTo("PENDING")
+			.path("requestRepresentativeTransfer.organization.name").entity(String.class).isEqualTo("인수 동아리")
+			.path("requestRepresentativeTransfer.from.user.name").entity(String.class).isEqualTo("테스트")
+			.path("requestRepresentativeTransfer.to.user.id").entity(String.class).isEqualTo(operator.getId().toString())
+			.path("requestRepresentativeTransfer.to.team.name").entity(String.class).isEqualTo("기획팀")
+			.path("requestRepresentativeTransfer.id").entity(String.class).get();
+
+		asUser(operator).document(
+				"mutation($id: ID!) { respondRepresentativeTransfer(id: $id, accept: true) { " + fields + " } }")
+			.variable("id", transferId)
+			.execute()
+			.path("respondRepresentativeTransfer.status").entity(String.class).isEqualTo("APPROVED")
+			.path("respondRepresentativeTransfer.from.role").entity(String.class).isEqualTo("OPERATOR")
+			.path("respondRepresentativeTransfer.to.role").entity(String.class).isEqualTo("REPRESENTATIVE");
+
+		asUser(operator).document(MEMBERS)
+			.variable("organizationId", organizationId)
+			.execute()
+			.path("members[0].user.id").entity(String.class).isEqualTo(operator.getId().toString())
+			.path("members[0].role").entity(String.class).isEqualTo("REPRESENTATIVE");
+	}
+
 	private String createOrganization(HttpGraphQlTester asUser) {
 		return asUser.document(CREATE)
 			.variable("input", Map.of("name", "동아리", "type", "CLUB", "scope", "UNION",
@@ -327,6 +548,39 @@ class OrganizationGraphqlControllerTest {
 	private void approve(String organizationId) {
 		jdbcTemplate.update("update organizations set review_status = 'APPROVED' where id = ?",
 			Long.valueOf(organizationId));
+	}
+
+	@Test
+	@DisplayName("초대와 수락 응답에서 회원의 학교까지 조회해도 LAZY 예외 없이 응답한다")
+	void invitationNestedUserSchool() {
+		School school = schoolRepository.save(School.create("초대대학교", null));
+		User representative = saveUser();
+		User invitee = saveUser();
+		jdbcTemplate.update("update users set school_id = ? where id in (?, ?)", school.getId(),
+			representative.getId(), invitee.getId());
+		HttpGraphQlTester asRepresentative = asUser(representative);
+		String organizationId = createOrganization(asRepresentative);
+
+		String code = asRepresentative.document("""
+				mutation($organizationId: ID!, $contact: String!) {
+					inviteMember(organizationId: $organizationId, contact: $contact) {
+						code inviter { school { name } } invitee { school { name } }
+					}
+				}
+				""")
+			.variable("organizationId", organizationId)
+			.variable("contact", invitee.getPhone())
+			.execute()
+			.errors().verify()
+			.path("inviteMember.inviter.school.name").entity(String.class).isEqualTo("초대대학교")
+			.path("inviteMember.invitee.school.name").entity(String.class).isEqualTo("초대대학교")
+			.path("inviteMember.code").entity(String.class).get();
+
+		asUser(invitee).document("mutation($code: String!) { acceptInvitation(code: $code) { user { school { name } } } }")
+			.variable("code", code)
+			.execute()
+			.errors().verify()
+			.path("acceptInvitation.user.school.name").entity(String.class).isEqualTo("초대대학교");
 	}
 
 	@Test

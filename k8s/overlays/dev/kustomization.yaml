@@ -26,7 +26,7 @@ patches:
 images:
 - name: ghcr.io/mozip-project/mozip-api
   newName: ghcr.io/mozip-project/mozip-api
-  newTag: 3fba29fb29e1478514121f267412fa4295eafcff
+  newTag: de65539d372d8bf6d7855d7cf57a1f51bca9be73
 - name: ghcr.io/mozip-project/mozip-worker
   newName: ghcr.io/mozip-project/mozip-worker
-  newTag: 3fba29fb29e1478514121f267412fa4295eafcff
+  newTag: de65539d372d8bf6d7855d7cf57a1f51bca9be73

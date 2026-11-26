@@ -1,7 +1,7 @@
 package com.mozip.worker.posting;
 
+import java.time.Clock;
 import java.time.LocalDateTime;
-import java.time.ZoneId;
 
 import org.springframework.scheduling.annotation.Scheduled;
 import org.springframework.stereotype.Component;
@@ -19,15 +19,13 @@ import lombok.extern.slf4j.Slf4j;
 @RequiredArgsConstructor
 public class PostingTransitionScheduler {
 
-	// recruitEndAt은 api의 LocalDateTimeScalar가 서울 시각으로 저장한 값. worker는 api를 참조할 수 없어 같은 값을 따로 둠
-	private static final ZoneId ZONE = ZoneId.of("Asia/Seoul");
-
 	private final PostingRepository postingRepository;
+	private final Clock clock;
 
 	@Scheduled(cron = "0 * * * * *")
 	@Transactional
 	public void closeRecruiting() {
-		int closed = postingRepository.closeRecruitingScheduled(LocalDateTime.now(ZONE));
+		int closed = postingRepository.closeRecruitingScheduled(LocalDateTime.now(clock));
 		if (closed > 0) {
 			log.info("[posting] 모집 마감 {}건 전환", closed);
 		}

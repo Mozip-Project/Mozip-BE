@@ -1,5 +1,6 @@
 package com.mozip.domain.posting.service;
 
+import java.time.Clock;
 import java.time.LocalDate;
 import java.time.LocalDateTime;
 import java.time.LocalTime;
@@ -53,7 +54,6 @@ import com.mozip.domain.posting.repository.PostingSpecifications;
 import com.mozip.domain.posting.repository.QuestionRepository;
 import com.mozip.domain.posting.repository.ScrapRepository;
 import com.mozip.global.common.response.FieldErrorResponse;
-import com.mozip.global.config.graphql.LocalDateTimeScalar;
 import com.mozip.global.exception.BusinessException;
 import com.mozip.global.exception.CommonErrorCode;
 
@@ -77,6 +77,7 @@ public class PostingService {
 	private final OrganizationAccessChecker organizationAccessChecker;
 	private final SubscriptionService subscriptionService;
 	private final PostingResultChecker postingResultChecker;
+	private final Clock clock;
 
 	@Transactional
 	public Posting saveDraft(Long userId, Long organizationId, Long postingId, PostingDraftInput input) {
@@ -122,7 +123,7 @@ public class PostingService {
 		}
 		validateRequiredSteps(posting);
 
-		posting.publishNow();
+		posting.publishNow(LocalDateTime.now(clock));
 		return posting;
 	}
 
@@ -131,8 +132,7 @@ public class PostingService {
 		Posting posting = findById(postingId);
 		requireOperator(userId, posting.getOrganization().getId());
 
-		PostingStatus next = nextStatus(posting);
-		if (next == null || next != to) {
+		if (!posting.canAdvanceTo(to)) {
 			throw new BusinessException(PostingErrorCode.CONFLICT, PostingConflictReason.INVALID_STATUS_TRANSITION)
 				.addContext("postingId", postingId)
 				.addContext("from", posting.getStatus())
@@ -147,7 +147,7 @@ public class PostingService {
 				.addContext("postingId", postingId);
 		}
 
-		posting.advanceStatus(to);
+		posting.advanceStatus(to, LocalDateTime.now(clock));
 		return posting;
 	}
 
@@ -170,18 +170,6 @@ public class PostingService {
 	// B가 평가/면접 화면을 열어도 되는 단계인지 확인할 때 쓰는 연결 함수 (A -> B, ab-boundary.md)
 	public PostingStatus getPostingStatus(Long postingId) {
 		return findById(postingId).getStatus();
-	}
-
-	// advancePostingStatus에서 허용하는 단 하나의 다음 단계. 없으면(DRAFT, ENDED) null
-	private static PostingStatus nextStatus(Posting posting) {
-		return switch (posting.getStatus()) {
-			case RECRUITING -> PostingStatus.DOC_REVIEW;
-			case DOC_REVIEW -> PostingStatus.DOC_RESULT_NOTICE;
-			case DOC_RESULT_NOTICE -> posting.isHasInterview() ? PostingStatus.INTERVIEW : PostingStatus.FINAL_RESULT;
-			case INTERVIEW -> PostingStatus.FINAL_RESULT;
-			case FINAL_RESULT -> PostingStatus.ENDED;
-			case DRAFT, ENDED -> null;
-		};
 	}
 
 	public Posting findDetail(Long postingId, Long requestUserId) {
@@ -210,7 +198,7 @@ public class PostingService {
 			spec = addIfPresent(spec, PostingSpecifications.organizationTypes(filter.organizationTypes()));
 			spec = addIfPresent(spec, PostingSpecifications.hasInterview(filter.hasInterview()));
 			spec = addIfPresent(spec,
-				PostingSpecifications.closingSoon(filter.closingSoon(), LocalDateTime.now(LocalDateTimeScalar.ZONE)));
+				PostingSpecifications.closingSoon(filter.closingSoon(), LocalDateTime.now(clock)));
 		}
 
 		PostingSort effectiveSort = sort != null ? sort : PostingSort.LATEST;
@@ -346,7 +334,6 @@ public class PostingService {
 		boolean hasInterview = orElse(input.hasInterview(), posting.isHasInterview());
 		posting.updateInterviewStep(
 			hasInterview,
-			orElse(input.interviewMethod(), posting.getInterviewMethod()),
 			orElse(input.interviewMinutes(), posting.getInterviewMinutes()),
 			orElse(input.breakMinutes(), posting.getBreakMinutes()),
 			orElse(input.assignRule(), posting.getAssignRule()),
@@ -498,7 +485,7 @@ public class PostingService {
 			fieldErrors.add(new FieldErrorResponse("basicStep", "기본 정보(제목, 본문)를 입력해주세요."));
 		}
 		// recruitStartAt/recruitEndAt은 LocalDateTimeScalar가 서울 시각으로 저장한 값이라, now도 서울 시각 기준으로 맞춤
-		LocalDateTime now = LocalDateTime.now(LocalDateTimeScalar.ZONE);
+		LocalDateTime now = LocalDateTime.now(clock);
 		LocalDateTime recruitStartAt = posting.getRecruitStartAt();
 		LocalDateTime recruitEndAt = posting.getRecruitEndAt();
 		if (recruitStartAt == null || recruitEndAt == null) {
@@ -515,9 +502,6 @@ public class PostingService {
 		}
 		if (!posting.isNoPosition() && positionRepository.findAllByPostingOrderBySortOrder(posting).isEmpty()) {
 			fieldErrors.add(new FieldErrorResponse("positionsStep", "모집 포지션을 1개 이상 추가해주세요."));
-		}
-		if (posting.isHasInterview() && posting.getInterviewMethod() == null) {
-			fieldErrors.add(new FieldErrorResponse("interviewStep", "면접 방식을 선택해주세요."));
 		}
 		if (questionRepository.findAllByPostingOrderBySortOrder(posting).isEmpty()) {
 			fieldErrors.add(new FieldErrorResponse("questionsStep", "지원서 문항을 1개 이상 추가해주세요."));
@@ -553,7 +537,7 @@ public class PostingService {
 	}
 
 	private static boolean touchesInterviewStep(PostingDraftInput input) {
-		return input.hasInterview() != null || input.interviewMethod() != null
+		return input.hasInterview() != null
 			|| input.interviewMinutes() != null || input.breakMinutes() != null
 			|| input.assignRule() != null || input.maxApplicantsPerInterview() != null
 			|| input.maxParallelInterviews() != null || input.interviewTimeRanges() != null;

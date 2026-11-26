@@ -18,14 +18,14 @@ public class OrganizationAccessChecker {
 	private final MemberRepository memberRepository;
 	private final OrganizationService organizationService;
 
-	// 대표자, 운영진 구분 없이 단체 소속이면 true
+	// 대표자, 운영진 구분 없이 소속 중이면 true (내보내진 운영진 제외)
 	public boolean isOperatorOf(Long userId, Long organizationId) {
-		return memberRepository.existsByOrganizationIdAndUserId(organizationId, userId);
+		return memberRepository.existsByOrganizationIdAndUserIdAndLeftAtIsNull(organizationId, userId);
 	}
 
 	// 단체 대표자면 true
 	public boolean isRepresentativeOf(Long userId, Long organizationId) {
-		return memberRepository.existsByOrganizationIdAndUserIdAndRole(organizationId, userId,
+		return memberRepository.existsByOrganizationIdAndUserIdAndRoleAndLeftAtIsNull(organizationId, userId,
 			MemberRole.REPRESENTATIVE);
 	}
 

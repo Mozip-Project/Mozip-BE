@@ -50,7 +50,7 @@ class OrganizationEntityTest {
 	@DisplayName("팀 없는 단체의 운영진에는 팀을 지정할 수 없다")
 	void teamInNoTeamOrganization() {
 		Organization organization = campus(true);
-		Team team = Team.create(organization, "기획팀");
+		Team team = Team.create(organization, "기획팀", 0);
 
 		assertThatThrownBy(() -> Member.create(organization, user, team, MemberRole.OPERATOR))
 			.isInstanceOf(IllegalArgumentException.class);
@@ -61,7 +61,7 @@ class OrganizationEntityTest {
 	@DisplayName("다른 단체의 팀은 운영진에 지정할 수 없다")
 	void teamOfOtherOrganization() {
 		Organization organization = campus(false);
-		Team otherTeam = Team.create(campus(false), "기획팀");
+		Team otherTeam = Team.create(campus(false), "기획팀", 0);
 
 		assertThatThrownBy(() -> Member.create(organization, user, otherTeam, MemberRole.OPERATOR))
 			.isInstanceOf(IllegalArgumentException.class);
@@ -71,7 +71,7 @@ class OrganizationEntityTest {
 	@DisplayName("같은 단체의 팀은 운영진에 지정할 수 있다")
 	void teamOfSameOrganization() {
 		Organization organization = campus(false);
-		Team team = Team.create(organization, "기획팀");
+		Team team = Team.create(organization, "기획팀", 0);
 
 		assertThat(Member.create(organization, user, team, MemberRole.OPERATOR).getTeam()).isEqualTo(team);
 	}
@@ -79,6 +79,18 @@ class OrganizationEntityTest {
 	private Organization campus(boolean noTeam) {
 		return Organization.create("교내 동아리", OrganizationType.CLUB, null, OrganizationScope.CAMPUS, school, noTeam,
 			null, null);
+	}
+
+	@Test
+	@DisplayName("운영진을 내보내면 leftAt이 찍히고, 이미 나간 운영진은 다시 내보낼 수 없다")
+	void leave() {
+		Member member = Member.create(campus(true), user, null, MemberRole.OPERATOR);
+		LocalDateTime now = LocalDateTime.now();
+
+		member.leave(now);
+
+		assertThat(member.getLeftAt()).isEqualTo(now);
+		assertThatThrownBy(() -> member.leave(now)).isInstanceOf(IllegalStateException.class);
 	}
 
 }
