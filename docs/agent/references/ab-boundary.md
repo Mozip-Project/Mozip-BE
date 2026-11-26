@@ -82,10 +82,10 @@
     `organization` 패키지 파일 import가 바뀌었으니 B가 확인하고 합의되면 결정 상태를 accepted로
   - B가 결과 안내 메일을 보낼 때는 `MailSender.send(...)`를 직접 부르지 않고 `MailTaskPublisher.publishSendMail(to, subject, body)`를 부른다.
     실제 발송(`MailSender`/`SesMailSender`)은 worker에만 있고 api에서는 안 보임(결정 006). 메일은 HTML 없이 text 전용으로만 보냄
-  - `mozip:worker:tasks` 채널로 보내는 메시지는 `{"type": "SEND_MAIL", "to", "subject", "body"}` 형태의 JSON 문자열.
-    `type`이 늘어날 걸 대비해 `WorkerTaskType`(common)에 상수를 추가하고 worker의 `TaskMessageListener`에 분기를 추가하는 식으로 확장
-  - 재학증명서 인증(`submitEnrollmentCertificate`)은 `schoolId`만 받음. `SchoolVerification.schoolName`(목록에 없는 학교 직접 입력)은
-    이번 이슈 범위 밖이라 입력 경로가 없음(항상 null). 관리자 승인/반려 API도 범위 밖(별도 이슈)
+  - `publishSendMail`은 `mozip:worker:mail-tasks` Redis Stream에 `{"type": "SEND_MAIL", "to", "subject", "body"}` 필드로 들어감.
+    worker가 실패하면 최대 3번(총 전달 횟수 기준) 재시도하고, 다 소진하면 `mozip:worker:mail-tasks:dlq`로 옮김(`MailTaskRetrySweeper`).
+    학교 인증 메일만 예외로 재시도 없이 `mozip:worker:tasks`(pub/sub)를 그대로 씀 — 코드가 금방 만료돼서 재시도보다 재요청이 더 빠름
+  - 재학증명서 인증(`submitEnrollmentCertificate`)은 제거됨. 학교 인증은 메일 인증(`requestSchoolEmailVerification`/`verifySchoolEmail`)만 지원
   - `requestSchoolEmailVerification`(인증번호 발송)은 `@public`. 로그인 없이도 호출 가능하며 이때는 userId가 없어
     "이미 인증된 회원인지" 검사를 건너뜀. `verifySchoolEmail`(인증번호 확인)은 그대로 로그인 필요
   - 인증번호 TTL은 5분(`SchoolEmailVerificationCodeRepository.CODE_TTL`), 6자리 랜덤 숫자

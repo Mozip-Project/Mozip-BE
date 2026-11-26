@@ -117,7 +117,7 @@
 | `ApplicationForbiddenReason` | `APPLICATION_403` | `SCHOOL_NOT_VERIFIED`(학교 인증을 하지 않은 회원, #69) |
 | `ApplicationInputReason` | `COMMON_400` | `POSITION_FROM_ANOTHER_POSTING`, `QUESTION_FROM_ANOTHER_POSTING`, `QUESTION_NOT_FOR_POSITION`, `AVAILABLE_TIME_NOT_OPEN`(면접 가능 시간이 열려 있는 블록의 시작 시각이 아님), `ATTACHMENT_NOT_ALLOWED_FOR_QUESTION_TYPE`(FILE_LINK가 아닌 문항에 첨부를 보냄), `INVALID_ATTACHMENT_URL`(LINK가 http/https가 아니거나 FILE이 presigned 경로가 아님) (#69) |
 | `SchoolInputReason` | `SCHOOL_400` | `CODE_MISMATCH`(인증번호가 다름), `CODE_EXPIRED`(5분이 지났거나 틀린 횟수가 많아 서버가 먼저 지움) (#76) |
-| `SchoolConflictReason` | `SCHOOL_409` | `ALREADY_VERIFIED`(이미 학교 인증된 회원이 다시 인증 시도), `PENDING_EXISTS`(재학증명서 심사가 아직 PENDING인데 다시 제출), `EMAIL_ALREADY_VERIFIED`(그 학교 메일이 이미 다른/같은 회원의 APPROVED 인증에 쓰임, 로그인 없이도 걸림) (#76) |
+| `SchoolConflictReason` | `SCHOOL_409` | `ALREADY_VERIFIED`(이미 학교 인증된 회원이 다시 인증 시도), `EMAIL_ALREADY_VERIFIED`(그 학교 메일이 이미 다른/같은 회원의 APPROVED 인증에 쓰임, 로그인 없이도 걸림) (#76) |
 
 ## fieldErrors를 응답에 담는 BusinessException
 

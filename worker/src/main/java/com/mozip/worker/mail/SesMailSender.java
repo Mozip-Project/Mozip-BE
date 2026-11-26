@@ -44,7 +44,7 @@ public class SesMailSender implements MailSender {
 			sesV2Client.sendEmail(request);
 		} catch (SdkException e) {
 			// 한도 초과, 일시 장애 등. worker가 이 작업을 best-effort로 처리하므로 여기서 던져도 호출자에게는 안 전달됨(로그만 남음)
-			log.error("SES 메일 발송 실패: to={}, cause={}", to, e.getClass().getSimpleName());
+			log.error("SES 메일 발송 실패: to={}, cause={}, message={}", to, e.getClass().getSimpleName(), e.getMessage());
 			throw new BusinessException(MailErrorCode.SEND_FAILED).addContext("cause", e.getClass().getSimpleName());
 		}
 	}
