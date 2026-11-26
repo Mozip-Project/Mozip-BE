@@ -18,11 +18,13 @@ import graphql.schema.CoercingParseValueException;
 import graphql.schema.CoercingSerializeException;
 import graphql.schema.GraphQLScalarType;
 
+import com.mozip.global.config.ClockConfig;
+
 // 엔티티의 LocalDateTime(서울 시각)을 오프셋을 붙인 ISO-8601로 주고받음
 // 입력에 오프셋이 있으면 서울 시각으로 바꾸고, 없으면 서울 시각으로 간주
 public final class LocalDateTimeScalar {
 
-	public static final ZoneId ZONE = ZoneId.of("Asia/Seoul");
+	public static final ZoneId ZONE = ClockConfig.SEOUL;
 
 	public static final GraphQLScalarType INSTANCE = GraphQLScalarType.newScalar()
 		.name("DateTime")

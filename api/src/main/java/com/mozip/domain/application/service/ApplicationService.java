@@ -1,6 +1,7 @@
 package com.mozip.domain.application.service;
 
 import java.net.URI;
+import java.time.Clock;
 import java.time.LocalDateTime;
 import java.time.LocalTime;
 import java.util.ArrayList;
@@ -53,7 +54,6 @@ import com.mozip.domain.posting.repository.QuestionRepository;
 import com.mozip.domain.user.entity.User;
 import com.mozip.domain.user.repository.UserRepository;
 import com.mozip.global.common.response.FieldErrorResponse;
-import com.mozip.global.config.graphql.LocalDateTimeScalar;
 import com.mozip.global.exception.BusinessException;
 import com.mozip.global.exception.CommonErrorCode;
 
@@ -77,6 +77,7 @@ public class ApplicationService {
 	private final InterviewAvailabilityService interviewAvailabilityService;
 	private final OrganizationAccessChecker organizationAccessChecker;
 	private final ObjectMapper objectMapper;
+	private final Clock clock;
 
 	@Transactional
 	public Application saveDraft(Long userId, Long postingId, ApplicationInput input) {
@@ -142,7 +143,7 @@ public class ApplicationService {
 
 		validateAnswers(application, posting);
 
-		application.submit(buildProfileSnapshot(user));
+		application.submit(buildProfileSnapshot(user), LocalDateTime.now(clock));
 		return application;
 	}
 
@@ -454,8 +455,7 @@ public class ApplicationService {
 
 	private void requireRecruiting(Posting posting) {
 		// recruitStartAt/recruitEndAt은 LocalDateTimeScalar가 서울 시각으로 저장한 값이라, now도 서울 시각 기준으로 맞춤
-		// (JVM 시간대가 서울이 아니면 어긋남. 배포 환경은 TZ를 안 맞춰 둘 수 있어 안전하게 명시)
-		LocalDateTime now = LocalDateTime.now(LocalDateTimeScalar.ZONE);
+		LocalDateTime now = LocalDateTime.now(clock);
 		boolean withinWindow = (posting.getRecruitStartAt() == null || !now.isBefore(posting.getRecruitStartAt()))
 			&& (posting.getRecruitEndAt() == null || !now.isAfter(posting.getRecruitEndAt()));
 		if (posting.getStatus() != PostingStatus.RECRUITING || !withinWindow) {

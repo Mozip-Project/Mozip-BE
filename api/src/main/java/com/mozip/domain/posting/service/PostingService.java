@@ -1,5 +1,6 @@
 package com.mozip.domain.posting.service;
 
+import java.time.Clock;
 import java.time.LocalDate;
 import java.time.LocalDateTime;
 import java.time.LocalTime;
@@ -53,7 +54,6 @@ import com.mozip.domain.posting.repository.PostingSpecifications;
 import com.mozip.domain.posting.repository.QuestionRepository;
 import com.mozip.domain.posting.repository.ScrapRepository;
 import com.mozip.global.common.response.FieldErrorResponse;
-import com.mozip.global.config.graphql.LocalDateTimeScalar;
 import com.mozip.global.exception.BusinessException;
 import com.mozip.global.exception.CommonErrorCode;
 
@@ -77,6 +77,7 @@ public class PostingService {
 	private final OrganizationAccessChecker organizationAccessChecker;
 	private final SubscriptionService subscriptionService;
 	private final PostingResultChecker postingResultChecker;
+	private final Clock clock;
 
 	@Transactional
 	public Posting saveDraft(Long userId, Long organizationId, Long postingId, PostingDraftInput input) {
@@ -122,7 +123,7 @@ public class PostingService {
 		}
 		validateRequiredSteps(posting);
 
-		posting.publishNow(LocalDateTime.now(LocalDateTimeScalar.ZONE));
+		posting.publishNow(LocalDateTime.now(clock));
 		return posting;
 	}
 
@@ -146,7 +147,7 @@ public class PostingService {
 				.addContext("postingId", postingId);
 		}
 
-		posting.advanceStatus(to, LocalDateTime.now(LocalDateTimeScalar.ZONE));
+		posting.advanceStatus(to, LocalDateTime.now(clock));
 		return posting;
 	}
 
@@ -197,7 +198,7 @@ public class PostingService {
 			spec = addIfPresent(spec, PostingSpecifications.organizationTypes(filter.organizationTypes()));
 			spec = addIfPresent(spec, PostingSpecifications.hasInterview(filter.hasInterview()));
 			spec = addIfPresent(spec,
-				PostingSpecifications.closingSoon(filter.closingSoon(), LocalDateTime.now(LocalDateTimeScalar.ZONE)));
+				PostingSpecifications.closingSoon(filter.closingSoon(), LocalDateTime.now(clock)));
 		}
 
 		PostingSort effectiveSort = sort != null ? sort : PostingSort.LATEST;
@@ -484,7 +485,7 @@ public class PostingService {
 			fieldErrors.add(new FieldErrorResponse("basicStep", "기본 정보(제목, 본문)를 입력해주세요."));
 		}
 		// recruitStartAt/recruitEndAt은 LocalDateTimeScalar가 서울 시각으로 저장한 값이라, now도 서울 시각 기준으로 맞춤
-		LocalDateTime now = LocalDateTime.now(LocalDateTimeScalar.ZONE);
+		LocalDateTime now = LocalDateTime.now(clock);
 		LocalDateTime recruitStartAt = posting.getRecruitStartAt();
 		LocalDateTime recruitEndAt = posting.getRecruitEndAt();
 		if (recruitStartAt == null || recruitEndAt == null) {
