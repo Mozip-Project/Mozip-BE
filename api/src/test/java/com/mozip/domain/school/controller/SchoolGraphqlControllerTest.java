@@ -139,8 +139,8 @@ class SchoolGraphqlControllerTest {
 	}
 
 	@Test
-	@DisplayName("인증번호가 틀리면 SCHOOL_400과 reason(CODE_MISMATCH)으로 응답한다")
-	void wrongCodeRespondsWithSchool400() {
+	@DisplayName("인증번호가 틀리면 에러 없이 false로 응답한다")
+	void wrongCodeRespondsWithFalse() {
 		School school = schoolRepository.save(School.create("오류테스트대학교 " + ThreadLocalRandom.current().nextInt(1_000_000),
 			"errtest" + ThreadLocalRandom.current().nextInt(1_000_000) + ".ac.kr"));
 		String email = "student@" + school.getEmailDomain();
@@ -160,11 +160,7 @@ class SchoolGraphqlControllerTest {
 			.variable("email", email)
 			.variable("code", "000000")
 			.execute()
-			.errors()
-			.satisfy(errors -> {
-				assertThat(errors.getFirst().getExtensions()).containsEntry("code", "SCHOOL_400");
-				assertThat(errors.getFirst().getExtensions()).containsEntry("reason", "CODE_MISMATCH");
-			});
+			.path("verifySchoolEmail").entity(Boolean.class).isEqualTo(false);
 	}
 
 }

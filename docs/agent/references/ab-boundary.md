@@ -87,8 +87,9 @@
     학교 인증 메일만 예외로 재시도 없이 `mozip:worker:tasks`(pub/sub)를 그대로 씀 — 코드가 금방 만료돼서 재시도보다 재요청이 더 빠름
   - 재학증명서 인증(`submitEnrollmentCertificate`)은 제거됨. 학교 인증은 메일 인증(`requestSchoolEmailVerification`/`verifySchoolEmail`)만 지원
   - `requestSchoolEmailVerification`(인증번호 발송), `verifySchoolEmail`(인증번호 확인) 둘 다 `@public`. 로그인 불필요
-  - `verifySchoolEmail(email, code)`는 코드가 맞는지만 확인하고 `Boolean!`을 반환함. 코드를 지우지 않고, 회원이나
-    학교 인증 레코드를 바로 만들지도 않음 — 실제 가입 전에 "코드가 맞다"는 걸 미리 확인하는 용도
+  - `verifySchoolEmail(email, code)`는 코드가 맞는지만 확인하고 `Boolean!`을 반환함. 코드 불일치/만료/모르는 메일
+    도메인도 에러 없이 `false`로만 응답함(에러 코드로 구분하지 않음). 코드를 지우지 않고, 회원이나 학교 인증
+    레코드를 바로 만들지도 않음 — 실제 가입 전에 "코드가 맞다"는 걸 미리 확인하는 용도
   - 인증번호 TTL은 5분(`SchoolEmailVerificationCodeRepository.CODE_TTL`), 6자리 랜덤 숫자
   - `POST /auth/signup`에 `schoolEmail`/`schoolVerificationCode`가 필수라, 가입 자체가 학교 인증을 끝낸 상태로만 끝난다(결정 010).
     `requestSchoolEmailVerification`으로 미리 받은 코드를 가입 요청에 같이 보내야 함. 코드 검증과 실제 소비(Redis

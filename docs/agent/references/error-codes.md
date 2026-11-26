@@ -92,7 +92,7 @@
 | 코드 | HTTP | 상수 | 언제 |
 |---|---|---|---|
 | `SCHOOL_404` | 404 | `NOT_FOUND` | 메일 도메인이나 schoolId로 학교를 못 찾음 |
-| `SCHOOL_400` | 400 | `INVALID_INPUT` | `verifySchoolEmail` 인증번호 불일치/만료. `reason`으로 구분 (`SchoolInputReason`) |
+| `SCHOOL_400` | 400 | `INVALID_INPUT` | `/auth/signup`(`verifyForSignup`) 인증번호 불일치/만료. `reason`으로 구분 (`SchoolInputReason`). `verifySchoolEmail`은 같은 상황에서 에러 대신 `false`를 반환함 |
 | `SCHOOL_409` | 409 | `CONFLICT` | `reason`으로 구분 (`SchoolConflictReason`) |
 | `SCHOOL_429` | 429 | `TOO_MANY_REQUESTS` | `requestSchoolEmailVerification`을 60초 안에 다시 요청 |
 

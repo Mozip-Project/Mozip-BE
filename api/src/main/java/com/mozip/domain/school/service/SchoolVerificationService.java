@@ -82,11 +82,16 @@ public class SchoolVerificationService {
 	}
 
 	// 가입 폼의 나머지 입력(전화번호, 비밀번호 등)을 채우기 전에 코드가 맞는지만 확인. 로그인 불필요(@public).
-	// 코드를 지우지 않아서, 실제 가입(verifyForSignup)에서 같은 코드를 그대로 다시 씀
+	// 성공/실패를 에러 없이 boolean으로만 알려줌(틀린 코드 기록 같은 부수효과는 그대로 남음). 코드를 지우지 않아서,
+	// 실제 가입(verifyForSignup)에서 같은 코드를 그대로 다시 씀
 	@Transactional
 	public boolean verifySchoolEmail(String email, String code) {
-		requireValidCode(email, code);
-		return true;
+		try {
+			requireValidCode(email, code);
+			return true;
+		} catch (BusinessException e) {
+			return false;
+		}
 	}
 
 	// 회원가입 시 학교 메일 인증을 끝냄. 아직 User가 없어 School만 반환하고, 가입 자체는 호출자(AuthService)가 처리.

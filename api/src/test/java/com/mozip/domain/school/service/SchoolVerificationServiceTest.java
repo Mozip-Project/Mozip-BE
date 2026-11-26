@@ -22,7 +22,6 @@ import com.mozip.domain.school.entity.SchoolEmailVerificationStatus;
 import com.mozip.domain.school.entity.SchoolVerification;
 import com.mozip.domain.school.exception.SchoolConflictReason;
 import com.mozip.domain.school.exception.SchoolErrorCode;
-import com.mozip.domain.school.exception.SchoolInputReason;
 import com.mozip.domain.school.repository.SchoolEmailVerificationCodeRepository;
 import com.mozip.domain.school.repository.SchoolRepository;
 import com.mozip.domain.school.repository.SchoolVerificationRepository;
@@ -104,12 +103,9 @@ class SchoolVerificationServiceTest {
 	}
 
 	@Test
-	@DisplayName("verifySchoolEmail은 메일 도메인과 일치하는 학교가 없으면 SCHOOL_404를 던진다")
-	void verifySchoolEmailRejectsUnknownDomain() {
-		assertThatThrownBy(() -> schoolVerificationService.verifySchoolEmail("student@unknown-domain.ac.kr", "123456"))
-			.isInstanceOf(BusinessException.class)
-			.extracting(e -> ((BusinessException)e).getErrorCode())
-			.isEqualTo(SchoolErrorCode.NOT_FOUND);
+	@DisplayName("verifySchoolEmail은 메일 도메인과 일치하는 학교가 없으면 에러 없이 false를 반환한다")
+	void verifySchoolEmailReturnsFalseForUnknownDomain() {
+		assertThat(schoolVerificationService.verifySchoolEmail("student@unknown-domain.ac.kr", "123456")).isFalse();
 	}
 
 	@Test
@@ -139,47 +135,30 @@ class SchoolVerificationServiceTest {
 	}
 
 	@Test
-	@DisplayName("인증번호가 틀리면 SCHOOL_400(CODE_MISMATCH)을 던진다")
-	void rejectsWrongCode() {
+	@DisplayName("인증번호가 틀리면 에러 없이 false를 반환한다")
+	void verifySchoolEmailReturnsFalseForWrongCode() {
 		schoolVerificationService.requestSchoolEmailVerification(applicant.getId(), email);
 
-		assertThatThrownBy(() -> schoolVerificationService.verifySchoolEmail(email, "000000"))
-			.isInstanceOf(BusinessException.class)
-			.satisfies(e -> {
-				BusinessException ex = (BusinessException)e;
-				assertThat(ex.getErrorCode()).isEqualTo(SchoolErrorCode.INVALID_INPUT);
-				assertThat(ex.getReason()).isEqualTo(SchoolInputReason.CODE_MISMATCH.name());
-			});
+		assertThat(schoolVerificationService.verifySchoolEmail(email, "000000")).isFalse();
 	}
 
 	@Test
-	@DisplayName("요청한 적 없는 인증번호를 확인하면 SCHOOL_400(CODE_EXPIRED)을 던진다")
-	void rejectsVerifyingWithoutRequesting() {
-		assertThatThrownBy(() -> schoolVerificationService.verifySchoolEmail(email, "123456"))
-			.isInstanceOf(BusinessException.class)
-			.satisfies(e -> {
-				BusinessException ex = (BusinessException)e;
-				assertThat(ex.getErrorCode()).isEqualTo(SchoolErrorCode.INVALID_INPUT);
-				assertThat(ex.getReason()).isEqualTo(SchoolInputReason.CODE_EXPIRED.name());
-			});
+	@DisplayName("요청한 적 없는 인증번호를 확인하면 에러 없이 false를 반환한다")
+	void verifySchoolEmailReturnsFalseWithoutRequesting() {
+		assertThat(schoolVerificationService.verifySchoolEmail(email, "123456")).isFalse();
 	}
 
 	@Test
-	@DisplayName("틀린 횟수가 5번을 넘으면 맞는 코드를 다시 넣어도 SCHOOL_400(CODE_EXPIRED)를 던진다")
+	@DisplayName("틀린 횟수가 5번을 넘으면 맞는 코드를 다시 넣어도 false를 반환한다 (서버가 코드를 먼저 지움)")
 	void invalidatesCodeAfterTooManyWrongAttempts() {
 		schoolVerificationService.requestSchoolEmailVerification(applicant.getId(), email);
 		String code = redisTemplate.opsForValue().get("school:verify:code:" + email);
 
 		for (int i = 0; i < SchoolEmailVerificationCodeRepository.MAX_ATTEMPTS; i++) {
-			assertThatThrownBy(
-				() -> schoolVerificationService.verifySchoolEmail(email, "000000"))
-				.isInstanceOf(BusinessException.class);
+			assertThat(schoolVerificationService.verifySchoolEmail(email, "000000")).isFalse();
 		}
 
-		assertThatThrownBy(() -> schoolVerificationService.verifySchoolEmail(email, code))
-			.isInstanceOf(BusinessException.class)
-			.satisfies(e -> assertThat(((BusinessException)e).getReason())
-				.isEqualTo(SchoolInputReason.CODE_EXPIRED.name()));
+		assertThat(schoolVerificationService.verifySchoolEmail(email, code)).isFalse();
 	}
 
 	@Test
