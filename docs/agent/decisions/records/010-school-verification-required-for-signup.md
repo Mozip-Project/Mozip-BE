@@ -72,3 +72,7 @@
   키 형식은 그대로라 `SchoolVerificationService`를 포함해 다른 코드는 안 바뀜. 단체 이메일 인증처럼 같은 "메일 발송 →
   코드 확인" 패턴이 필요한 도메인은 같은 인터페이스를 `namespace`만 다르게 구현해 재사용할 수 있음(발송 상태 추적처럼
   도메인마다 다른 부분은 인터페이스에 넣지 않고 각자 리포지토리에 남김)
+- 2026-11-27: `completeSignupVerification`의 confirmed 삭제를 `TransactionSynchronizationManager`의 `afterCommit`으로
+  미룸. User 저장 직후(같은 트랜잭션 안)에 지우는 것만으로는, 그 뒤 `SchoolVerification` 저장이 실패해 트랜잭션이
+  롤백돼도 Redis 삭제는 롤백되지 않는 잔여 구간이 남아 있었음. 트랜잭션이 실제로 커밋된 뒤에만 지우도록 해서
+  이 구간을 닫음(`AuthIntegrationTest`에 실제 HTTP 가입으로 확인하는 테스트 추가)

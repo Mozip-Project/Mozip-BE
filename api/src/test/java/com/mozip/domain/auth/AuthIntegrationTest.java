@@ -111,6 +111,23 @@ class AuthIntegrationTest {
 	}
 
 	@Test
+	@DisplayName("가입에 성공하면 confirmed 표시가 커밋 후 지워진다 (afterCommit)")
+	void signupDeletesConfirmedFlagAfterCommit() throws Exception {
+		String schoolEmail = "auth" + ThreadLocalRandom.current().nextInt(1_000_000) + "@" + schoolEmailDomain;
+		redisTemplate.opsForValue().set("school:verify:confirmed:" + schoolEmail, "1", Duration.ofMinutes(10));
+
+		mockMvc.perform(post("/auth/signup")
+				.contentType(MediaType.APPLICATION_JSON)
+				.content("""
+					{"phone": "%s", "password": "%s", "name": "김모집", "termsAgreed": true, "marketingAgreed": false,
+					"schoolEmail": "%s"}
+					""".formatted(randomPhone(), PASSWORD, schoolEmail)))
+			.andExpect(status().isCreated());
+
+		assertThat(redisTemplate.hasKey("school:verify:confirmed:" + schoolEmail)).isFalse();
+	}
+
+	@Test
 	@DisplayName("verifySchoolEmail로 확인한 적 없는 메일로 가입하면 SCHOOL_400(EMAIL_NOT_VERIFIED)으로 응답한다")
 	void signupWithoutConfirmingEmailFails() throws Exception {
 		String schoolEmail = "auth" + ThreadLocalRandom.current().nextInt(1_000_000) + "@" + schoolEmailDomain;

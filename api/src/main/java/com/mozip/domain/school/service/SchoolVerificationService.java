@@ -5,6 +5,8 @@ import java.util.List;
 
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
+import org.springframework.transaction.support.TransactionSynchronization;
+import org.springframework.transaction.support.TransactionSynchronizationManager;
 
 import com.mozip.domain.mail.service.MailTaskPublisher;
 import com.mozip.domain.school.entity.School;
@@ -112,14 +114,29 @@ public class SchoolVerificationService {
 		return findSchoolByEmailDomain(email);
 	}
 
-	// 가입으로 생성된 User에 학교 인증 완료를 반영. User가 실제로 저장된 뒤에만 호출돼야 confirmed 표시를
-	// 안전하게 지울 수 있음(verifyForSignup과 분리된 이유: User 저장 전에는 school_verifications.user_id를
-	// 채울 수도 없고, confirmed를 미리 지우면 가입이 다른 이유로 실패해도 되돌릴 방법이 없음)
+	// 가입으로 생성된 User에 학교 인증 완료를 반영. confirmed 삭제는 DB 커밋 후로 미뤄서(afterCommit), 이 메서드 안에서
+	// SchoolVerification 저장이 실패해 트랜잭션이 롤백돼도 Redis만 먼저 지워지는 일이 없게 함.
+	// User 저장 전에는 school_verifications.user_id를 채울 수 없어 verifyForSignup과는 분리돼 있음
 	@Transactional
 	public void completeSignupVerification(User user, School school, String email) {
-		codeRepository.deleteConfirmed(email);
 		schoolVerificationRepository.save(SchoolVerification.createApprovedEmail(user, school, email));
 		user.verifySchool(school);
+		runAfterCommit(() -> codeRepository.deleteConfirmed(email));
+	}
+
+	// 트랜잭션이 실제로 커밋된 뒤에만 Redis를 건드림. @Transactional 메서드 안에서 호출되는 동안은 항상
+	// 트랜잭션이 활성 상태라 동기화가 등록돼 있지만, 혹시 트랜잭션 밖에서 불리면 바로 실행함
+	private void runAfterCommit(Runnable action) {
+		if (!TransactionSynchronizationManager.isSynchronizationActive()) {
+			action.run();
+			return;
+		}
+		TransactionSynchronizationManager.registerSynchronization(new TransactionSynchronization() {
+			@Override
+			public void afterCommit() {
+				action.run();
+			}
+		});
 	}
 
 	private School consumeValidCode(String email, String code) {
