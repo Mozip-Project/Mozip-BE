@@ -8,13 +8,13 @@ import org.springframework.stereotype.Repository;
 
 import lombok.RequiredArgsConstructor;
 
-// Redis에 school:verify:code:{email} → 인증번호 저장(TTL 10분), 같은 TTL로 틀린 횟수(attempts)를 같이 관리.
+// Redis에 school:verify:code:{email} → 인증번호 저장(TTL 5분), 같은 TTL로 틀린 횟수(attempts)를 같이 관리.
 // cooldown 키로 재요청 간격을 제한함
 @Repository
 @RequiredArgsConstructor
 public class SchoolEmailVerificationCodeRepository {
 
-	public static final Duration CODE_TTL = Duration.ofMinutes(10);
+	public static final Duration CODE_TTL = Duration.ofMinutes(5);
 	public static final Duration REQUEST_COOLDOWN = Duration.ofSeconds(60);
 	public static final int MAX_ATTEMPTS = 5;
 

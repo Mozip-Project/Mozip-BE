@@ -9,4 +9,6 @@ public interface SchoolVerificationRepository extends JpaRepository<SchoolVerifi
 
 	boolean existsByUserIdAndStatus(Long userId, ReviewStatus status);
 
+	boolean existsByEmailAndStatus(String email, ReviewStatus status);
+
 }

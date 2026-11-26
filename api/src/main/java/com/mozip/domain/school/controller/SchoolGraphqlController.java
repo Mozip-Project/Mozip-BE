@@ -30,7 +30,8 @@ public class SchoolGraphqlController {
 	@MutationMapping
 	public boolean requestSchoolEmailVerification(@Argument String email,
 		@AuthenticationPrincipal AuthUser authUser) {
-		return schoolVerificationService.requestSchoolEmailVerification(authUser.userId(), email);
+		Long userId = authUser == null ? null : authUser.userId();
+		return schoolVerificationService.requestSchoolEmailVerification(userId, email);
 	}
 
 	@MutationMapping

@@ -165,11 +165,12 @@ extend type Mutation {
     "알림 수신 설정 변경"
     updateNotificationSettings(input: UpdateNotificationSettingsInput!): NotificationSettings!
     """
-    메일 도메인으로 학교를 찾아 인증번호를 메일로 보냄(10분 유효). 못 찾으면 SCHOOL_404.
-    이미 학교 인증된 회원이면 SCHOOL_409(reason: ALREADY_VERIFIED).
+    로그인 없이도 호출 가능. 메일 도메인으로 학교를 찾아 인증번호를 메일로 보냄(5분 유효). 못 찾으면 SCHOOL_404.
+    로그인한 상태로 호출했고 이미 학교 인증된 회원이면 SCHOOL_409(reason: ALREADY_VERIFIED).
+    이 메일이 이미 다른(또는 같은) 회원의 인증에 쓰였으면 SCHOOL_409(reason: EMAIL_ALREADY_VERIFIED).
     짧은 시간에 반복 요청하면 SCHOOL_429
     """
-    requestSchoolEmailVerification(email: String!): Boolean!
+    requestSchoolEmailVerification(email: String!): Boolean! @public
     """
     인증번호를 확인하고 맞으면 바로 회원의 학교를 채움(APPROVED).
     불일치/만료는 SCHOOL_400(reason: CODE_MISMATCH 또는 CODE_EXPIRED).

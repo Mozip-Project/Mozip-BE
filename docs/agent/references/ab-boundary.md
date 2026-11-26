@@ -86,3 +86,6 @@
     `type`이 늘어날 걸 대비해 `WorkerTaskType`(common)에 상수를 추가하고 worker의 `TaskMessageListener`에 분기를 추가하는 식으로 확장
   - 재학증명서 인증(`submitEnrollmentCertificate`)은 `schoolId`만 받음. `SchoolVerification.schoolName`(목록에 없는 학교 직접 입력)은
     이번 이슈 범위 밖이라 입력 경로가 없음(항상 null). 관리자 승인/반려 API도 범위 밖(별도 이슈)
+  - `requestSchoolEmailVerification`(인증번호 발송)은 `@public`. 로그인 없이도 호출 가능하며 이때는 userId가 없어
+    "이미 인증된 회원인지" 검사를 건너뜀. `verifySchoolEmail`(인증번호 확인)은 그대로 로그인 필요
+  - 인증번호 TTL은 5분(`SchoolEmailVerificationCodeRepository.CODE_TTL`), 6자리 랜덤 숫자

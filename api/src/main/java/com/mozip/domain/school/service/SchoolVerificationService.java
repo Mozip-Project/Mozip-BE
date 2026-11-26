@@ -51,11 +51,17 @@ public class SchoolVerificationService {
 		return schoolRepository.findTop20ByNameContainingIgnoreCaseOrderByName(keyword.trim());
 	}
 
+	// userId는 로그인한 상태로 호출했을 때만 있음(로그인 없이도 호출 가능, @public). 없으면 이미 인증된 회원인지는 건너뜀
 	@Transactional
 	public boolean requestSchoolEmailVerification(Long userId, String email) {
-		User user = findUser(userId);
-		requireNotVerified(user);
+		if (userId != null) {
+			requireNotVerified(findUser(userId));
+		}
 		School school = findSchoolByEmailDomain(email);
+		if (schoolVerificationRepository.existsByEmailAndStatus(email, ReviewStatus.APPROVED)) {
+			throw new BusinessException(SchoolErrorCode.CONFLICT, SchoolConflictReason.EMAIL_ALREADY_VERIFIED)
+				.addContext("email", email);
+		}
 		if (codeRepository.isOnCooldown(email)) {
 			throw new BusinessException(SchoolErrorCode.TOO_MANY_REQUESTS).addContext("email", email);
 		}
@@ -149,7 +155,7 @@ public class SchoolVerificationService {
 	}
 
 	private static String mailBody(String schoolName, String code) {
-		return "%s 메일로 학교 인증을 요청하셨습니다. 인증번호: %s (10분 안에 입력해주세요)"
+		return "%s 메일로 학교 인증을 요청하셨습니다. 인증번호: %s (5분 안에 입력해주세요)"
 			.formatted(schoolName, code);
 	}
 

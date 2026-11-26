@@ -97,6 +97,25 @@ class SchoolGraphqlControllerTest {
 	}
 
 	@Test
+	@DisplayName("requestSchoolEmailVerification은 로그인 없이도(쿠키 없이) 호출할 수 있다")
+	void requestSchoolEmailVerificationIsPublic() {
+		School school = schoolRepository.save(School.create("비로그인테스트대학교 " + ThreadLocalRandom.current().nextInt(1_000_000),
+			"noauth" + ThreadLocalRandom.current().nextInt(1_000_000) + ".ac.kr"));
+		String email = "student@" + school.getEmailDomain();
+
+		graphQlTester.document("""
+			mutation($email: String!) {
+				requestSchoolEmailVerification(email: $email)
+			}
+			""")
+			.variable("email", email)
+			.execute()
+			.path("requestSchoolEmailVerification").entity(Boolean.class).isEqualTo(true);
+
+		assertThat(redisTemplate.opsForValue().get("school:verify:code:" + email)).isNotNull();
+	}
+
+	@Test
 	@DisplayName("인증번호가 틀리면 SCHOOL_400과 reason(CODE_MISMATCH)으로 응답한다")
 	void wrongCodeRespondsWithSchool400() {
 		School school = schoolRepository.save(School.create("오류테스트대학교 " + ThreadLocalRandom.current().nextInt(1_000_000),

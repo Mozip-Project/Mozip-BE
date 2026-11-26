@@ -90,7 +90,7 @@ class SchoolVerificationServiceTest {
 	}
 
 	@Test
-	@DisplayName("인증번호를 요청하면 10분 TTL로 Redis에 저장되고, 그 번호로 인증하면 회원 학교가 채워진다")
+	@DisplayName("인증번호를 요청하면 5분 TTL로 Redis에 저장되고, 그 번호로 인증하면 회원 학교가 채워진다")
 	void requestAndVerifySchoolEmailSucceeds() {
 		schoolVerificationService.requestSchoolEmailVerification(applicant.getId(), email);
 		String code = redisTemplate.opsForValue().get("school:verify:code:" + email);
@@ -167,6 +167,15 @@ class SchoolVerificationServiceTest {
 	}
 
 	@Test
+	@DisplayName("userId가 없어도(로그인 없이) 인증번호를 요청할 수 있다")
+	void requestSucceedsWithoutUserId() {
+		boolean result = schoolVerificationService.requestSchoolEmailVerification(null, email);
+
+		assertThat(result).isTrue();
+		assertThat(redisTemplate.opsForValue().get("school:verify:code:" + email)).matches("\\d{6}");
+	}
+
+	@Test
 	@DisplayName("이미 학교 인증된 회원이 다시 메일 인증을 요청하면 SCHOOL_409(ALREADY_VERIFIED)를 던진다")
 	void rejectsReVerificationByEmail() {
 		applicant.verifySchool(school);
@@ -177,6 +186,20 @@ class SchoolVerificationServiceTest {
 				BusinessException ex = (BusinessException)e;
 				assertThat(ex.getErrorCode()).isEqualTo(SchoolErrorCode.CONFLICT);
 				assertThat(ex.getReason()).isEqualTo(SchoolConflictReason.ALREADY_VERIFIED.name());
+			});
+	}
+
+	@Test
+	@DisplayName("이미 그 학교 메일로 인증을 끝낸 적이 있으면 로그인 없이 요청해도 SCHOOL_409(EMAIL_ALREADY_VERIFIED)를 던진다")
+	void rejectsRequestForAlreadyVerifiedEmail() {
+		schoolVerificationRepository.save(SchoolVerification.createApprovedEmail(applicant, school, email));
+
+		assertThatThrownBy(() -> schoolVerificationService.requestSchoolEmailVerification(null, email))
+			.isInstanceOf(BusinessException.class)
+			.satisfies(e -> {
+				BusinessException ex = (BusinessException)e;
+				assertThat(ex.getErrorCode()).isEqualTo(SchoolErrorCode.CONFLICT);
+				assertThat(ex.getReason()).isEqualTo(SchoolConflictReason.EMAIL_ALREADY_VERIFIED.name());
 			});
 	}
 
