@@ -71,7 +71,7 @@ public class OrganizationService {
 			throw new BusinessException(CommonErrorCode.INVALID_INPUT).addContext("fileKey", fileKey);
 		}
 		Organization organization = getOrganization(organizationId);
-		if (!memberRepository.existsByOrganizationIdAndUserId(organizationId, requesterId)) {
+		if (!memberRepository.existsByOrganizationIdAndUserIdAndLeftAtIsNull(organizationId, requesterId)) {
 			throw new BusinessException(CommonErrorCode.FORBIDDEN).addContext("userId", requesterId);
 		}
 		organization.updateLogo(s3Properties.cdnDomain() + "/" + fileKey);
@@ -98,7 +98,7 @@ public class OrganizationService {
 		// 같은 단체 동시 수정은 단체 행을 잠가 차례로 처리
 		organizationRepository.lockById(organizationId);
 		Organization organization = getOrganization(organizationId);
-		if (!memberRepository.existsByOrganizationIdAndUserId(organizationId, userId)) {
+		if (!memberRepository.existsByOrganizationIdAndUserIdAndLeftAtIsNull(organizationId, userId)) {
 			throw new BusinessException(CommonErrorCode.FORBIDDEN)
 				.addContext("organizationId", organizationId)
 				.addContext("userId", userId);
@@ -140,11 +140,19 @@ public class OrganizationService {
 				.addContext("organizationId", organizationId));
 	}
 
+	// 단체(학교 포함)를 읽고 행을 잠금, 같은 단체의 쓰기(초대, 링크 발급, 팀 저장)를 차례로 처리
+	public Organization getOrganizationForUpdate(Long organizationId) {
+		Organization organization = getOrganization(organizationId);
+		organizationRepository.lockById(organizationId);
+		return organization;
+	}
+
 	// 심사 전이거나 반려된 단체는 소속 운영진에게만 보이고, 그 외에는 ORG_404
 	public Organization getVisibleOrganization(Long organizationId, Long userId) {
 		Organization organization = getOrganization(organizationId);
 		if (organization.getReviewStatus() != ReviewStatus.APPROVED
-			&& (userId == null || !memberRepository.existsByOrganizationIdAndUserId(organizationId, userId))) {
+			&& (userId == null
+			|| !memberRepository.existsByOrganizationIdAndUserIdAndLeftAtIsNull(organizationId, userId))) {
 			throw new BusinessException(OrganizationErrorCode.ORGANIZATION_NOT_FOUND)
 				.addContext("organizationId", organizationId);
 		}

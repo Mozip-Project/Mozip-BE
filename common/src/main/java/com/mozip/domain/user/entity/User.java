@@ -119,6 +119,13 @@ public class User extends BaseEntity {
 		return status == UserStatus.ACTIVE;
 	}
 
+	// 내보내진 뒤 남은 소속이 없으면 lastRole을 APPLICANT로
+	public void leaveOrganization(boolean stillOperator) {
+		if (!stillOperator) {
+			this.lastRole = Role.APPLICANT;
+		}
+	}
+
 	public void updateNotificationSettings(boolean notifyResult, boolean notifyScrap, boolean notifyOperator) {
 		this.notifyResult = notifyResult;
 		this.notifyScrap = notifyScrap;

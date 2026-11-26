@@ -12,14 +12,19 @@ import org.springframework.graphql.data.method.annotation.Argument;
 import org.springframework.graphql.data.method.annotation.BatchMapping;
 import org.springframework.graphql.data.method.annotation.MutationMapping;
 import org.springframework.graphql.data.method.annotation.QueryMapping;
+import org.springframework.graphql.data.method.annotation.SchemaMapping;
 import org.springframework.security.core.Authentication;
 import org.springframework.security.core.annotation.AuthenticationPrincipal;
 import org.springframework.stereotype.Controller;
 
 import com.mozip.domain.organization.dto.CreateOrganizationInput;
+import com.mozip.domain.organization.dto.TeamInput;
 import com.mozip.domain.organization.dto.UpdateOrganizationInput;
+import com.mozip.domain.organization.entity.Invitation;
+import com.mozip.domain.organization.entity.InviteLink;
 import com.mozip.domain.organization.dto.UpdateOrganizationLogoInput;
 import com.mozip.domain.organization.entity.Member;
+import com.mozip.domain.organization.entity.RepresentativeTransfer;
 import com.mozip.domain.organization.entity.Organization;
 import com.mozip.domain.organization.entity.OrganizationField;
 import com.mozip.domain.organization.entity.OrganizationFieldTag;
@@ -31,7 +36,12 @@ import com.mozip.domain.organization.repository.OrganizationFieldTagRepository;
 import com.mozip.domain.organization.repository.OrganizationKeywordRepository;
 import com.mozip.domain.organization.repository.OrganizationLinkRepository;
 import com.mozip.domain.organization.repository.TeamRepository;
+import com.mozip.domain.organization.service.InvitationService;
+import com.mozip.domain.organization.service.InviteProperties;
+import com.mozip.domain.organization.service.MemberService;
 import com.mozip.domain.organization.service.OrganizationService;
+import com.mozip.domain.organization.service.RepresentativeTransferService;
+import com.mozip.domain.organization.service.TeamService;
 import com.mozip.global.exception.BusinessException;
 import com.mozip.global.exception.CommonErrorCode;
 import com.mozip.global.security.AuthUser;
@@ -44,6 +54,11 @@ import lombok.RequiredArgsConstructor;
 public class OrganizationGraphqlController {
 
 	private final OrganizationService organizationService;
+	private final MemberService memberService;
+	private final InvitationService invitationService;
+	private final TeamService teamService;
+	private final RepresentativeTransferService representativeTransferService;
+	private final InviteProperties inviteProperties;
 	private final TeamRepository teamRepository;
 	private final MemberRepository memberRepository;
 	private final OrganizationKeywordRepository keywordRepository;
@@ -78,9 +93,72 @@ public class OrganizationGraphqlController {
 		return organizationService.getKeywordSuggestions(prefix);
 	}
 
+	@QueryMapping
+	public List<Member> members(@Argument Long organizationId, @AuthenticationPrincipal AuthUser authUser) {
+		return memberService.getMembers(authUser.userId(), organizationId);
+	}
+
+	// 성공하면 true, 실패는 errors[]로 응답
+	@MutationMapping
+	public boolean removeMember(@Argument Long memberId, @AuthenticationPrincipal AuthUser authUser) {
+		memberService.removeMember(authUser.userId(), memberId);
+		return true;
+	}
+
+	@MutationMapping
+	public Invitation inviteMember(@Argument Long organizationId, @Argument String contact, @Argument Long teamId,
+		@AuthenticationPrincipal AuthUser authUser) {
+		return invitationService.inviteMember(authUser.userId(), organizationId, contact, teamId);
+	}
+
+	@MutationMapping
+	public InviteLink createInviteLink(@Argument Long organizationId, @AuthenticationPrincipal AuthUser authUser) {
+		return invitationService.createInviteLink(authUser.userId(), organizationId);
+	}
+
+	@MutationMapping
+	public Member acceptInvitation(@Argument String code, @AuthenticationPrincipal AuthUser authUser) {
+		return invitationService.acceptInvitation(authUser.userId(), code);
+	}
+
+	@MutationMapping
+	public List<Team> saveTeams(@Argument Long organizationId, @Argument List<TeamInput> teams,
+		@AuthenticationPrincipal AuthUser authUser) {
+		return teamService.saveTeams(authUser.userId(), organizationId, teams);
+	}
+
+	@MutationMapping
+	public RepresentativeTransfer requestRepresentativeTransfer(@Argument Long memberId,
+		@AuthenticationPrincipal AuthUser authUser) {
+		return representativeTransferService.request(authUser.userId(), memberId);
+	}
+
+	@MutationMapping
+	public RepresentativeTransfer respondRepresentativeTransfer(@Argument Long id, @Argument boolean accept,
+		@AuthenticationPrincipal AuthUser authUser) {
+		return representativeTransferService.respond(authUser.userId(), id, accept);
+	}
+
+	// 스키마 from/to를 엔티티 fromMember/toMember에 연결
+	@SchemaMapping(typeName = "RepresentativeTransfer", field = "from")
+	public Member transferFrom(RepresentativeTransfer transfer) {
+		return transfer.getFromMember();
+	}
+
+	@SchemaMapping(typeName = "RepresentativeTransfer", field = "to")
+	public Member transferTo(RepresentativeTransfer transfer) {
+		return transfer.getToMember();
+	}
+
+	// 링크 주소 = 설정의 base-url + 토큰
+	@SchemaMapping(typeName = "InviteLink")
+	public String url(InviteLink link) {
+		return inviteProperties.linkUrl(link.getToken());
+	}
+
 	@BatchMapping(typeName = "Organization")
 	public Map<Organization, List<Team>> teams(List<Organization> organizations) {
-		return groupByOrganization(organizations, teamRepository.findAllByOrganizationInOrderById(organizations),
+		return groupByOrganization(organizations, teamRepository.findAllByOrganizationInOrderBySortOrderAscIdAsc(organizations),
 			Team::getOrganization, Function.identity());
 	}
 

@@ -391,7 +391,7 @@ class PostingServiceTest {
 		Organization otherOrganization = organizationRepository.save(
 			Organization.create("다른 단체", OrganizationType.CLUB, null, OrganizationScope.CAMPUS, null, true, null,
 				null));
-		Team othersTeam = teamRepository.save(Team.create(otherOrganization, "남의 팀"));
+		Team othersTeam = teamRepository.save(Team.create(otherOrganization, "남의 팀", 0));
 		Posting posting = postingService.saveDraft(operator.getId(), organization.getId(), null, basicInput("제목"));
 
 		assertThatThrownBy(() -> postingService.saveDraft(operator.getId(), organization.getId(), posting.getId(),
