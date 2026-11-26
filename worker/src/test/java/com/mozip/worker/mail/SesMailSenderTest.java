@@ -37,9 +37,9 @@ class SesMailSenderTest {
 	}
 
 	@Test
-	@DisplayName("to/subject/htmlBody/textBody를 SendEmailRequest로 올바르게 옮긴다")
+	@DisplayName("to/subject/body를 text 전용 SendEmailRequest로 올바르게 옮긴다")
 	void buildsSendEmailRequestFromArguments() {
-		sesMailSender.send("student@school.ac.kr", "제목", "<p>본문</p>", "텍스트 본문");
+		sesMailSender.send("student@school.ac.kr", "제목", "본문");
 
 		ArgumentCaptor<SendEmailRequest> captor = ArgumentCaptor.forClass(SendEmailRequest.class);
 		verify(sesV2Client).sendEmail(captor.capture());
@@ -48,19 +48,8 @@ class SesMailSenderTest {
 		assertThat(request.fromEmailAddress()).isEqualTo("모집 <noreply@mo-zip.com>");
 		assertThat(request.destination().toAddresses()).containsExactly("student@school.ac.kr");
 		assertThat(request.content().simple().subject().data()).isEqualTo("제목");
-		assertThat(request.content().simple().body().html().data()).isEqualTo("<p>본문</p>");
-		assertThat(request.content().simple().body().text().data()).isEqualTo("텍스트 본문");
-	}
-
-	@Test
-	@DisplayName("textBody가 null이면 Body에 text 파트를 안 넣는다")
-	void omitsTextPartWhenNull() {
-		sesMailSender.send("student@school.ac.kr", "제목", "<p>본문</p>", null);
-
-		ArgumentCaptor<SendEmailRequest> captor = ArgumentCaptor.forClass(SendEmailRequest.class);
-		verify(sesV2Client).sendEmail(captor.capture());
-
-		assertThat(captor.getValue().content().simple().body().text()).isNull();
+		assertThat(request.content().simple().body().text().data()).isEqualTo("본문");
+		assertThat(request.content().simple().body().html()).isNull();
 	}
 
 	@Test
@@ -69,7 +58,7 @@ class SesMailSenderTest {
 		when(sesV2Client.sendEmail(any(SendEmailRequest.class)))
 			.thenThrow(SesV2Exception.builder().message("limit exceeded").build());
 
-		assertThatThrownBy(() -> sesMailSender.send("student@school.ac.kr", "제목", "<p>본문</p>", null))
+		assertThatThrownBy(() -> sesMailSender.send("student@school.ac.kr", "제목", "본문"))
 			.isInstanceOf(BusinessException.class)
 			.extracting(e -> ((BusinessException)e).getErrorCode())
 			.isEqualTo(MailErrorCode.SEND_FAILED);

@@ -21,27 +21,15 @@ class TaskMessageListenerTest {
 	private final TaskMessageListener listener = new TaskMessageListener(mailSender, new ObjectMapper());
 
 	@Test
-	@DisplayName("type이 SEND_MAIL이면 to/subject/htmlBody/textBody를 MailSender로 넘긴다")
+	@DisplayName("type이 SEND_MAIL이면 to/subject/body를 MailSender로 넘긴다")
 	void routesSendMailTaskToMailSender() {
 		String payload = """
-			{"type":"SEND_MAIL","to":"student@school.ac.kr","subject":"제목","htmlBody":"<p>본문</p>","textBody":"텍스트"}
+			{"type":"SEND_MAIL","to":"student@school.ac.kr","subject":"제목","body":"본문"}
 			""";
 
 		listener.onMessage(message(payload), null);
 
-		verify(mailSender).send("student@school.ac.kr", "제목", "<p>본문</p>", "텍스트");
-	}
-
-	@Test
-	@DisplayName("textBody가 없으면 null로 넘긴다")
-	void passesNullWhenTextBodyMissing() {
-		String payload = """
-			{"type":"SEND_MAIL","to":"student@school.ac.kr","subject":"제목","htmlBody":"<p>본문</p>"}
-			""";
-
-		listener.onMessage(message(payload), null);
-
-		verify(mailSender).send("student@school.ac.kr", "제목", "<p>본문</p>", null);
+		verify(mailSender).send("student@school.ac.kr", "제목", "본문");
 	}
 
 	@Test
@@ -51,7 +39,7 @@ class TaskMessageListenerTest {
 			.doesNotThrowAnyException();
 		assertThatCode(() -> listener.onMessage(message("not-json"), null)).doesNotThrowAnyException();
 
-		verify(mailSender, never()).send(any(), any(), any(), any());
+		verify(mailSender, never()).send(any(), any(), any());
 	}
 
 	private DefaultMessage message(String payload) {

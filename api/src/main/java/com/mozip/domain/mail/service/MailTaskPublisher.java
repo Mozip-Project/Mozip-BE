@@ -25,14 +25,12 @@ public class MailTaskPublisher {
 	private final StringRedisTemplate redisTemplate;
 	private final ObjectMapper objectMapper;
 
-	// textBody는 HTML을 못 읽는 클라이언트용 대체 본문, 없으면 null
-	public void publishSendMail(String to, String subject, String htmlBody, String textBody) {
+	public void publishSendMail(String to, String subject, String body) {
 		Map<String, Object> payload = new LinkedHashMap<>();
 		payload.put("type", WorkerTaskType.SEND_MAIL.name());
 		payload.put("to", to);
 		payload.put("subject", subject);
-		payload.put("htmlBody", htmlBody);
-		payload.put("textBody", textBody);
+		payload.put("body", body);
 		try {
 			redisTemplate.convertAndSend(WorkerChannel.TASKS, objectMapper.writeValueAsString(payload));
 		} catch (DataAccessException | JacksonException e) {

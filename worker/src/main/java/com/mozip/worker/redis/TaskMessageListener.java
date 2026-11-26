@@ -39,9 +39,8 @@ public class TaskMessageListener implements MessageListener {
 	private void handleSendMail(Map<?, ?> payload) {
 		String to = String.valueOf(payload.get("to"));
 		String subject = String.valueOf(payload.get("subject"));
-		String htmlBody = String.valueOf(payload.get("htmlBody"));
-		Object textBody = payload.get("textBody");
-		mailSender.send(to, subject, htmlBody, textBody == null ? null : String.valueOf(textBody));
+		String body = String.valueOf(payload.get("body"));
+		mailSender.send(to, subject, body);
 	}
 
 }

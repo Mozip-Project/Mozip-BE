@@ -9,7 +9,7 @@ import lombok.extern.slf4j.Slf4j;
 class LoggingMailSender implements MailSender {
 
 	@Override
-	public void send(String to, String subject, String htmlBody, String textBody) {
+	public void send(String to, String subject, String body) {
 		log.info("[LoggingMailSender] to={}, subject={}", to, subject);
 	}
 

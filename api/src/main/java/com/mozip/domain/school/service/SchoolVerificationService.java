@@ -64,8 +64,7 @@ public class SchoolVerificationService {
 		codeRepository.markRequested(email);
 		codeRepository.saveCode(email, code);
 		try {
-			mailTaskPublisher.publishSendMail(email, mailSubject(),
-				mailHtmlBody(school.getName(), code), mailTextBody(school.getName(), code));
+			mailTaskPublisher.publishSendMail(email, mailSubject(), mailBody(school.getName(), code));
 		} catch (RuntimeException e) {
 			// worker로 작업을 넘기지 못함. 다시 요청해야 하므로 방금 저장한 인증번호는 지움
 			codeRepository.deleteCode(email);
@@ -149,16 +148,7 @@ public class SchoolVerificationService {
 		return "[모집] 학교 인증번호";
 	}
 
-	private static String mailHtmlBody(String schoolName, String code) {
-		return """
-			<p>%s 메일로 학교 인증을 요청하셨습니다.</p>
-			<p>아래 인증번호를 10분 안에 입력해주세요.</p>
-			<h2>%s</h2>
-			<p>요청하지 않았다면 이 메일을 무시해주세요.</p>
-			""".formatted(schoolName, code);
-	}
-
-	private static String mailTextBody(String schoolName, String code) {
+	private static String mailBody(String schoolName, String code) {
 		return "%s 메일로 학교 인증을 요청하셨습니다. 인증번호: %s (10분 안에 입력해주세요)"
 			.formatted(schoolName, code);
 	}

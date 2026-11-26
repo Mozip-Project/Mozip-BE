@@ -29,19 +29,14 @@ public class SesMailSender implements MailSender {
 	private final SesProperties sesProperties;
 
 	@Override
-	public void send(String to, String subject, String htmlBody, String textBody) {
-		Body.Builder bodyBuilder = Body.builder()
-			.html(content(htmlBody));
-		if (textBody != null) {
-			bodyBuilder.text(content(textBody));
-		}
+	public void send(String to, String subject, String body) {
 		SendEmailRequest request = SendEmailRequest.builder()
 			.fromEmailAddress(fromAddress())
 			.destination(Destination.builder().toAddresses(to).build())
 			.content(EmailContent.builder()
 				.simple(Message.builder()
 					.subject(content(subject))
-					.body(bodyBuilder.build())
+					.body(Body.builder().text(content(body)).build())
 					.build())
 				.build())
 			.build();
