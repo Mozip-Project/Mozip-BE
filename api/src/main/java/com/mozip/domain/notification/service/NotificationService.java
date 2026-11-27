@@ -6,6 +6,7 @@ import java.util.Set;
 
 import org.springframework.context.ApplicationEventPublisher;
 import org.springframework.data.domain.PageRequest;
+import org.springframework.data.domain.Pageable;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
@@ -80,14 +81,26 @@ public class NotificationService {
 			broadcastOrganizationId, notification.getCreatedAt()));
 	}
 
+	// tab이 없으면 지원자/운영진 알림 전체를 최신순으로 반환
 	public List<Notification> notifications(Long userId, Role tab, int page, int size) {
 		if (page < 0 || size < 1 || size > MAX_PAGE_SIZE) {
 			throw new BusinessException(CommonErrorCode.INVALID_INPUT)
 				.addContext("page", page)
 				.addContext("size", size);
 		}
-		return notificationRepository.findAllByUserIdAndTypeInOrderByCreatedAtDescIdDesc(userId,
-			NotificationType.byTab(tab), PageRequest.of(page, size));
+		Pageable pageable = PageRequest.of(page, size);
+		return tab == null
+			? notificationRepository.findAllByUserIdOrderByCreatedAtDescIdDesc(userId, pageable)
+			: notificationRepository.findAllByUserIdAndTypeInOrderByCreatedAtDescIdDesc(userId,
+				NotificationType.byTab(tab), pageable);
+	}
+
+	// Notification.unreadCount 필드 배치 조회(컨트롤러)에서 씀. tab이 없으면 전체 개수
+	public int unreadCount(Long userId, Role tab) {
+		long count = tab == null
+			? notificationRepository.countByUserIdAndIsReadFalse(userId)
+			: notificationRepository.countByUserIdAndIsReadFalseAndTypeIn(userId, NotificationType.byTab(tab));
+		return (int)count;
 	}
 
 	@Transactional
