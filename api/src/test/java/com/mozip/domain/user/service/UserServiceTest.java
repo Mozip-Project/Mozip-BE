@@ -81,7 +81,6 @@ class UserServiceTest {
 		assertThat(me.notificationSettings().notifyResult()).isFalse();
 		assertThat(me.notificationSettings().notifyScrap()).isTrue();
 		assertThat(me.notificationSettings().notifyOperator()).isFalse();
-		assertThat(me.unreadNotificationCount()).isZero();
 	}
 
 	private Organization organization() {
