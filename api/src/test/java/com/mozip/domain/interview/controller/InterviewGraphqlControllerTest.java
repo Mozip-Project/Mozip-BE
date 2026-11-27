@@ -92,37 +92,59 @@ class InterviewGraphqlControllerTest {
 		}
 		""";
 
-	private static final String UPDATE_INTERVIEW = """
-		mutation($postingId: ID!, $input: InterviewInput!) {
-			updateInterview(postingId: $postingId, input: $input) {
-				interviews {
-					id
-					startAt
-					track
-					location
-					interviewers { id }
-					applicants { id }
-				}
-				unassignedApplicants { id }
-				recentLocations
+	private static final String TIMETABLE_FIELDS = """
+		{
+			confirmedAt
+			editing
+			trackCount
+			interviews {
+				id
+				startAt
+				track
+				location
+				interviewers { id }
+				applicants { id }
 			}
+			unassignedApplicants { id }
+			recentLocations
 		}
 		""";
 
-	private static final String DELETE_INTERVIEW = """
-		mutation($id: ID!) {
-			deleteInterview(id: $id) {
-				interviews { id }
-				unassignedApplicants { id }
-			}
-		}
-		""";
+	private static final String UPDATE_INTERVIEW = """
+		mutation($postingId: ID!, $input: InterviewInput!) {
+			updateInterview(postingId: $postingId, input: $input)
+		""" + TIMETABLE_FIELDS + "}";
+
+	private static final String UPDATE_INTERVIEW_LOCATIONS = """
+		mutation($postingId: ID!, $date: Date!, $track: Int!, $location: String) {
+			updateInterviewLocations(postingId: $postingId, date: $date, track: $track, location: $location)
+		""" + TIMETABLE_FIELDS + "}";
+
+	private static final String ADD_INTERVIEW_TRACK = """
+		mutation($postingId: ID!) {
+			addInterviewTrack(postingId: $postingId)
+		""" + TIMETABLE_FIELDS + "}";
+
+	private static final String START_INTERVIEW_TIMETABLE_EDIT = """
+		mutation($postingId: ID!) {
+			startInterviewTimetableEdit(postingId: $postingId)
+		""" + TIMETABLE_FIELDS + "}";
+
+	private static final String CANCEL_INTERVIEW_TIMETABLE_EDIT = """
+		mutation($postingId: ID!) {
+			cancelInterviewTimetableEdit(postingId: $postingId)
+		""" + TIMETABLE_FIELDS + "}";
 
 	private static final String CONFIRM_INTERVIEW_TIMETABLE = """
 		mutation($postingId: ID!) {
-			confirmInterviewTimetable(postingId: $postingId) {
-				confirmedAt
-				interviews { id }
+			confirmInterviewTimetable(postingId: $postingId)
+		""" + TIMETABLE_FIELDS + "}";
+
+	private static final String INTERVIEWER_CANDIDATES = """
+		query($postingId: ID!, $startAt: DateTime!, $interviewId: ID) {
+			interviewerCandidates(postingId: $postingId, startAt: $startAt, interviewId: $interviewId) {
+				member { id user { name } }
+				busyInterview { id startAt track }
 			}
 		}
 		""";
@@ -290,9 +312,10 @@ class InterviewGraphqlControllerTest {
 	}
 
 	@Test
-	@DisplayName("운영진이 updateInterview로 칸을 만들어 배정하고 confirmInterviewTimetable로 확정하면 지원자에게 알림이 쌓인다")
-	void updateAndConfirmInterviewTimetable() {
+	@DisplayName("운영진이 빈 칸에 배정해 확정하고, 수정 모드에서 바꾼 내용을 cancelInterviewTimetableEdit로 되돌린다")
+	void confirmEditAndCancelInterviewTimetable() {
 		LocalDate date = LocalDate.now().plusDays(10);
+		String secondSlot = date.atTime(10, 30) + ":00+09:00";
 		User operator = saveUser("운영진");
 		User applicant = saveUser("지원자");
 		Application application = submittedApplication(operator, applicant, date);
@@ -305,13 +328,14 @@ class InterviewGraphqlControllerTest {
 		String interviewId = asUser(operator).document(UPDATE_INTERVIEW)
 			.variable("postingId", postingId)
 			.variable("input", Map.of(
-				"startAt", date.atTime(10, 30) + ":00+09:00",
+				"startAt", secondSlot,
+				"track", 1,
 				"location", "301호",
 				"applicationIds", List.of(applicationId),
 				"interviewerMemberIds", List.of(memberId)))
 			.execute()
-			.path("updateInterview.interviews[0].startAt").entity(String.class)
-			.isEqualTo(date.atTime(10, 30) + ":00+09:00")
+			.path("updateInterview.trackCount").entity(Integer.class).isEqualTo(1)
+			.path("updateInterview.interviews[0].startAt").entity(String.class).isEqualTo(secondSlot)
 			.path("updateInterview.interviews[0].track").entity(Integer.class).isEqualTo(1)
 			.path("updateInterview.interviews[0].location").entity(String.class).isEqualTo("301호")
 			.path("updateInterview.interviews[0].interviewers[*].id").entityList(String.class)
@@ -322,16 +346,35 @@ class InterviewGraphqlControllerTest {
 			.path("updateInterview.recentLocations").entityList(String.class).containsExactly("301호")
 			.path("updateInterview.interviews[0].id").entity(String.class).get();
 
+		// 같은 시각의 다른 칸에서 면접관을 고르면 이 운영진은 이미 면접이 있는 것으로 나옴
+		asUser(operator).document(INTERVIEWER_CANDIDATES)
+			.variable("postingId", postingId)
+			.variable("startAt", secondSlot)
+			.execute()
+			.path("interviewerCandidates[0].member.id").entity(String.class).isEqualTo(memberId)
+			.path("interviewerCandidates[0].member.user.name").entity(String.class).isEqualTo("운영진")
+			.path("interviewerCandidates[0].busyInterview.id").entity(String.class).isEqualTo(interviewId)
+			.path("interviewerCandidates[0].busyInterview.track").entity(Integer.class).isEqualTo(1);
+
+		asUser(operator).document(UPDATE_INTERVIEW_LOCATIONS)
+			.variable("postingId", postingId)
+			.variable("date", date.toString())
+			.variable("track", 1)
+			.variable("location", "302호")
+			.execute()
+			.path("updateInterviewLocations.interviews[0].location").entity(String.class).isEqualTo("302호");
+
 		asUser(operator).document(CONFIRM_INTERVIEW_TIMETABLE)
 			.variable("postingId", postingId)
 			.execute()
 			.path("confirmInterviewTimetable.confirmedAt").entity(String.class)
 			.satisfies(confirmedAt -> assertThat(confirmedAt).endsWith("+09:00"))
+			.path("confirmInterviewTimetable.editing").entity(Boolean.class).isEqualTo(false)
 			.path("confirmInterviewTimetable.interviews[*].id").entityList(String.class)
 			.containsExactly(interviewId);
-		assertThat(jdbcTemplate.queryForObject(
-			"select count(*) from notifications where user_id = ? and type = 'POSTING_NOTICE'", Integer.class,
-			applicant.getId())).isEqualTo(1);
+		// 확정만으로는 지원자에게 알림이 가지 않음
+		assertThat(jdbcTemplate.queryForObject("select count(*) from notifications where user_id = ?", Integer.class,
+			applicant.getId())).isZero();
 
 		asUser(operator).document(CONFIRM_INTERVIEW_TIMETABLE)
 			.variable("postingId", postingId)
@@ -340,19 +383,52 @@ class InterviewGraphqlControllerTest {
 			.satisfy(errors -> assertThat(errors.getFirst().getExtensions())
 				.containsEntry("code", "INTERVIEW_409")
 				.containsEntry("reason", "ALREADY_CONFIRMED"));
-
-		// 확정 뒤에도 칸은 지울 수 있고 지원자는 미배정으로 돌아감
-		asUser(operator).document(DELETE_INTERVIEW)
-			.variable("id", interviewId)
+		asUser(operator).document(UPDATE_INTERVIEW)
+			.variable("postingId", postingId)
+			.variable("input", Map.of("id", interviewId, "applicationIds", List.of()))
 			.execute()
-			.path("deleteInterview.interviews").entityList(Object.class).hasSize(0)
-			.path("deleteInterview.unassignedApplicants[*].id").entityList(String.class)
+			.errors()
+			.satisfy(errors -> assertThat(errors.getFirst().getExtensions())
+				.containsEntry("code", "INTERVIEW_409")
+				.containsEntry("reason", "EDIT_MODE_REQUIRED"));
+
+		asUser(operator).document(START_INTERVIEW_TIMETABLE_EDIT)
+			.variable("postingId", postingId)
+			.execute()
+			.path("startInterviewTimetableEdit.editing").entity(Boolean.class).isEqualTo(true);
+		asUser(operator).document(ADD_INTERVIEW_TRACK)
+			.variable("postingId", postingId)
+			.execute()
+			.path("addInterviewTrack.trackCount").entity(Integer.class).isEqualTo(2);
+		// 지원자를 빼면 칸이 지워지고 지원자는 미배정으로 돌아감
+		asUser(operator).document(UPDATE_INTERVIEW)
+			.variable("postingId", postingId)
+			.variable("input", Map.of("id", interviewId, "applicationIds", List.of()))
+			.execute()
+			.path("updateInterview.editing").entity(Boolean.class).isEqualTo(true)
+			.path("updateInterview.interviews").entityList(Object.class).hasSize(0)
+			.path("updateInterview.unassignedApplicants[*].id").entityList(String.class)
 			.containsExactly(applicationId);
+
+		asUser(operator).document(CANCEL_INTERVIEW_TIMETABLE_EDIT)
+			.variable("postingId", postingId)
+			.execute()
+			.path("cancelInterviewTimetableEdit.editing").entity(Boolean.class).isEqualTo(false)
+			.path("cancelInterviewTimetableEdit.trackCount").entity(Integer.class).isEqualTo(1)
+			.path("cancelInterviewTimetableEdit.confirmedAt").entity(String.class)
+			.satisfies(confirmedAt -> assertThat(confirmedAt).endsWith("+09:00"))
+			.path("cancelInterviewTimetableEdit.interviews[0].startAt").entity(String.class).isEqualTo(secondSlot)
+			.path("cancelInterviewTimetableEdit.interviews[0].location").entity(String.class).isEqualTo("302호")
+			.path("cancelInterviewTimetableEdit.interviews[0].interviewers[*].id").entityList(String.class)
+			.containsExactly(memberId)
+			.path("cancelInterviewTimetableEdit.interviews[0].applicants[*].id").entityList(String.class)
+			.containsExactly(applicationId)
+			.path("cancelInterviewTimetableEdit.unassignedApplicants").entityList(Object.class).hasSize(0);
 	}
 
 	@Test
-	@DisplayName("그 단체의 운영진이 아닌 회원이 updateInterview나 confirmInterviewTimetable을 부르면 COMMON_403이다")
-	void updateInterviewOfOtherOrganization() {
+	@DisplayName("그 단체의 운영진이 아닌 회원이 타임테이블을 바꾸는 mutation이나 interviewerCandidates를 부르면 COMMON_403이다")
+	void changeInterviewTimetableOfOtherOrganization() {
 		LocalDate date = LocalDate.now().plusDays(10);
 		Application application = submittedApplication(saveUser("지원자"), date);
 		String postingId = String.valueOf(application.getPosting().getId());
@@ -364,8 +440,25 @@ class InterviewGraphqlControllerTest {
 			.execute()
 			.errors()
 			.satisfy(errors -> assertThat(errors.getFirst().getExtensions()).containsEntry("code", "COMMON_403"));
-		asUser(outsider).document(CONFIRM_INTERVIEW_TIMETABLE)
+		asUser(outsider).document(UPDATE_INTERVIEW_LOCATIONS)
 			.variable("postingId", postingId)
+			.variable("date", date.toString())
+			.variable("track", 1)
+			.variable("location", "301호")
+			.execute()
+			.errors()
+			.satisfy(errors -> assertThat(errors.getFirst().getExtensions()).containsEntry("code", "COMMON_403"));
+		for (String document : List.of(ADD_INTERVIEW_TRACK, START_INTERVIEW_TIMETABLE_EDIT,
+			CANCEL_INTERVIEW_TIMETABLE_EDIT, CONFIRM_INTERVIEW_TIMETABLE)) {
+			asUser(outsider).document(document)
+				.variable("postingId", postingId)
+				.execute()
+				.errors()
+				.satisfy(errors -> assertThat(errors.getFirst().getExtensions()).containsEntry("code", "COMMON_403"));
+		}
+		asUser(outsider).document(INTERVIEWER_CANDIDATES)
+			.variable("postingId", postingId)
+			.variable("startAt", date.atTime(10, 0) + ":00+09:00")
 			.execute()
 			.errors()
 			.satisfy(errors -> assertThat(errors.getFirst().getExtensions()).containsEntry("code", "COMMON_403"));

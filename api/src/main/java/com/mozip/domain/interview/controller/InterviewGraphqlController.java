@@ -1,5 +1,6 @@
 package com.mozip.domain.interview.controller;
 
+import java.time.LocalDate;
 import java.time.LocalDateTime;
 import java.util.List;
 import java.util.Map;
@@ -16,6 +17,7 @@ import org.springframework.stereotype.Controller;
 import com.mozip.domain.application.entity.Application;
 import com.mozip.domain.interview.dto.InterviewInput;
 import com.mozip.domain.interview.dto.InterviewTimetable;
+import com.mozip.domain.interview.dto.InterviewerCandidate;
 import com.mozip.domain.interview.entity.Interview;
 import com.mozip.domain.interview.entity.InterviewApplicant;
 import com.mozip.domain.interview.entity.Interviewer;
@@ -29,6 +31,7 @@ import com.mozip.domain.posting.repository.PostingRepository;
 import com.mozip.global.security.AuthUser;
 
 import jakarta.validation.Valid;
+import jakarta.validation.constraints.Size;
 import lombok.RequiredArgsConstructor;
 
 @Controller
@@ -66,8 +69,33 @@ public class InterviewGraphqlController {
 	}
 
 	@MutationMapping
-	public InterviewTimetable deleteInterview(@Argument Long id, @AuthenticationPrincipal AuthUser authUser) {
-		return interviewTimetableService.delete(authUser.userId(), id);
+	public InterviewTimetable updateInterviewLocations(@Argument Long postingId, @Argument LocalDate date,
+		@Argument int track, @Argument @Size(max = 100) String location,
+		@AuthenticationPrincipal AuthUser authUser) {
+		return interviewTimetableService.updateLocations(authUser.userId(), postingId, date, track, location);
+	}
+
+	@MutationMapping
+	public InterviewTimetable addInterviewTrack(@Argument Long postingId, @AuthenticationPrincipal AuthUser authUser) {
+		return interviewTimetableService.addTrack(authUser.userId(), postingId);
+	}
+
+	@MutationMapping
+	public InterviewTimetable startInterviewTimetableEdit(@Argument Long postingId,
+		@AuthenticationPrincipal AuthUser authUser) {
+		return interviewTimetableService.startEdit(authUser.userId(), postingId);
+	}
+
+	@MutationMapping
+	public InterviewTimetable cancelInterviewTimetableEdit(@Argument Long postingId,
+		@AuthenticationPrincipal AuthUser authUser) {
+		return interviewTimetableService.cancelEdit(authUser.userId(), postingId);
+	}
+
+	@QueryMapping
+	public List<InterviewerCandidate> interviewerCandidates(@Argument Long postingId,
+		@Argument LocalDateTime startAt, @Argument Long interviewId, @AuthenticationPrincipal AuthUser authUser) {
+		return interviewTimetableService.interviewerCandidates(authUser.userId(), postingId, startAt, interviewId);
 	}
 
 	@MutationMapping
