@@ -87,6 +87,13 @@
 | `APPLICATION_409` | 409 | `CONFLICT` | `reason`으로 구분 (`ApplicationConflictReason`) |
 | `APPLICATION_400` | 400 | `INVALID_INPUT` | `submitApplication`에서 필수 문항 누락·글자 수·선택지·첨부 개수 위반. `fieldErrors`에 questionId별 메시지가 담김 |
 
+## 메시지 (`MessageErrorCode`, #95)
+
+| 코드 | HTTP | 상수 | 언제 |
+|---|---|---|---|
+| `MESSAGE_409` | 409 | `CONFLICT` | `reason`으로 구분 (`MessageConflictReason`) |
+| `MESSAGE_422` | 422 | `NOT_SENDABLE` | `sendMessages`에서 발송 조건을 못 채움. `reason`으로 구분 (`MessageSendReason`) |
+
 ## reason enum
 
 같은 코드 안에서 상황을 나누는 값. 응답의 `extensions.reason`에 enum 이름이 들어간다. `BusinessException(errorCode, reason)`
@@ -101,6 +108,9 @@
 | `ApplicationConflictReason` | `APPLICATION_409` | `ALREADY_SUBMITTED`(이미 제출된 지원서를 다시 저장·제출하려 함, #69), `CONCURRENT_SAVE`(동시 요청으로 지원서가 막 생성됨, 다시 요청하면 됨, #69) |
 | `ApplicationForbiddenReason` | `APPLICATION_403` | `SCHOOL_NOT_VERIFIED`(학교 인증을 하지 않은 회원, #69) |
 | `ApplicationInputReason` | `COMMON_400` | `POSITION_FROM_ANOTHER_POSTING`, `QUESTION_FROM_ANOTHER_POSTING`, `QUESTION_NOT_FOR_POSITION`, `AVAILABLE_TIME_NOT_OPEN`(면접 가능 시간이 열려 있는 블록의 시작 시각이 아님), `ATTACHMENT_NOT_ALLOWED_FOR_QUESTION_TYPE`(FILE_LINK가 아닌 문항에 첨부를 보냄), `INVALID_ATTACHMENT_URL`(LINK가 http/https가 아니거나 FILE이 presigned 경로가 아님) (#69) |
+| `MessageConflictReason` | `MESSAGE_409` | `RESULT_NOT_CONFIRMED`(서류 결과 확정 전), `ALREADY_SENT`(이미 SENDING 또는 SENT인 메시지를 수정하거나 다시 발송하려 함), `CONCURRENT_SAVE`(같은 대상의 첫 저장이 동시에 들어옴, 다시 요청하면 됨) (#95) |
+| `MessageSendReason` | `MESSAGE_422` | `MESSAGE_NOT_SAVED`(저장한 초안 없음), `EMPTY_MESSAGE`(제목 또는 본문이 빈 값), `NO_RECIPIENTS`(받는 사람 0명), `NO_SENDABLE_RECIPIENTS`(받는 사람 전원이 이메일 경고) (#95) |
+| `MessageInputReason` | `COMMON_400` | `UNSUPPORTED_TYPE`(type이 DOC_RESULT가 아님), `INVALID_TARGET`(target이 PASS/FAIL이 아님), `SUBJECT_REQUIRED`, `SUBJECT_TOO_LONG`(제목 1~100자), `BODY_REQUIRED`, `BODY_TOO_LONG`(본문 1~1,000자), `TARGETS_REQUIRED`(발송 대상이 비어 있음), `DUPLICATE_TARGET`(같은 대상이 두 번) (#95) |
 
 ## fieldErrors를 응답에 담는 BusinessException
 
