@@ -43,6 +43,10 @@ public class Interview extends BaseEntity {
 	@Column(nullable = false)
 	private int track;
 
+	// 면접 장소, 운영진이 직접 입력
+	@Column(length = 100)
+	private String location;
+
 	private Interview(Posting posting, LocalDateTime startAt, LocalDateTime endAt, int track) {
 		this.posting = posting;
 		this.startAt = startAt;

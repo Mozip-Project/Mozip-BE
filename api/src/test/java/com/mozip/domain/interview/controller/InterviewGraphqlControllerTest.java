@@ -63,6 +63,34 @@ class InterviewGraphqlControllerTest {
 		}
 		""";
 
+	private static final String GENERATE_INTERVIEW_TIMETABLE = """
+		mutation($postingId: ID!) {
+			generateInterviewTimetable(postingId: $postingId) {
+				confirmedAt
+				slots { startAt closed }
+				interviews {
+					startAt
+					track
+					location
+					posting { id }
+					interviewers { id }
+					applicants { id }
+				}
+				unassignedApplicants { id }
+				recentLocations
+			}
+		}
+		""";
+
+	private static final String INTERVIEW_TIMETABLE = """
+		query($postingId: ID!) {
+			interviewTimetable(postingId: $postingId) {
+				interviews { applicants { id } }
+				unassignedApplicants { id }
+			}
+		}
+		""";
+
 	@Autowired
 	private HttpGraphQlTester graphQlTester;
 
@@ -153,9 +181,84 @@ class InterviewGraphqlControllerTest {
 				.containsEntry("reason", "TIMETABLE_CONFIRMED"));
 	}
 
-	// 10:00~11:00에 면접 20분, 쉬는 시간 10분이라 블록은 10:00, 10:30. 10:00을 골라 제출해 둠
-	private Application submittedApplication(User applicant, LocalDate date) {
+	@Test
+	@DisplayName("운영진이 generateInterviewTimetable을 부르면 서류 합격자가 고른 칸에 배정되고 interviewTimetable로 다시 읽힌다")
+	void generateInterviewTimetable() {
+		LocalDate date = LocalDate.now().plusDays(10);
 		User operator = saveUser("운영진");
+		Application application = submittedApplication(operator, saveUser("지원자"), date);
+		String postingId = String.valueOf(application.getPosting().getId());
+		String applicationId = String.valueOf(application.getId());
+		// 서류 결과 확정은 서류 평가 이슈에서 생겨서 컬럼을 직접 채움
+		jdbcTemplate.update("update applications set doc_result = 'PASS' where id = ?", application.getId());
+
+		asUser(operator).document(GENERATE_INTERVIEW_TIMETABLE)
+			.variable("postingId", postingId)
+			.execute()
+			.path("generateInterviewTimetable.confirmedAt").valueIsNull()
+			.path("generateInterviewTimetable.slots[*].startAt").entityList(String.class)
+			.containsExactly(date.atTime(10, 0) + ":00+09:00", date.atTime(10, 30) + ":00+09:00")
+			.path("generateInterviewTimetable.interviews[*].startAt").entityList(String.class)
+			.containsExactly(date.atTime(10, 0) + ":00+09:00")
+			.path("generateInterviewTimetable.interviews[0].track").entity(Integer.class).isEqualTo(1)
+			.path("generateInterviewTimetable.interviews[0].location").valueIsNull()
+			.path("generateInterviewTimetable.interviews[0].posting.id").entity(String.class).isEqualTo(postingId)
+			.path("generateInterviewTimetable.interviews[0].interviewers").entityList(Object.class).hasSize(0)
+			.path("generateInterviewTimetable.interviews[0].applicants[*].id").entityList(String.class)
+			.containsExactly(applicationId)
+			.path("generateInterviewTimetable.unassignedApplicants").entityList(Object.class).hasSize(0)
+			.path("generateInterviewTimetable.recentLocations").entityList(String.class).hasSize(0);
+
+		asUser(operator).document(INTERVIEW_TIMETABLE)
+			.variable("postingId", postingId)
+			.execute()
+			.path("interviewTimetable.interviews[0].applicants[*].id").entityList(String.class)
+			.containsExactly(applicationId)
+			.path("interviewTimetable.unassignedApplicants").entityList(Object.class).hasSize(0);
+	}
+
+	@Test
+	@DisplayName("그 단체의 운영진이 아닌 회원이 interviewTimetable이나 generateInterviewTimetable을 부르면 COMMON_403이다")
+	void interviewTimetableOfOtherOrganization() {
+		Application application = submittedApplication(saveUser("지원자"), LocalDate.now().plusDays(10));
+		String postingId = String.valueOf(application.getPosting().getId());
+		User outsider = saveUser("외부인");
+
+		asUser(outsider).document(INTERVIEW_TIMETABLE)
+			.variable("postingId", postingId)
+			.execute()
+			.errors()
+			.satisfy(errors -> assertThat(errors.getFirst().getExtensions()).containsEntry("code", "COMMON_403"));
+		asUser(outsider).document(GENERATE_INTERVIEW_TIMETABLE)
+			.variable("postingId", postingId)
+			.execute()
+			.errors()
+			.satisfy(errors -> assertThat(errors.getFirst().getExtensions()).containsEntry("code", "COMMON_403"));
+	}
+
+	@Test
+	@DisplayName("타임테이블이 확정된 뒤 generateInterviewTimetable을 부르면 INTERVIEW_409에 reason이 TIMETABLE_CONFIRMED다")
+	void generateInterviewTimetableAfterConfirm() {
+		User operator = saveUser("운영진");
+		Application application = submittedApplication(operator, saveUser("지원자"), LocalDate.now().plusDays(10));
+		jdbcTemplate.update("update postings set timetable_confirmed_at = now() where id = ?",
+			application.getPosting().getId());
+
+		asUser(operator).document(GENERATE_INTERVIEW_TIMETABLE)
+			.variable("postingId", String.valueOf(application.getPosting().getId()))
+			.execute()
+			.errors()
+			.satisfy(errors -> assertThat(errors.getFirst().getExtensions())
+				.containsEntry("code", "INTERVIEW_409")
+				.containsEntry("reason", "TIMETABLE_CONFIRMED"));
+	}
+
+	private Application submittedApplication(User applicant, LocalDate date) {
+		return submittedApplication(saveUser("운영진"), applicant, date);
+	}
+
+	// 10:00~11:00에 면접 20분, 쉬는 시간 10분이라 블록은 10:00, 10:30. 10:00을 골라 제출해 둠
+	private Application submittedApplication(User operator, User applicant, LocalDate date) {
 		School school = schoolRepository.save(
 			School.create("면접 시간 테스트대학교 " + ThreadLocalRandom.current().nextInt(1_000_000), null));
 		jdbcTemplate.update("update users set school_id = ? where id = ?", school.getId(), applicant.getId());

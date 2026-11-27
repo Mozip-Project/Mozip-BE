@@ -8,7 +8,7 @@ type Interview {
     endAt: DateTime!
     "같은 시간대에 동시에 진행하는 면접실 열 (면접실 1, 면접실 2), 1부터"
     track: Int!
-    "면접 장소, 타임테이블 확정 뒤 입력 (후보 = 이 모집에서 쓴 장소)"
+    "면접 장소, 운영진이 직접 입력 (후보 = InterviewTimetable.recentLocations)"
     location: String
     "운영진이 직접 추가한 면접관, 자동 배정은 없어 처음에는 비어 있음"
     interviewers: [Member!]!
@@ -16,7 +16,45 @@ type Interview {
     applicants: [Application!]!
 }
 
+"타임테이블 격자의 블록 한 칸. 면접 설정과 운영진이 연 시간대로 매번 계산하고 저장하지 않음"
+type InterviewSlot {
+    startAt: DateTime!
+    "면접이 끝나는 시각, 쉬는 시간은 그 뒤에 붙음"
+    endAt: DateTime!
+    "운영진이 끈 블록이면 true, 자동 생성은 여기에 배정하지 않음"
+    closed: Boolean!
+}
+
+"운영진이 보는 면접 타임테이블"
+type InterviewTimetable {
+    posting: Posting!
+    "확정 시각, 확정 전이면 null"
+    confirmedAt: DateTime
+    "빈 칸까지 포함한 전체 블록, 시간순. 면접 설정이 덜 채워졌으면 빈 목록"
+    slots: [InterviewSlot!]!
+    "지원자가 배정된 면접 칸, 시작 시각과 track 순"
+    interviews: [Interview!]!
+    "서류 합격인데 어느 칸에도 없는 지원자, 먼저 낸 순"
+    unassignedApplicants: [Application!]!
+    "이 모집에서 쓴 장소, 최근에 쓴 순"
+    recentLocations: [String!]!
+}
+
+extend type Query {
+    "면접 타임테이블 조회. 그 공고 단체의 운영진만 (아니면 COMMON_403), 공고가 없으면 POSTING_404. 생성 전이면 interviews는 비고 서류 합격자가 전부 unassignedApplicants에 들어감"
+    interviewTimetable(postingId: ID!): InterviewTimetable!
+}
+
 extend type Mutation {
+    """
+    면접 타임테이블 자동 생성. 서류 합격자를 각자 고른 면접 가능 시간에 먼저 낸 순으로 배정하고 면접관은 배정하지 않음.
+    다시 부르면 기존 배정(면접관, 장소 포함)을 지우고 새로 만듦.
+    그 공고 단체의 운영진만 (아니면 COMMON_403), 공고가 없으면 POSTING_404,
+    면접 없는 공고면 COMMON_400(reason: NO_INTERVIEW), 면접 설정이 덜 채워졌으면 COMMON_400(reason: INTERVIEW_SETTING_REQUIRED),
+    타임테이블이 확정된 뒤면 INTERVIEW_409(reason: TIMETABLE_CONFIRMED)
+    """
+    generateInterviewTimetable(postingId: ID!): InterviewTimetable!
+
     """
     면접 가능 시간 재선택. 지원자 본인만 (아니면 COMMON_403), 지원서가 없으면 APPLICATION_404. 기존 값은 통째로 교체.
     면접 없는 공고면 COMMON_400(reason: NO_INTERVIEW), 빈 목록이면 COMMON_400(reason: AVAILABLE_TIMES_REQUIRED),

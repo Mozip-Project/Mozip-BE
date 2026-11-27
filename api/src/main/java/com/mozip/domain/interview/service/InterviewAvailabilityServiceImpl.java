@@ -1,7 +1,6 @@
 package com.mozip.domain.interview.service;
 
 import java.time.LocalDateTime;
-import java.time.LocalTime;
 import java.util.List;
 import java.util.Set;
 import java.util.stream.Collectors;
@@ -16,14 +15,9 @@ import com.mozip.domain.application.repository.ApplicationRepository;
 import com.mozip.domain.interview.exception.InterviewConflictReason;
 import com.mozip.domain.interview.exception.InterviewErrorCode;
 import com.mozip.domain.interview.exception.InterviewInputReason;
-import com.mozip.domain.interview.timetable.InterviewSetting;
-import com.mozip.domain.interview.timetable.InterviewSlotCalculator;
 import com.mozip.domain.interview.timetable.Slot;
-import com.mozip.domain.interview.timetable.TimeRange;
-import com.mozip.domain.posting.entity.InterviewTimeRange;
 import com.mozip.domain.posting.entity.Position;
 import com.mozip.domain.posting.entity.Posting;
-import com.mozip.domain.posting.repository.InterviewTimeRangeRepository;
 import com.mozip.global.exception.BusinessException;
 import com.mozip.global.exception.CommonErrorCode;
 
@@ -36,7 +30,7 @@ import lombok.RequiredArgsConstructor;
 public class InterviewAvailabilityServiceImpl implements InterviewAvailabilityService {
 
 	private final ApplicationRepository applicationRepository;
-	private final InterviewTimeRangeRepository interviewTimeRangeRepository;
+	private final InterviewSlotReader interviewSlotReader;
 
 	@Override
 	@Transactional
@@ -99,31 +93,14 @@ public class InterviewAvailabilityServiceImpl implements InterviewAvailabilitySe
 
 	// 포지션 전용 시간대는 그 포지션 지원자에게만 열림
 	private Set<LocalDateTime> openSlotStartTimes(Posting posting, Position position) {
-		if (posting.getInterviewMinutes() == null || posting.getBreakMinutes() == null
-			|| posting.getMaxApplicantsPerInterview() == null || posting.getMaxParallelInterviews() == null) {
-			return Set.of();
-		}
-		List<TimeRange> ranges = interviewTimeRangeRepository.findAllByPostingOrderByDateAscStartTimeAsc(posting)
+		return interviewSlotReader.setting(posting)
+			.map(setting -> interviewSlotReader.slots(posting, setting, range -> range.getPosition() == null
+				|| (position != null && range.getPosition().getId().equals(position.getId()))))
+			.orElse(List.of())
 			.stream()
-			.filter(range -> range.getPosition() == null
-				|| (position != null && range.getPosition().getId().equals(position.getId())))
-			.map(this::toTimeRange)
-			.toList();
-		if (ranges.isEmpty()) {
-			return Set.of();
-		}
-		InterviewSetting setting = new InterviewSetting(posting.getInterviewMinutes(), posting.getBreakMinutes(),
-			posting.getMaxApplicantsPerInterview(), posting.getMaxParallelInterviews());
-		return InterviewSlotCalculator.calculate(ranges, setting).stream()
 			.filter(slot -> !slot.closed())
 			.map(Slot::startAt)
 			.collect(Collectors.toSet());
-	}
-
-	private TimeRange toTimeRange(InterviewTimeRange range) {
-		List<LocalTime> closedSlots = range.getClosedSlots();
-		return new TimeRange(range.getDate(), range.getStartTime(), range.getEndTime(),
-			closedSlots == null ? Set.of() : Set.copyOf(closedSlots));
 	}
 
 	private Application findById(Long applicationId) {
