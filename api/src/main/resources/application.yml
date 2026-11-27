@@ -71,3 +71,14 @@ logging:
   pattern:
     # 모든 로그 줄에 traceId 출력 (TraceIdFilter가 MDC에 넣은 값)
     correlation: "[%X{traceId:-}] "
+
+---
+# 배포 환경은 로그를 한 줄 JSON으로 출력 (Loki에서 traceId, operationName, errorCodes로 검색). local은 위 패턴 그대로
+spring:
+  config:
+    activate:
+      on-profile: dev | prod
+logging:
+  structured:
+    format:
+      console: logstash
