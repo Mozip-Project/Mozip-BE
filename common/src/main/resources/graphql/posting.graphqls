@@ -390,7 +390,8 @@ extend type Mutation {
     toggleScrap(postingId: ID!): ScrapResult!
     """
     공고 신고 접수. 신고 처리(검토, 조치)는 관리자 화면 몫이라 여기서는 접수만 함.
-    같은 회원이 같은 공고를 두 번 신고하면 REPORT_409
+    detail은 최대 300자, 넘으면 COMMON_400(fieldErrors의 detail 항목).
+    DRAFT나 없는 공고는 POSTING_404, 같은 회원이 같은 공고를 두 번 신고하면 REPORT_409
     """
     reportPosting(postingId: ID!, reason: ReportReason!, detail: String): Boolean!
 }

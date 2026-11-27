@@ -105,6 +105,14 @@ class ReportServiceTest {
 	}
 
 	@Test
+	@DisplayName("토큰의 회원이 DB에 없으면 COMMON_401을 던진다")
+	void rejectsReportingWithMissingUser() {
+		assertThatThrownBy(() -> reportService.report(999_999L, posting.getId(), ReportReason.ETC, null))
+			.isInstanceOfSatisfying(BusinessException.class,
+				e -> assertThat(e.getErrorCode()).isEqualTo(CommonErrorCode.UNAUTHORIZED));
+	}
+
+	@Test
 	@DisplayName("아직 게시 전(DRAFT)인 공고를 신고하면 POSTING_404를 던진다")
 	void rejectsReportingDraftPosting() {
 		Posting draft = postingRepository.save(Posting.create(organization, "초안 공고"));
@@ -113,17 +121,6 @@ class ReportServiceTest {
 			.isInstanceOf(BusinessException.class)
 			.extracting(e -> ((BusinessException)e).getErrorCode())
 			.isEqualTo(PostingErrorCode.NOT_FOUND);
-	}
-
-	@Test
-	@DisplayName("detail이 300자를 넘으면 COMMON_400을 던진다")
-	void rejectsReportWithTooLongDetail() {
-		String tooLong = "가".repeat(301);
-
-		assertThatThrownBy(() -> reportService.report(user.getId(), posting.getId(), ReportReason.ETC, tooLong))
-			.isInstanceOf(BusinessException.class)
-			.extracting(e -> ((BusinessException)e).getErrorCode())
-			.isEqualTo(CommonErrorCode.INVALID_INPUT);
 	}
 
 }

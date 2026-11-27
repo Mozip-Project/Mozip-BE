@@ -126,6 +126,33 @@ class ScrapReportGraphqlControllerTest {
 			});
 	}
 
+	@Test
+	@DisplayName("reportPosting의 detail이 300자를 넘으면 COMMON_400과 fieldErrors의 detail 항목으로 거부한다")
+	void rejectsReportWithTooLongDetail() {
+		HttpGraphQlTester tester = asUser(user);
+		String tooLong = "가".repeat(301);
+
+		tester.document("""
+			mutation($postingId: ID!, $detail: String) {
+				reportPosting(postingId: $postingId, reason: ETC, detail: $detail)
+			}
+			""")
+			.variable("postingId", posting.getId())
+			.variable("detail", tooLong)
+			.execute()
+			.errors()
+			.satisfy(errors -> {
+				assertThat(errors).hasSize(1);
+				assertThat(errors.getFirst().getErrorType()).isEqualTo(ErrorType.BAD_REQUEST);
+				assertThat(errors.getFirst().getExtensions()).containsEntry("code", "COMMON_400");
+				assertThat(errors.getFirst().getExtensions().get("fieldErrors"))
+					.asList()
+					.singleElement()
+					.hasFieldOrPropertyWithValue("field", "detail")
+					.hasFieldOrPropertyWithValue("message", "최대 300자까지 입력할 수 있어요");
+			});
+	}
+
 	private HttpGraphQlTester asUser(User user) {
 		String accessToken = jwtProvider.createAccessToken(user.getId(), Authority.USER);
 		// MockMvc는 Cookie 헤더 문자열을 파싱하지 않으므로 WebTestClient의 쿠키로 전달
