@@ -17,10 +17,6 @@ public enum FilePurpose {
 		"image/png", ".png",
 		"image/jpeg", ".jpg",
 		"image/webp", ".webp")),
-	ENROLLMENT_CERT("enrollment-cert", 10 * 1024 * 1024, Map.of(
-		"image/png", ".png",
-		"image/jpeg", ".jpg",
-		"application/pdf", ".pdf")),
 	APPLICATION_ATTACHMENT("application-attachment", 20 * 1024 * 1024, Map.of(
 		"application/pdf", ".pdf"));
 

@@ -16,6 +16,7 @@ import org.springframework.security.crypto.password.PasswordEncoder;
 
 import com.mozip.domain.auth.exception.RefreshTokenConsumedException;
 import com.mozip.domain.auth.repository.RefreshTokenRepository;
+import com.mozip.domain.school.service.SchoolVerificationService;
 import com.mozip.domain.user.repository.UserRepository;
 import com.mozip.global.exception.BusinessException;
 import com.mozip.global.exception.CommonErrorCode;
@@ -30,8 +31,8 @@ class AuthServiceTest {
 	private final RefreshTokenRepository refreshTokenRepository = mock(RefreshTokenRepository.class);
 	private final JwtProvider jwtProvider = mock(JwtProvider.class);
 	private final AuthService authService = new AuthService(userRepository, refreshTokenRepository,
-		mock(PasswordEncoder.class), jwtProvider, new JwtProperties("secret", Duration.ofMinutes(30), Duration.ofDays(14)),
-		Clock.systemDefaultZone());
+		mock(SchoolVerificationService.class), mock(PasswordEncoder.class), jwtProvider,
+		new JwtProperties("secret", Duration.ofMinutes(30), Duration.ofDays(14)), Clock.systemDefaultZone());
 
 	@Test
 	@DisplayName("토큰을 소비한 뒤 회원 조회 DB가 실패하면 쿠키를 지우도록 소비 후 예외(500)로 감싼다")

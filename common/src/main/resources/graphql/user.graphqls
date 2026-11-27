@@ -19,9 +19,11 @@ enum Role {
     OPERATOR
 }
 
-enum SchoolVerificationMethod {
-    SCHOOL_EMAIL
-    CERTIFICATE
+"학교 인증 메일을 worker가 실제로 보냈는지. requestSchoolEmailVerification의 true는 접수됐다는 뜻일 뿐이라 이 값으로 발송 결과를 확인함"
+enum SchoolEmailVerificationStatus {
+    PENDING
+    SENT
+    FAILED
 }
 
 "알림 탭(지원자/운영진), 알림 설정 토글, 출처 라벨, 이동 화면을 type으로 정함"
@@ -69,22 +71,6 @@ type User {
     "대표자 인수 요청, 평가 마감 알림"
     notifyOperator: Boolean!
     experiences: [Experience!]!
-    createdAt: DateTime!
-}
-
-type SchoolVerification {
-    id: ID!
-    user: User!
-    school: School
-    "목록에 없는 학교 직접 입력"
-    schoolName: String
-    method: SchoolVerificationMethod!
-    email: String
-    certificateUrl: String
-    "메일 인증은 바로 APPROVED"
-    status: ReviewStatus!
-    rejectReason: String
-    reviewedAt: DateTime
     createdAt: DateTime!
 }
 
@@ -155,6 +141,10 @@ extend type Query {
     notifications(role: Role!, page: Int = 0, size: Int = 20): [Notification!]!
     "로그인한 회원 정보 (지원자/운영진 화면 분기에 사용)"
     me: Me!
+    "학교 이름 검색 (단체 만들기, 학교 인증 화면 자동완성). 상위 20개만, keyword가 비면 빈 배열"
+    schools(keyword: String): [School!]! @public
+    "requestSchoolEmailVerification 이후 실제 발송 상태를 폴링으로 확인. 요청한 적 없거나 5분 지나면 null"
+    schoolEmailVerificationStatus(email: String!): SchoolEmailVerificationStatus @public
 }
 
 extend type Mutation {
@@ -162,4 +152,19 @@ extend type Mutation {
     markNotificationsRead(ids: [ID!]!): Boolean!
     "알림 수신 설정 변경"
     updateNotificationSettings(input: UpdateNotificationSettingsInput!): NotificationSettings!
+    """
+    로그인 없이도 호출 가능. 메일 도메인으로 학교를 찾아 인증번호를 메일로 보냄(5분 유효). 못 찾으면 SCHOOL_404.
+    true는 발송 작업이 접수됐다는 뜻이고 실제로 메일이 갔는지는 보장하지 않음. schoolEmailVerificationStatus로 확인.
+    로그인한 상태로 호출했고 이미 학교 인증된 회원이면 SCHOOL_409(reason: ALREADY_VERIFIED).
+    이 메일이 이미 다른(또는 같은) 회원의 인증에 쓰였으면 SCHOOL_409(reason: EMAIL_ALREADY_VERIFIED).
+    짧은 시간에 반복 요청하면 SCHOOL_429
+    """
+    requestSchoolEmailVerification(email: String!): Boolean! @public
+    """
+    로그인 없이도 호출 가능. 가입 폼의 나머지 입력을 채우기 전에 인증번호를 확인함.
+    성공하면 코드를 지우고 10분간 "확인됨"으로 표시하며, 그 안에 같은 email로 가입(POST /auth/signup)해야 함.
+    이미 확인된 메일로 다시 부르면 SCHOOL_409(reason: EMAIL_ALREADY_CONFIRMED)를 던짐.
+    그 외 코드 불일치/만료/모르는 메일 도메인은 에러 없이 false로만 응답함
+    """
+    verifySchoolEmail(email: String!, code: String!): Boolean! @public
 }

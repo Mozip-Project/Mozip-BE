@@ -2,6 +2,7 @@ package com.mozip.domain.auth.dto;
 
 import io.swagger.v3.oas.annotations.media.Schema;
 import jakarta.validation.constraints.AssertTrue;
+import jakarta.validation.constraints.Email;
 import jakarta.validation.constraints.NotBlank;
 import jakarta.validation.constraints.Pattern;
 import jakarta.validation.constraints.Size;
@@ -31,7 +32,13 @@ public record SignupRequest(
 	boolean termsAgreed,
 
 	@Schema(description = "마케팅 수신 동의 (선택)", example = "false")
-	boolean marketingAgreed
+	boolean marketingAgreed,
+
+	@Schema(description = "학교 메일. verifySchoolEmail로 인증번호 확인까지 끝낸 그 메일이어야 함(10분 안에 가입해야 함)",
+		example = "student@sookmyung.ac.kr")
+	@NotBlank
+	@Email(message = "학교 메일 형식이 올바르지 않습니다.")
+	String schoolEmail
 
 ) {
 }

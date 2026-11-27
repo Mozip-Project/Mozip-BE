@@ -16,3 +16,7 @@ data:
   S3_BUCKET: "mozip-dev-assets"
   AWS_REGION: "ap-northeast-2"
   CDN_DOMAIN: "https://mozip-dev-assets.s3.ap-northeast-2.amazonaws.com"
+  # worker에서만 씀. SES 준비(샌드박스 해제, 도메인 identity) 전에는 logging으로 둠
+  MAIL_PROVIDER: "logging"
+  MAIL_SENDER_ADDRESS: "noreply@mo-zip.com"
+  MAIL_SENDER_NAME: "모집"

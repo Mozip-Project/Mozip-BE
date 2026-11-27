@@ -10,6 +10,7 @@ import org.junit.jupiter.api.Test;
 
 import com.mozip.domain.school.entity.School;
 import com.mozip.domain.user.entity.User;
+import com.mozip.global.common.ReviewStatus;
 
 // 단체, 운영진 생성 시 불변 조건 검증 (DB 없이)
 class OrganizationEntityTest {

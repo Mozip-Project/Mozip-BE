@@ -6,6 +6,13 @@ dependencies {
 	implementation project(':common')
 	implementation 'org.springframework.boot:spring-boot-starter'
 	implementation 'org.springframework.boot:spring-boot-starter-data-redis'
+	// WorkerChannel.TASKS로 받은 JSON 메시지를 읽을 ObjectMapper (common은 S3처럼 api 쪼에서도 쓰는 타입만 올림)
+	implementation 'org.springframework.boot:spring-boot-starter-json'
+	// SesMailSender가 쓰는 SES 클라이언트. api와 공유할 타입이 아니라 worker에만 선언 (common의 S3 BOM과 버전 맞춤)
+	implementation platform('software.amazon.awssdk:bom:2.29.52')
+	implementation 'software.amazon.awssdk:sesv2'
+
+	testImplementation 'org.springframework.boot:spring-boot-starter-test'
 }
 
 tasks.named('bootJar') {

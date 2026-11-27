@@ -137,9 +137,12 @@ public class User extends BaseEntity {
 		this.lastRole = lastRole;
 	}
 
-	// TODO(학교 인증 이슈): 실제 인증 흐름이 생기기 전까지 테스트·시드에서 학교 인증 상태를 만들 때 씀
 	public void verifySchool(School school) {
 		this.school = school;
+	}
+
+	public boolean isSchoolVerified() {
+		return school != null;
 	}
 
 }

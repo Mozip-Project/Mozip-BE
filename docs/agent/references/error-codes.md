@@ -87,6 +87,21 @@
 | `APPLICATION_409` | 409 | `CONFLICT` | `reason`으로 구분 (`ApplicationConflictReason`) |
 | `APPLICATION_400` | 400 | `INVALID_INPUT` | `submitApplication`에서 필수 문항 누락·글자 수·선택지·첨부 개수 위반. `fieldErrors`에 questionId별 메시지가 담김 |
 
+## 학교 인증 (`SchoolErrorCode`, #76)
+
+| 코드 | HTTP | 상수 | 언제 |
+|---|---|---|---|
+| `SCHOOL_404` | 404 | `NOT_FOUND` | 메일 도메인이나 schoolId로 학교를 못 찾음 |
+| `SCHOOL_400` | 400 | `INVALID_INPUT` | `reason`으로 구분 (`SchoolInputReason`). `verifySchoolEmail`의 인증번호 불일치/만료는 에러 대신 `false`를 반환함 |
+| `SCHOOL_409` | 409 | `CONFLICT` | `reason`으로 구분 (`SchoolConflictReason`) |
+| `SCHOOL_429` | 429 | `TOO_MANY_REQUESTS` | `requestSchoolEmailVerification`을 60초 안에 다시 요청 |
+
+## 메일 (`MailErrorCode`, #76)
+
+| 코드 | HTTP | 상수 | 언제 |
+|---|---|---|---|
+| `MAIL_503` | 503 | `SEND_FAILED` | `MailTaskPublisher`가 worker에 발송 작업을 못 올림, 또는 worker의 `SesMailSender`가 SES 호출에 실패(이 경우는 로그로만 남고 호출자에게는 안 전달됨) |
+
 ## reason enum
 
 같은 코드 안에서 상황을 나누는 값. 응답의 `extensions.reason`에 enum 이름이 들어간다. `BusinessException(errorCode, reason)`
@@ -101,6 +116,8 @@
 | `ApplicationConflictReason` | `APPLICATION_409` | `ALREADY_SUBMITTED`(이미 제출된 지원서를 다시 저장·제출하려 함, #69), `CONCURRENT_SAVE`(동시 요청으로 지원서가 막 생성됨, 다시 요청하면 됨, #69) |
 | `ApplicationForbiddenReason` | `APPLICATION_403` | `SCHOOL_NOT_VERIFIED`(학교 인증을 하지 않은 회원, #69) |
 | `ApplicationInputReason` | `COMMON_400` | `POSITION_FROM_ANOTHER_POSTING`, `QUESTION_FROM_ANOTHER_POSTING`, `QUESTION_NOT_FOR_POSITION`, `AVAILABLE_TIME_NOT_OPEN`(면접 가능 시간이 열려 있는 블록의 시작 시각이 아님), `ATTACHMENT_NOT_ALLOWED_FOR_QUESTION_TYPE`(FILE_LINK가 아닌 문항에 첨부를 보냄), `INVALID_ATTACHMENT_URL`(LINK가 http/https가 아니거나 FILE이 presigned 경로가 아님) (#69) |
+| `SchoolInputReason` | `SCHOOL_400` | `CODE_MISMATCH`(인증번호가 다름), `CODE_EXPIRED`(5분이 지났거나 틀린 횟수가 많아 서버가 먼저 지움, `verifySchoolEmail`은 던지지 않고 `false`만 반환), `EMAIL_NOT_VERIFIED`(`/auth/signup`에서 이 메일을 `verifySchoolEmail`로 확인한 적 없거나 확인 후 10분이 지남) (#76) |
+| `SchoolConflictReason` | `SCHOOL_409` | `ALREADY_VERIFIED`(이미 학교 인증된 회원이 다시 인증 시도), `EMAIL_ALREADY_VERIFIED`(그 학교 메일이 이미 다른/같은 회원의 APPROVED 인증에 쓰임, 로그인 없이도 걸림), `EMAIL_ALREADY_CONFIRMED`(이미 `verifySchoolEmail`로 확인을 마친 메일로 다시 확인 시도, 가입 전 임시 상태) (#76) |
 
 ## fieldErrors를 응답에 담는 BusinessException
 

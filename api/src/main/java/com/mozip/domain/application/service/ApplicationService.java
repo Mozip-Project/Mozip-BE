@@ -136,7 +136,7 @@ public class ApplicationService {
 		requireRecruiting(posting);
 
 		User user = application.getUser();
-		if (user.getSchool() == null) {
+		if (!user.isSchoolVerified()) {
 			throw new BusinessException(ApplicationErrorCode.FORBIDDEN, ApplicationForbiddenReason.SCHOOL_NOT_VERIFIED)
 				.addContext("userId", userId);
 		}

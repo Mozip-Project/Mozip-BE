@@ -8,6 +8,7 @@ import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.jsonPath;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
 
+import java.time.Duration;
 import java.util.concurrent.ThreadLocalRandom;
 
 import org.junit.jupiter.api.DisplayName;
@@ -16,12 +17,15 @@ import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.context.SpringBootTest;
 import org.springframework.boot.webmvc.test.autoconfigure.AutoConfigureMockMvc;
 import org.springframework.context.annotation.Import;
+import org.springframework.data.redis.core.StringRedisTemplate;
 import org.springframework.http.MediaType;
 import org.springframework.test.context.bean.override.mockito.MockitoSpyBean;
 import org.springframework.test.web.servlet.MockMvc;
 
 import com.mozip.TestcontainersConfiguration;
 import com.mozip.domain.auth.repository.RefreshTokenRepository;
+import com.mozip.domain.school.entity.School;
+import com.mozip.domain.school.repository.SchoolRepository;
 import com.mozip.global.exception.BusinessException;
 import com.mozip.global.security.cookie.AuthCookieManager;
 import com.mozip.domain.auth.exception.TokenErrorCode;
@@ -36,6 +40,12 @@ class AuthTokenStoreFailureTest {
 
 	@Autowired
 	private MockMvc mockMvc;
+
+	@Autowired
+	private SchoolRepository schoolRepository;
+
+	@Autowired
+	private StringRedisTemplate redisTemplate;
 
 	@MockitoSpyBean
 	private RefreshTokenRepository refreshTokenRepository;
@@ -84,11 +94,16 @@ class AuthTokenStoreFailureTest {
 
 	private Cookie login() throws Exception {
 		String phone = "010" + ThreadLocalRandom.current().nextInt(10_000_000, 100_000_000);
+		School school = schoolRepository.save(School.create("인증실패테스트대학교 " + ThreadLocalRandom.current().nextInt(1_000_000),
+			"tokenfail" + ThreadLocalRandom.current().nextInt(1_000_000) + ".ac.kr"));
+		String schoolEmail = "student@" + school.getEmailDomain();
+		redisTemplate.opsForValue().set("school:verify:confirmed:" + schoolEmail, "1", Duration.ofMinutes(10));
 		mockMvc.perform(post("/auth/signup")
 				.contentType(MediaType.APPLICATION_JSON)
 				.content("""
-					{"phone": "%s", "password": "mozip1234", "name": "김모집", "termsAgreed": true, "marketingAgreed": false}
-					""".formatted(phone)))
+					{"phone": "%s", "password": "mozip1234", "name": "김모집", "termsAgreed": true, "marketingAgreed": false,
+					"schoolEmail": "%s"}
+					""".formatted(phone, schoolEmail)))
 			.andExpect(status().isCreated());
 		return mockMvc.perform(post("/auth/login")
 				.contentType(MediaType.APPLICATION_JSON)

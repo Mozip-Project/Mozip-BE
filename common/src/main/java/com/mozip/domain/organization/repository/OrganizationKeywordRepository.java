@@ -11,7 +11,7 @@ import org.springframework.data.repository.query.Param;
 
 import com.mozip.domain.organization.entity.Organization;
 import com.mozip.domain.organization.entity.OrganizationKeyword;
-import com.mozip.domain.organization.entity.ReviewStatus;
+import com.mozip.global.common.ReviewStatus;
 
 public interface OrganizationKeywordRepository extends JpaRepository<OrganizationKeyword, Long> {
 

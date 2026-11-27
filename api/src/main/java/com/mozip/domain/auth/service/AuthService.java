@@ -17,6 +17,8 @@ import com.mozip.domain.auth.exception.AuthErrorCode;
 import com.mozip.domain.auth.exception.RefreshTokenConsumedException;
 import com.mozip.domain.auth.exception.TokenErrorCode;
 import com.mozip.domain.auth.repository.RefreshTokenRepository;
+import com.mozip.domain.school.entity.School;
+import com.mozip.domain.school.service.SchoolVerificationService;
 import com.mozip.domain.user.entity.User;
 import com.mozip.domain.user.exception.UserErrorCode;
 import com.mozip.domain.user.repository.UserRepository;
@@ -37,6 +39,7 @@ public class AuthService {
 
 	private final UserRepository userRepository;
 	private final RefreshTokenRepository refreshTokenRepository;
+	private final SchoolVerificationService schoolVerificationService;
 	private final PasswordEncoder passwordEncoder;
 	private final JwtProvider jwtProvider;
 	private final JwtProperties jwtProperties;
@@ -47,9 +50,11 @@ public class AuthService {
 	private final String dummyPasswordHash;
 
 	public AuthService(UserRepository userRepository, RefreshTokenRepository refreshTokenRepository,
-		PasswordEncoder passwordEncoder, JwtProvider jwtProvider, JwtProperties jwtProperties, Clock clock) {
+		SchoolVerificationService schoolVerificationService, PasswordEncoder passwordEncoder, JwtProvider jwtProvider,
+		JwtProperties jwtProperties, Clock clock) {
 		this.userRepository = userRepository;
 		this.refreshTokenRepository = refreshTokenRepository;
+		this.schoolVerificationService = schoolVerificationService;
 		this.passwordEncoder = passwordEncoder;
 		this.jwtProvider = jwtProvider;
 		this.jwtProperties = jwtProperties;
@@ -57,11 +62,14 @@ public class AuthService {
 		this.dummyPasswordHash = passwordEncoder.encode("dummy-password-for-timing");
 	}
 
+	// verifySchoolEmail로 미리 코드 확인을 끝낸 메일이어야 가입할 수 있음(확인 후 10분 안).
+	// 확인 여부는 중복 번호 체크 뒤에 봐서, 번호가 중복이면 confirmed 표시를 쓰지 않고 남겨 둠
 	@Transactional
 	public SignupResponse signup(SignupRequest request) {
 		if (userRepository.existsByPhone(request.phone())) {
 			throw new BusinessException(UserErrorCode.DUPLICATE_PHONE);
 		}
+		School school = schoolVerificationService.verifyForSignup(request.schoolEmail());
 		User user = User.create(request.phone(), passwordEncoder.encode(request.password()), request.name(),
 			request.marketingAgreed(), LocalDateTime.now(clock));
 		try {
@@ -70,6 +78,7 @@ public class AuthService {
 		} catch (DataIntegrityViolationException e) {
 			throw new BusinessException(UserErrorCode.DUPLICATE_PHONE);
 		}
+		schoolVerificationService.completeSignupVerification(user, school, request.schoolEmail());
 		return new SignupResponse(user.getId());
 	}
 
