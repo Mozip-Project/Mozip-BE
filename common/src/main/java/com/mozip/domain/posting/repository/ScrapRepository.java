@@ -22,7 +22,7 @@ public interface ScrapRepository extends JpaRepository<Scrap, Long> {
 	long countByPosting(Posting posting);
 
 	// 내 스크랩 목록. 마감된 공고도 포함해서 보여주므로 상태로 거르지 않음
-	@Query("SELECT s.posting FROM Scrap s WHERE s.user = :user ORDER BY s.createdAt, s.id DESC")
+	@Query("SELECT s.posting FROM Scrap s WHERE s.user = :user ORDER BY s.createdAt DESC, s.id DESC")
 	Page<Posting> findPostingsByUser(@Param("user") User user, Pageable pageable);
 
 	// 동시에 같은 (user, posting)로 toggle이 들어와도 예외 없이 끝나도록 DB가 충돌을 삼키게 함.
