@@ -9,6 +9,8 @@ import java.util.List;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
+import org.junit.jupiter.params.ParameterizedTest;
+import org.junit.jupiter.params.provider.CsvSource;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.context.SpringBootTest;
 import org.springframework.context.annotation.Import;
@@ -28,6 +30,7 @@ import com.mozip.domain.posting.repository.PostingRepository;
 import com.mozip.domain.user.entity.User;
 import com.mozip.domain.user.repository.UserRepository;
 import com.mozip.global.exception.BusinessException;
+import com.mozip.global.exception.CommonErrorCode;
 
 @Import(TestcontainersConfiguration.class)
 @SpringBootTest
@@ -110,11 +113,13 @@ class ScrapServiceTest {
 		assertThat(page.hasNext()).isFalse();
 	}
 
-	@Test
-	@DisplayName("myScraps의 size가 범위를 벗어나면 COMMON_400을 던진다")
-	void rejectsInvalidPageSize() {
-		assertThatThrownBy(() -> scrapService.findMyScraps(user.getId(), 0, 0))
-			.isInstanceOf(BusinessException.class);
+	@ParameterizedTest
+	@DisplayName("myScraps의 page나 size가 범위를 벗어나면 COMMON_400을 던진다")
+	@CsvSource({"0, 0", "0, 51", "-1, 20"})
+	void rejectsInvalidPageSize(int page, int size) {
+		assertThatThrownBy(() -> scrapService.findMyScraps(user.getId(), page, size))
+			.isInstanceOfSatisfying(BusinessException.class,
+				e -> assertThat(e.getErrorCode()).isEqualTo(CommonErrorCode.INVALID_INPUT));
 	}
 
 }
