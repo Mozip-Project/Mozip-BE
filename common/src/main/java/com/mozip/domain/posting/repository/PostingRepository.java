@@ -28,6 +28,10 @@ public interface PostingRepository extends JpaRepository<Posting, Long>, JpaSpec
 	List<Posting> findAllByOrganizationAndStatusInOrderByCreatedAtDesc(Organization organization,
 		List<PostingStatus> statuses);
 
+	// 스크랩, 신고처럼 지원자 쪽에서 쓰는 조회. DRAFT는 아직 게시 전이라 없는 공고와 같게 취급
+	@Query("SELECT p FROM Posting p WHERE p.id = :id AND p.status <> com.mozip.domain.posting.entity.PostingStatus.DRAFT")
+	Optional<Posting> findPublishedById(@Param("id") Long id);
+
 	// 모집 마감 스케줄러. 조건부 UPDATE라 worker 파드가 여러 개여도 행 하나는 딱 한 번만 바뀜
 	// bulk update는 AuditingEntityListener를 안 타서 updatedAt을 직접 같이 SET함
 	@Modifying(flushAutomatically = true, clearAutomatically = true)

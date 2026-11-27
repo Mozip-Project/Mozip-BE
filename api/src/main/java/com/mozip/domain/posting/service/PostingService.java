@@ -54,6 +54,7 @@ import com.mozip.domain.posting.repository.PostingImageRepository;
 import com.mozip.domain.posting.repository.PostingRepository;
 import com.mozip.domain.posting.repository.PostingSpecifications;
 import com.mozip.domain.posting.repository.QuestionRepository;
+import com.mozip.domain.posting.repository.ReportRepository;
 import com.mozip.domain.posting.repository.ScrapRepository;
 import com.mozip.global.common.response.FieldErrorResponse;
 import com.mozip.global.exception.BusinessException;
@@ -75,6 +76,7 @@ public class PostingService {
 	private final PostingImageRepository postingImageRepository;
 	private final InterviewTimeRangeRepository interviewTimeRangeRepository;
 	private final ScrapRepository scrapRepository;
+	private final ReportRepository reportRepository;
 	private final TeamRepository teamRepository;
 	private final OrganizationAccessChecker organizationAccessChecker;
 	private final SubscriptionService subscriptionService;
@@ -167,6 +169,9 @@ public class PostingService {
 		interviewTimeRangeRepository.deleteAllByPosting(posting);
 		positionRepository.deleteAllByPosting(posting);
 		postingImageRepository.deleteAllByPosting(posting);
+		// DRAFT로 되돌아오기 전에 쌓인 스크랩/신고가 있으면 FK(fk_scraps_posting_id, fk_reports_posting_id) 위반으로 500이 남
+		scrapRepository.deleteAllByPosting(posting);
+		reportRepository.deleteAllByPosting(posting);
 		postingRepository.delete(posting);
 	}
 

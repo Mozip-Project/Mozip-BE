@@ -55,6 +55,7 @@ import com.mozip.domain.posting.repository.PositionRepository;
 import com.mozip.domain.posting.repository.PostingImageRepository;
 import com.mozip.domain.posting.repository.PostingRepository;
 import com.mozip.domain.posting.repository.QuestionRepository;
+import com.mozip.domain.posting.repository.ScrapRepository;
 import com.mozip.domain.school.entity.School;
 import com.mozip.global.config.graphql.LocalDateTimeScalar;
 import com.mozip.domain.school.repository.SchoolRepository;
@@ -76,6 +77,9 @@ class PostingServiceTest {
 
 	@Autowired
 	private PostingRepository postingRepository;
+
+	@Autowired
+	private ScrapRepository scrapRepository;
 
 	@Autowired
 	private UserRepository userRepository;
@@ -1071,6 +1075,21 @@ class PostingServiceTest {
 				assertThat(((BusinessException)e).getErrorCode()).isEqualTo(PostingErrorCode.CONFLICT);
 				assertThat(((BusinessException)e).getReason()).isEqualTo(PostingConflictReason.NOT_DRAFT.name());
 			});
+	}
+
+	@Test
+	@DisplayName("게시했다가 DRAFT로 되돌린 공고에 스크랩이 남아 있어도 deletePosting이 같이 지우고 500 없이 끝난다")
+	void deletesDraftPostingWithLeftoverScrap() {
+		Posting posting = publishablePosting("스크랩 남은 공고");
+		postingService.publish(operator.getId(), posting.getId());
+		// 게시 중일 때 쌓인 스크랩. fk_scraps_posting_id만 있고 cascade는 없어서 delete 전에 안 지우면 500이 남
+		scrapRepository.insertIfAbsent(operator.getId(), posting.getId());
+		postingService.advanceStatus(operator.getId(), posting.getId(), PostingStatus.DRAFT);
+
+		postingService.delete(operator.getId(), posting.getId());
+
+		assertThat(postingRepository.findById(posting.getId())).isEmpty();
+		assertThat(scrapRepository.countByPosting(posting)).isZero();
 	}
 
 	@Test

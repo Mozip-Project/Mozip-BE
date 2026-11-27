@@ -74,9 +74,16 @@
 
 | 코드 | HTTP | 상수 | 언제 |
 |---|---|---|---|
-| `POSTING_404` | 404 | `NOT_FOUND` | 공고 없음. DRAFT인데 그 단체 운영진이 아니면 있어도 이 코드로 숨김 |
+| `POSTING_404` | 404 | `NOT_FOUND` | 공고 없음. DRAFT인데 그 단체 운영진이 아니면 있어도 이 코드로 숨김. 스크랩·신고 대상 조회에도 똑같이 적용 (#74) |
 | `POSTING_409` | 409 | `CONFLICT` | `reason`으로 구분 (`PostingConflictReason`) |
 | `POSTING_400` | 400 | `INVALID_INPUT` | `publishPosting`에서 필수 단계 누락. `fieldErrors`에 어느 단계인지 담김 |
+
+## 공고 신고 (`ReportErrorCode`, #74)
+
+| 코드 | HTTP | 상수 | 언제 |
+|---|---|---|---|
+| `REPORT_409` | 409 | `CONFLICT` | 같은 회원이 같은 공고를 두 번 신고. 상황이 하나뿐이라 reason 없음 |
+| `COMMON_400` | 400 | `INVALID_INPUT` | `reportPosting`의 `detail`이 300자 초과 (#74) |
 
 ## 지원서 (`ApplicationErrorCode`, #69)
 

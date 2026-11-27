@@ -189,6 +189,27 @@ type Report {
     createdAt: DateTime!
 }
 
+type PostingPage {
+    items: [PostingCard!]!
+    totalCount: Int!
+    hasNext: Boolean!
+}
+
+"내가 스크랩한 공고 목록 페이지"
+type ScrapPage {
+    items: [Posting!]!
+    totalCount: Int!
+    hasNext: Boolean!
+}
+
+"toggleScrap 결과"
+type ScrapResult {
+    "토글 후 상태. true = 스크랩됨"
+    scrapped: Boolean!
+    "토글 후 그 공고의 전체 스크랩 수"
+    scrapCount: Int!
+}
+
 "목록 정렬 기준"
 enum PostingSort {
     "bumpedAt 최신순 (기본)"
@@ -209,12 +230,6 @@ input PostingFilter {
     hasInterview: Boolean
     "마감 3일 이내"
     closingSoon: Boolean
-}
-
-type PostingPage {
-    items: [PostingCard!]!
-    totalCount: Int!
-    hasNext: Boolean!
 }
 
 "공고 목록에서 보여줄 카드 정보"
@@ -341,6 +356,8 @@ extend type Query {
     postings(filter: PostingFilter, sort: PostingSort = LATEST, page: Int = 0, size: Int = 20): PostingPage! @public
     "운영진 홈의 단체 공고 목록 (draftStep 포함). COMMON_403이면 그 단체 운영진이 아님"
     organizationPostings(organizationId: ID!, status: [PostingStatus!]): [Posting!]!
+    "내가 스크랩한 공고 목록. 마감된 공고도 포함"
+    myScraps(page: Int = 0, size: Int = 20): ScrapPage!
 }
 
 extend type Mutation {
@@ -370,4 +387,12 @@ extend type Mutation {
     게시된 공고를 지우려 하면 POSTING_409(reason: NOT_DRAFT)
     """
     deletePosting(id: ID!): Boolean!
+    "공고 스크랩. 이미 스크랩했으면 해제, 안 했으면 추가"
+    toggleScrap(postingId: ID!): ScrapResult!
+    """
+    공고 신고 접수. 신고 처리(검토, 조치)는 관리자 화면 몫이라 여기서는 접수만 함.
+    detail은 최대 300자, 넘으면 COMMON_400(fieldErrors의 detail 항목).
+    DRAFT나 없는 공고는 POSTING_404, 같은 회원이 같은 공고를 두 번 신고하면 REPORT_409
+    """
+    reportPosting(postingId: ID!, reason: ReportReason!, detail: String): Boolean!
 }
