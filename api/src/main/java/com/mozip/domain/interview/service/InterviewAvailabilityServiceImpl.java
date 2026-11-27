@@ -100,8 +100,7 @@ public class InterviewAvailabilityServiceImpl implements InterviewAvailabilitySe
 	// 포지션 전용 시간대는 그 포지션 지원자에게만 열림
 	private Set<LocalDateTime> openSlotStartTimes(Posting posting, Position position) {
 		if (posting.getInterviewMinutes() == null || posting.getBreakMinutes() == null
-			|| posting.getMaxApplicantsPerInterview() == null || posting.getMaxParallelInterviews() == null
-			|| posting.getAssignRule() == null) {
+			|| posting.getMaxApplicantsPerInterview() == null || posting.getMaxParallelInterviews() == null) {
 			return Set.of();
 		}
 		List<TimeRange> ranges = interviewTimeRangeRepository.findAllByPostingOrderByDateAscStartTimeAsc(posting)
@@ -114,7 +113,7 @@ public class InterviewAvailabilityServiceImpl implements InterviewAvailabilitySe
 			return Set.of();
 		}
 		InterviewSetting setting = new InterviewSetting(posting.getInterviewMinutes(), posting.getBreakMinutes(),
-			posting.getMaxApplicantsPerInterview(), posting.getMaxParallelInterviews(), posting.getAssignRule());
+			posting.getMaxApplicantsPerInterview(), posting.getMaxParallelInterviews());
 		return InterviewSlotCalculator.calculate(ranges, setting).stream()
 			.filter(slot -> !slot.closed())
 			.map(Slot::startAt)

@@ -46,7 +46,7 @@
 | 엔티티 | 소유 | B가 쓰는 부분 | 상태 |
 |---|---|---|---|
 | `Application` | A | `doc_result`, `final_result` 컬럼과 변경 메서드 `decideDocResult`, `decideFinalResult`. `available_times` 컬럼과 `changeAvailableTimes` | 컬럼 존재 (#69). 변경 메서드는 아직 B가 안 만듦 (지금은 PENDING에서 안 바뀜). `changeAvailableTimes`는 B가 추가함 (#106) |
-| `Posting` | A | `doc_result_confirmed_at`, `final_result_confirmed_at`, `timetable_confirmed_at`, 면접 설정 컬럼 5개(`interviewMinutes`, `breakMinutes`, `assignRule`, `maxApplicantsPerInterview`, `maxParallelInterviews`) | 컬럼 추가됨 (#65). 변경 메서드(`decideDocResult` 등)는 아직 B가 안 만듦. `interviewMethod`(온라인/오프라인 구분)는 안 쓰기로 해서 제거됨 (#99) |
+| `Posting` | A | `doc_result_confirmed_at`, `final_result_confirmed_at`, `timetable_confirmed_at`, 면접 설정 컬럼 5개(`interviewMinutes`, `breakMinutes`, `assignRule`, `maxApplicantsPerInterview`, `maxParallelInterviews`) | 컬럼 추가됨 (#65). 변경 메서드(`decideDocResult` 등)는 아직 B가 안 만듦. `interviewMethod`(온라인/오프라인 구분)는 안 쓰기로 해서 제거됨 (#99). `assignRule`은 값만 저장하고 타임테이블 생성에서는 안 씀 (#77) |
 | `Posting.doc_score_per_question`, `Question.short_title` | A | B가 평가 화면에서 읽음 | 컬럼 추가됨 (#65). `short_title`은 아직 입력 경로 없어 항상 null |
 
 ## 아직 결정 안 된 것

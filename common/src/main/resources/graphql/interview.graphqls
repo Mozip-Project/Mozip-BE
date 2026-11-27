@@ -6,13 +6,13 @@ type Interview {
     posting: Posting!
     startAt: DateTime!
     endAt: DateTime!
-    "같은 시간대에 동시에 진행하는 면접 열 (면접 1, 면접 2)"
+    "같은 시간대에 동시에 진행하는 면접실 열 (면접실 1, 면접실 2), 1부터"
     track: Int!
-    "장소 태그 (후보 = 같은 단체에서 쓴 장소)"
+    "면접 장소, 타임테이블 확정 뒤 입력 (후보 = 이 모집에서 쓴 장소)"
     location: String
-    "배정된 면접관"
+    "운영진이 직접 추가한 면접관, 자동 배정은 없어 처음에는 비어 있음"
     interviewers: [Member!]!
-    "배정된 지원자"
+    "배정된 지원자, 2명 이상이면 그룹 면접. 자동 생성은 같은 포지션끼리만 묶고 직접 배정은 포지션 제한 없음"
     applicants: [Application!]!
 }
 
