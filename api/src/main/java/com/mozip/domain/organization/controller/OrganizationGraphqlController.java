@@ -42,6 +42,7 @@ import com.mozip.domain.organization.service.MemberService;
 import com.mozip.domain.organization.service.OrganizationService;
 import com.mozip.domain.organization.service.RepresentativeTransferService;
 import com.mozip.domain.organization.service.TeamService;
+import com.mozip.domain.file.service.FileService;
 import com.mozip.global.exception.BusinessException;
 import com.mozip.global.exception.CommonErrorCode;
 import com.mozip.global.security.AuthUser;
@@ -64,6 +65,7 @@ public class OrganizationGraphqlController {
 	private final OrganizationKeywordRepository keywordRepository;
 	private final OrganizationFieldTagRepository fieldTagRepository;
 	private final OrganizationLinkRepository linkRepository;
+	private final FileService fileService;
 
 	@MutationMapping
 	public Organization updateOrganizationLogo(@Argument UpdateOrganizationLogoInput input,
@@ -154,6 +156,22 @@ public class OrganizationGraphqlController {
 	@SchemaMapping(typeName = "InviteLink")
 	public String url(InviteLink link) {
 		return inviteProperties.linkUrl(link.getToken());
+	}
+
+	// logoUrl 컬럼은 fileKey를 저장하므로 조회마다 presigned GET URL로 변환. 서명은 로컬 계산이라 S3 호출 없음
+	@BatchMapping(typeName = "Organization", field = "logoUrl")
+	public Map<Organization, String> logoUrl(List<Organization> organizations) {
+		return organizations.stream().collect(LinkedHashMap::new,
+			(map, organization) -> map.put(organization, presignedLogoUrl(organization)), Map::putAll);
+	}
+
+	@BatchMapping(typeName = "OrganizationSummary", field = "logoUrl")
+	public Map<Organization, String> summaryLogoUrl(List<Organization> organizations) {
+		return logoUrl(organizations);
+	}
+
+	private String presignedLogoUrl(Organization organization) {
+		return organization.getLogoUrl() == null ? null : fileService.presignGet(organization.getLogoUrl());
 	}
 
 	@BatchMapping(typeName = "Organization")

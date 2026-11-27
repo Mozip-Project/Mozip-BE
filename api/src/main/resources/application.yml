@@ -33,11 +33,11 @@ graphql:
 
 aws:
   s3:
-    # 환경별로 버킷을 분리 (dev/prod가 서로 다른 S3_BUCKET, CDN_DOMAIN을 주입)
+    # 환경별로 버킷을 분리 (dev/prod가 서로 다른 S3_BUCKET을 주입). 버킷은 비공개이며 읽기는 매번 GET presigned URL로 발급
     bucket: ${S3_BUCKET}
     region: ${AWS_REGION:ap-northeast-2}
     presigned-url-expiration: 10m
-    cdn-domain: ${CDN_DOMAIN}
+    presigned-get-expiration: 10m
 
 auth:
   # 개발용 인증 우회 (true면 URL 인증, @PreAuthorize 검사 해제)

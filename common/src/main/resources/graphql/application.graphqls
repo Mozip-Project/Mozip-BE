@@ -58,8 +58,11 @@ type Answer {
 type Attachment {
     id: ID!
     type: AttachmentType!
+    "FILE은 조회마다 새로 발급되는 GET presigned URL(오래 저장하지 말고 다시 조회해서 사용), LINK는 지원자가 입력한 링크 그대로"
     url: String!
     fileName: String
+    "바이트 크기. FILE만 값이 있고 LINK는 null. 입력으로 받지 않고 저장 시 서버가 S3에 직접 확인한 값"
+    size: Int
 }
 
 input AttachmentInput {

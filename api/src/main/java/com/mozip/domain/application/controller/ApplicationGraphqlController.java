@@ -21,9 +21,11 @@ import com.mozip.domain.application.entity.ApplicationStatus;
 import com.mozip.domain.application.entity.Attachment;
 import com.mozip.domain.application.entity.DocResult;
 import com.mozip.domain.application.entity.FinalResult;
+import com.mozip.domain.application.entity.AttachmentType;
 import com.mozip.domain.application.repository.AnswerRepository;
 import com.mozip.domain.application.repository.AttachmentRepository;
 import com.mozip.domain.application.service.ApplicationService;
+import com.mozip.domain.file.service.FileService;
 import com.mozip.domain.posting.entity.Position;
 import com.mozip.domain.posting.entity.Posting;
 import com.mozip.domain.posting.entity.PostingStatus;
@@ -51,6 +53,7 @@ public class ApplicationGraphqlController {
 	private final AnswerRepository answerRepository;
 	private final AttachmentRepository attachmentRepository;
 	private final ObjectMapper objectMapper;
+	private final FileService fileService;
 
 	@MutationMapping
 	public Application saveApplicationDraft(@Argument Long postingId, @Argument @Valid ApplicationInput input,
@@ -131,6 +134,15 @@ public class ApplicationGraphqlController {
 	public Map<Answer, List<Attachment>> attachments(List<Answer> answers) {
 		return groupByParent(answers, Answer::getId, attachmentRepository.findAllByAnswerInOrderById(answers),
 			attachment -> attachment.getAnswer().getId());
+	}
+
+	// 지원서 조회 자체가 이미 지원자 본인/그 공고 운영진만 가능해서(application 쿼리, findDetail) 따로 권한 검사 안 함.
+	// FILE은 url 컬럼에 fileKey를 저장해서 조회마다 presigned GET URL로 변환, LINK는 지원자가 입력한 링크 그대로 반환
+	@BatchMapping(typeName = "Attachment", field = "url")
+	public Map<Attachment, String> attachmentUrl(List<Attachment> attachments) {
+		return attachments.stream().collect(HashMap::new, (map, attachment) -> map.put(attachment,
+			attachment.getType() == AttachmentType.FILE ? fileService.presignGet(attachment.getUrl())
+				: attachment.getUrl()), Map::putAll);
 	}
 
 	private Map<Long, PostingStatus> postingStatusByPostingId(List<Application> applications) {
