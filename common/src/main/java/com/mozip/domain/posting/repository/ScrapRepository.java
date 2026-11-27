@@ -2,7 +2,6 @@ package com.mozip.domain.posting.repository;
 
 import java.util.Collection;
 import java.util.List;
-import java.util.Optional;
 
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
@@ -17,9 +16,14 @@ import com.mozip.domain.user.entity.User;
 
 public interface ScrapRepository extends JpaRepository<Scrap, Long> {
 
-	Optional<Scrap> findByUserAndPosting(User user, Posting posting);
-
 	long countByPosting(Posting posting);
+
+	// 삭제 건수로 직접 분기(toggle)해서 조회 없이 "있었는지"를 알 수 있고, 동시에 같은 (user, posting)로
+	// toggle이 들어와도 엔티티를 읽어 지우는 방식과 달리 늦게 도착한 쪽이 0건을 지우고 조용히 끝남
+	// (엔티티 삭제는 Hibernate가 1건 삭제를 기대해서 이미 지워진 행이면 StaleObjectStateException이 남)
+	@Modifying
+	@Query("DELETE FROM Scrap s WHERE s.user.id = :userId AND s.posting.id = :postingId")
+	int deleteByUserIdAndPostingId(@Param("userId") Long userId, @Param("postingId") Long postingId);
 
 	// 내 스크랩 목록. 마감된 공고도 포함해서 보여주므로 상태로 거르지 않음
 	@Query("SELECT s.posting FROM Scrap s WHERE s.user = :user ORDER BY s.createdAt DESC, s.id DESC")

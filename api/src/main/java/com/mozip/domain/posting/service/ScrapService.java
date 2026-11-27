@@ -1,7 +1,5 @@
 package com.mozip.domain.posting.service;
 
-import java.util.Optional;
-
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.PageRequest;
 import org.springframework.stereotype.Service;
@@ -10,7 +8,6 @@ import org.springframework.transaction.annotation.Transactional;
 import com.mozip.domain.posting.dto.ScrapPage;
 import com.mozip.domain.posting.dto.ScrapResult;
 import com.mozip.domain.posting.entity.Posting;
-import com.mozip.domain.posting.entity.Scrap;
 import com.mozip.domain.posting.exception.PostingErrorCode;
 import com.mozip.domain.posting.repository.PostingRepository;
 import com.mozip.domain.posting.repository.ScrapRepository;
@@ -34,17 +31,15 @@ public class ScrapService {
 
 	@Transactional
 	public ScrapResult toggle(Long userId, Long postingId) {
-		User user = findUser(userId);
+		findUser(userId);
 		Posting posting = findPosting(postingId);
 
-		boolean scrapped;
-		Optional<Scrap> existing = scrapRepository.findByUserAndPosting(user, posting);
-		if (existing.isPresent()) {
-			scrapRepository.delete(existing.get());
-			scrapped = false;
-		} else {
+		// 삭제 건수로 분기: 있었으면(1건 삭제) 해제, 없었으면(0건 삭제) 추가.
+		// 엔티티를 읽어서 지우는 방식은 동시에 같은 (user, posting)로 toggle이 들어오면 늦게 도착한 쪽이
+		// 이미 지워진 행을 지우려다 StaleObjectStateException(500)이 났음. bulk delete는 건수만 돌려주니 안전함
+		boolean scrapped = scrapRepository.deleteByUserIdAndPostingId(userId, postingId) == 0;
+		if (scrapped) {
 			scrapRepository.insertIfAbsent(userId, postingId);
-			scrapped = true;
 		}
 
 		return new ScrapResult(scrapped, (int)scrapRepository.countByPosting(posting));
