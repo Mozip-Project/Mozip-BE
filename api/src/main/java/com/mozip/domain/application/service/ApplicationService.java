@@ -398,7 +398,7 @@ public class ApplicationService {
 			return Set.of();
 		}
 		InterviewSetting setting = new InterviewSetting(posting.getInterviewMinutes(), posting.getBreakMinutes(),
-			posting.getMaxApplicantsPerInterview(), posting.getMaxParallelInterviews(), posting.getAssignRule());
+			posting.getMaxApplicantsPerInterview(), posting.getMaxParallelInterviews());
 		return InterviewSlotCalculator.calculate(ranges, setting).stream()
 			.filter(slot -> !slot.closed())
 			.map(Slot::startAt)
