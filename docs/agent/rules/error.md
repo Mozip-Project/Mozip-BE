@@ -50,6 +50,8 @@ throw new BusinessException(OrganizationErrorCode.ORGANIZATION_NOT_FOUND).addCon
 ```
 
 - 4xx는 warn, 5xx는 error 레벨로 리졸버가 찍는다. 서비스에서 따로 로그를 남기지 않는다
+- 요청마다 접근 로그 한 줄을 `AccessLogFilter`가 남긴다. `POST /graphql 200 35ms userId=1 operationName=MyPostings fields=[myPostings] errorCodes=[POSTING_404]` 형식이고 dev, prod는 같은 값이 JSON 필드로도 나간다. 컨트롤러나 서비스에서 요청 로그를 따로 찍지 않는다
+- 접근 로그에는 요청 본문, 쿼리 문자열, 쿠키, 헤더 값을 넣지 않는다
 
 ## 응답 형식
 
