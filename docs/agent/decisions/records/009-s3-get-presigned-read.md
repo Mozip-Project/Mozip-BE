@@ -38,8 +38,8 @@ S3 버킷이 비공개(Block Public Access 기본값)인데, 업로드 응답의
 
 - `FileService.presignGet(fileKey)`, `S3Properties.presignedGetExpiration` (기본 10분, PUT과 같음). 공개/비공개 파일을
   다른 만료 시간으로 나누지 않음 — 조회마다 새로 발급되는 값이라 구분해도 얻는 이점이 적어서 단일 값으로 둠
-- `PresignedUrlResponse.fileUrl` → `previewUrl`로 바꾸고 GET presigned URL을 돌려줌. `CDN_DOMAIN`/`cdn-domain` 설정은
-  제거 (`application.yml`, k8s configmap)
+- `PresignedUrlResponse.fileUrl`은 필드 이름은 그대로 두고 의미를 바꿔, CDN 주소 대신 GET presigned URL을 돌려줌.
+  `CDN_DOMAIN`/`cdn-domain` 설정은 제거 (`application.yml`, k8s configmap)
 - `Organization.logoUrl`, `PostingImage.url`, `Attachment.url`(FILE 타입만) 필드는 GraphQL 리졸버
   (`OrganizationGraphqlController`, `PostingGraphqlController`, `ApplicationGraphqlController`)에서 저장된 fileKey를
   `presignGet`으로 변환해 응답. 컬럼 타입/길이가 그대로라 DDL 추가 없음

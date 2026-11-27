@@ -37,9 +37,9 @@ public class FileService {
 
 		String fileKey = buildFileKey(request.purpose(), request.contentType());
 		String uploadUrl = presignPut(fileKey, request.contentType(), request.size());
-		String previewUrl = presignGet(fileKey);
+		String fileUrl = presignGet(fileKey);
 
-		return new PresignedUrlResponse(uploadUrl, fileKey, previewUrl);
+		return new PresignedUrlResponse(uploadUrl, fileKey, fileUrl);
 	}
 
 	// 서명은 자격 증명으로 로컬에서 계산하므로(HMAC) S3 호출이 없어, 목록 조회에서 여러 번 불러도 괜찮음

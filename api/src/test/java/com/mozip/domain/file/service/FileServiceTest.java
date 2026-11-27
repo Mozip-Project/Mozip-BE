@@ -62,7 +62,7 @@ class FileServiceTest {
 	}
 
 	@Test
-	@DisplayName("정상 요청이면 purpose의 keyPrefix로 시작하는 fileKey와 GET presigned previewUrl을 반환한다")
+	@DisplayName("정상 요청이면 purpose의 keyPrefix로 시작하는 fileKey와 GET presigned fileUrl을 반환한다")
 	void issuesPresignedUrl() throws Exception {
 		stubPresignPut("https://s3.example.com/presigned");
 		stubPresignGet("https://s3.example.com/preview");
@@ -74,7 +74,7 @@ class FileServiceTest {
 
 		assertThat(response.uploadUrl()).isEqualTo("https://s3.example.com/presigned");
 		assertThat(response.fileKey()).startsWith("posting-image/").endsWith(".png");
-		assertThat(response.previewUrl()).isEqualTo("https://s3.example.com/preview");
+		assertThat(response.fileUrl()).isEqualTo("https://s3.example.com/preview");
 	}
 
 	@Test
