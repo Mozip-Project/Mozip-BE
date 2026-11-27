@@ -95,6 +95,16 @@ class ScrapServiceTest {
 	}
 
 	@Test
+	@DisplayName("토큰의 회원이 DB에 없으면 COMMON_401을 던진다")
+	void rejectsScrapingWithMissingUser() {
+		Posting posting = postingRepository.save(Posting.create(organization, "공고"));
+
+		assertThatThrownBy(() -> scrapService.toggle(999_999L, posting.getId()))
+			.isInstanceOfSatisfying(BusinessException.class,
+				e -> assertThat(e.getErrorCode()).isEqualTo(CommonErrorCode.UNAUTHORIZED));
+	}
+
+	@Test
 	@DisplayName("myScraps는 공고 상태로 거르지 않고(마감된 공고 포함) 최근 스크랩 순으로 돌려준다")
 	void myScrapsIncludesAnyStatusOrderedByRecent() {
 		// DRAFT 상태로만 만들지만, findPostingsByUser 쿼리 자체가 상태로 거르지 않는지를 확인하는 테스트라 상태값은 상관없음

@@ -66,9 +66,13 @@ public class ScrapService {
 			.orElseThrow(() -> new BusinessException(PostingErrorCode.NOT_FOUND).addContext("postingId", postingId));
 	}
 
+	// 토큰의 회원이 DB에 없는 건 입력 실수가 아니라 세션이 더는 유효하지 않다는 뜻이라 401로 응답
+	// FK 값만 필요해서 findById 대신 getReferenceById로 불필요한 컬럼 조회를 줄임
 	private User findUser(Long userId) {
-		return userRepository.findById(userId)
-			.orElseThrow(() -> new BusinessException(CommonErrorCode.INVALID_INPUT).addContext("userId", userId));
+		if (!userRepository.existsById(userId)) {
+			throw new BusinessException(CommonErrorCode.UNAUTHORIZED).addContext("userId", userId);
+		}
+		return userRepository.getReferenceById(userId);
 	}
 
 }
