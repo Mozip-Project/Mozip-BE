@@ -15,3 +15,13 @@ type Interview {
     "배정된 지원자, 2명 이상이면 그룹 면접. 자동 생성은 같은 포지션끼리만 묶고 직접 배정은 포지션 제한 없음"
     applicants: [Application!]!
 }
+
+extend type Mutation {
+    """
+    면접 가능 시간 재선택. 지원자 본인만 (아니면 COMMON_403), 지원서가 없으면 APPLICATION_404. 기존 값은 통째로 교체.
+    면접 없는 공고면 COMMON_400(reason: NO_INTERVIEW), 빈 목록이면 COMMON_400(reason: AVAILABLE_TIMES_REQUIRED),
+    열려 있는 블록의 시작 시각이 아니면 COMMON_400(reason: AVAILABLE_TIME_NOT_OPEN),
+    타임테이블이 확정된 뒤면 INTERVIEW_409(reason: TIMETABLE_CONFIRMED)
+    """
+    selectInterviewTimes(applicationId: ID!, availableTimes: [DateTime!]!): Application!
+}
