@@ -11,7 +11,6 @@ import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.context.SpringBootTest;
 import org.springframework.context.annotation.Import;
-import org.springframework.test.util.ReflectionTestUtils;
 import org.springframework.transaction.annotation.Transactional;
 
 import com.mozip.TestcontainersConfiguration;
@@ -20,7 +19,6 @@ import com.mozip.domain.organization.entity.OrganizationScope;
 import com.mozip.domain.organization.entity.OrganizationType;
 import com.mozip.domain.organization.repository.OrganizationRepository;
 import com.mozip.domain.posting.entity.Posting;
-import com.mozip.domain.posting.entity.PostingStatus;
 import com.mozip.domain.posting.entity.ReportReason;
 import com.mozip.domain.posting.exception.PostingErrorCode;
 import com.mozip.domain.posting.exception.ReportErrorCode;
@@ -60,10 +58,9 @@ class ReportServiceTest {
 		organization = organizationRepository.save(
 			Organization.create("테스트 단체", OrganizationType.CLUB, null, OrganizationScope.CAMPUS, null, false, null, null));
 		user = userRepository.save(User.create("01066660001", "encoded", "지원자", false, LocalDateTime.now()));
-		// 이 브랜치에는 아직 공고 상태 전환 API가 없어(다른 이슈 몫) 테스트에서 직접 RECRUITING으로 바꿔서
 		// "신고 가능한, 게시된 공고" 전제를 맞춤. DRAFT 거부 자체는 rejectsReportingDraftPosting에서 따로 확인
 		posting = postingRepository.save(Posting.create(organization, "공고"));
-		ReflectionTestUtils.setField(posting, "status", PostingStatus.RECRUITING);
+		posting.publishNow(LocalDateTime.now());
 		postingRepository.flush();
 	}
 

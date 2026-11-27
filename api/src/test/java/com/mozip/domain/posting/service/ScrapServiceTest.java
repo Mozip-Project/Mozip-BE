@@ -94,8 +94,7 @@ class ScrapServiceTest {
 	@Test
 	@DisplayName("myScraps는 공고 상태로 거르지 않고(마감된 공고 포함) 최근 스크랩 순으로 돌려준다")
 	void myScrapsIncludesAnyStatusOrderedByRecent() {
-		// 이 브랜치에는 아직 공고 상태 전환 API가 없어(다른 이슈 몫) DRAFT 상태로만 만들지만,
-		// findPostingsByUser 쿼리 자체가 상태로 거르지 않는지를 확인하는 테스트라 상태값은 상관없음
+		// DRAFT 상태로만 만들지만, findPostingsByUser 쿼리 자체가 상태로 거르지 않는지를 확인하는 테스트라 상태값은 상관없음
 		Posting first = postingRepository.save(Posting.create(organization, "공고1"));
 		Posting second = postingRepository.save(Posting.create(organization, "공고2"));
 		assertThat(first.getStatus()).isEqualTo(PostingStatus.DRAFT);
