@@ -38,14 +38,14 @@
 | `PostingResultChecker.isDocResultConfirmed(postingId)` | B | A (`advancePostingStatus`의 DOC_REVIEW -> DOC_RESULT_NOTICE 조건, #66) | 임시 구현 `TemporaryPostingResultChecker` (#66). 항상 true. B가 서류 평가 결과 취합을 구현하면 실제 구현으로 교체 |
 | `PostingResultChecker.isFinalResultConfirmed(postingId)` | B | A (`advancePostingStatus`의 FINAL_RESULT 전환 조건, #66) | 임시 구현 `TemporaryPostingResultChecker` (#66). 항상 true. B가 최종 결과 확정을 구현하면 실제 구현으로 교체 |
 | `PostingService.getPostingStatus(postingId)` | A | B (평가·면접 화면을 열어도 되는 단계인지 확인) | 구현됨 (#66). B가 아직 안 씀 |
-| `InterviewAvailabilityService.save(applicationId, availableTimes)` | B | A (`saveApplicationDraft`에서 면접 가능 시간 저장, #69) | 임시 구현 `TemporaryInterviewAvailabilityService` (#69). 로그만 남김. B가 면접 타임테이블 배정을 구현하면 실제 구현으로 교체 |
+| `InterviewAvailabilityService.save(applicationId, availableTimes)` | B | A (`saveApplicationDraft`에서 면접 가능 시간 저장, #69) | 구현됨 (#106). 열려 있는 블록의 시작 시각인지 확인하고 `Application.availableTimes`를 통째로 교체. 이 검증은 `ApplicationService`에서 옮겨 옴. 제출 뒤 재선택은 `reselect`(`selectInterviewTimes`) |
 | `ApplicationService.getSubmittedApplications(postingId)` | A | B (서류 평가 대상 조회, #69) | 구현됨 (#69). B가 아직 안 씀 |
 
 ## 공유하는 엔티티
 
 | 엔티티 | 소유 | B가 쓰는 부분 | 상태 |
 |---|---|---|---|
-| `Application` | A | `doc_result`, `final_result` 컬럼과 변경 메서드 `decideDocResult`, `decideFinalResult` | 컬럼 존재 (#69). 변경 메서드는 아직 B가 안 만듦 (지금은 PENDING에서 안 바뀜) |
+| `Application` | A | `doc_result`, `final_result` 컬럼과 변경 메서드 `decideDocResult`, `decideFinalResult`. `available_times` 컬럼과 `changeAvailableTimes` | 컬럼 존재 (#69). 변경 메서드는 아직 B가 안 만듦 (지금은 PENDING에서 안 바뀜). `changeAvailableTimes`는 B가 추가함 (#106) |
 | `Posting` | A | `doc_result_confirmed_at`, `final_result_confirmed_at`, `timetable_confirmed_at`, 면접 설정 컬럼 5개(`interviewMinutes`, `breakMinutes`, `assignRule`, `maxApplicantsPerInterview`, `maxParallelInterviews`) | 컬럼 추가됨 (#65). 변경 메서드(`decideDocResult` 등)는 아직 B가 안 만듦. `interviewMethod`(온라인/오프라인 구분)는 안 쓰기로 해서 제거됨 (#99). `assignRule`은 값만 저장하고 타임테이블 생성에서는 안 씀 (#77) |
 | `Posting.doc_score_per_question`, `Question.short_title` | A | B가 평가 화면에서 읽음 | 컬럼 추가됨 (#65). `short_title`은 아직 입력 경로 없어 항상 null |
 
