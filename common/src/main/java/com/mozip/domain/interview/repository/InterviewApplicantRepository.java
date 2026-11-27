@@ -22,6 +22,21 @@ public interface InterviewApplicantRepository extends JpaRepository<InterviewApp
 	@Query("select ia.application.id from InterviewApplicant ia where ia.interview.posting = :posting")
 	List<Long> findApplicationIdsByPosting(@Param("posting") Posting posting);
 
+	// 확정 알림 대상. 배정된 지원자의 회원 id
+	@Query("select distinct ia.application.user.id from InterviewApplicant ia where ia.interview.posting = :posting")
+	List<Long> findUserIdsByPosting(@Param("posting") Posting posting);
+
+	@Modifying(flushAutomatically = true)
+	@Query("delete from InterviewApplicant ia where ia.interview = :interview")
+	void deleteAllByInterview(@Param("interview") Interview interview);
+
+	// 다른 칸으로 옮길 때 이 공고의 기존 배정을 먼저 지움
+	@Modifying(flushAutomatically = true)
+	@Query("delete from InterviewApplicant ia where ia.application.id in :applicationIds "
+		+ "and ia.interview.id in (select i.id from Interview i where i.posting = :posting)")
+	void deleteAllByPostingAndApplicationIdIn(@Param("posting") Posting posting,
+		@Param("applicationIds") Collection<Long> applicationIds);
+
 	@Modifying(flushAutomatically = true)
 	@Query("delete from InterviewApplicant ia "
 		+ "where ia.interview.id in (select i.id from Interview i where i.posting = :posting)")

@@ -32,12 +32,26 @@ type InterviewTimetable {
     confirmedAt: DateTime
     "빈 칸까지 포함한 전체 블록, 시간순. 면접 설정이 덜 채워졌으면 빈 목록"
     slots: [InterviewSlot!]!
-    "지원자가 배정된 면접 칸, 시작 시각과 track 순"
+    "만들어진 면접 칸, 시작 시각과 track 순. 운영진이 직접 추가한 칸은 지원자가 없을 수 있음"
     interviews: [Interview!]!
     "서류 합격인데 어느 칸에도 없는 지원자, 먼저 낸 순"
     unassignedApplicants: [Application!]!
     "이 모집에서 쓴 장소, 최근에 쓴 순"
     recentLocations: [String!]!
+}
+
+"면접 칸 추가와 수정. null인 필드는 그대로 둠"
+input InterviewInput {
+    "없으면 startAt 블록에 칸을 새로 추가, 있으면 그 칸을 수정"
+    id: ID
+    "새 칸의 시작 시각, 열려 있는 블록의 시작 시각이어야 함. id가 있으면 무시"
+    startAt: DateTime
+    "면접 장소, 100자까지. 빈 문자열이면 비움"
+    location: String
+    "이 칸의 지원자 전체. 다른 칸에 있던 지원자는 옮겨 오고 목록에서 빠진 지원자는 미배정이 됨. 2명 이상이면 그룹 면접"
+    applicationIds: [ID!]
+    "이 칸의 면접관(Member id) 전체"
+    interviewerMemberIds: [ID!]
 }
 
 extend type Query {
@@ -54,6 +68,28 @@ extend type Mutation {
     타임테이블이 확정된 뒤면 INTERVIEW_409(reason: TIMETABLE_CONFIRMED)
     """
     generateInterviewTimetable(postingId: ID!): InterviewTimetable!
+
+    """
+    면접 칸 하나를 추가하거나 수정. 확정 뒤에도 가능. 직접 배정은 지원자가 고른 시각, 포지션, 정원을 따지지 않음.
+    새 칸의 track은 같은 시각에 이미 있는 열 다음 번호로 매김.
+    그 공고 단체의 운영진만 (아니면 COMMON_403), 공고가 없으면 POSTING_404, 그 공고의 칸이 아니면 INTERVIEW_404,
+    COMMON_400 reason: NO_INTERVIEW, INTERVIEW_SETTING_REQUIRED, START_AT_REQUIRED(새 칸인데 startAt 없음),
+    SLOT_NOT_OPEN(열려 있는 블록의 시작 시각이 아님), APPLICANT_NOT_ELIGIBLE(이 공고의 서류 합격자가 아님),
+    INTERVIEWER_NOT_MEMBER(이 단체 소속 운영진이 아님).
+    면접관이 시간이 겹치는 다른 칸에 있으면 INTERVIEW_409(reason: INTERVIEWER_TIME_OVERLAP)
+    """
+    updateInterview(postingId: ID!, input: InterviewInput!): InterviewTimetable!
+
+    "면접 칸 삭제. 거기 있던 지원자는 미배정으로 돌아감. 그 공고 단체의 운영진만 (아니면 COMMON_403), 칸이 없으면 INTERVIEW_404"
+    deleteInterview(id: ID!): InterviewTimetable!
+
+    """
+    면접 타임테이블 확정. 미배정 지원자가 남아 있어도 되고, 배정된 지원자에게 알림(POSTING_NOTICE)이 감.
+    확정 뒤에는 면접 가능 시간 재선택과 자동 생성이 잠기고 칸 수정은 계속 가능.
+    그 공고 단체의 운영진만 (아니면 COMMON_403), 공고가 없으면 POSTING_404, 면접 없는 공고면 COMMON_400(reason: NO_INTERVIEW),
+    이미 확정했으면 INTERVIEW_409(reason: ALREADY_CONFIRMED), 배정된 지원자가 없으면 INTERVIEW_409(reason: NO_ASSIGNED_APPLICANT)
+    """
+    confirmInterviewTimetable(postingId: ID!): InterviewTimetable!
 
     """
     면접 가능 시간 재선택. 지원자 본인만 (아니면 COMMON_403), 지원서가 없으면 APPLICATION_404. 기존 값은 통째로 교체.

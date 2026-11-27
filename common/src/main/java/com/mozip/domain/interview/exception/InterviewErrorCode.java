@@ -11,6 +11,7 @@ import lombok.RequiredArgsConstructor;
 @RequiredArgsConstructor
 public enum InterviewErrorCode implements ErrorCode {
 
+	NOT_FOUND(HttpStatus.NOT_FOUND, "INTERVIEW_404", "면접 칸을 찾을 수 없습니다."),
 	// reason으로 상황 구분 (InterviewConflictReason)
 	CONFLICT(HttpStatus.CONFLICT, "INTERVIEW_409", "처리할 수 없는 상태입니다.");
 

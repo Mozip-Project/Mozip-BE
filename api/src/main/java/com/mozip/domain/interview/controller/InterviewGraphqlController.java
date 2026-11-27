@@ -14,6 +14,7 @@ import org.springframework.security.core.annotation.AuthenticationPrincipal;
 import org.springframework.stereotype.Controller;
 
 import com.mozip.domain.application.entity.Application;
+import com.mozip.domain.interview.dto.InterviewInput;
 import com.mozip.domain.interview.dto.InterviewTimetable;
 import com.mozip.domain.interview.entity.Interview;
 import com.mozip.domain.interview.entity.InterviewApplicant;
@@ -27,6 +28,7 @@ import com.mozip.domain.posting.entity.Posting;
 import com.mozip.domain.posting.repository.PostingRepository;
 import com.mozip.global.security.AuthUser;
 
+import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
 
 @Controller
@@ -55,6 +57,23 @@ public class InterviewGraphqlController {
 	public InterviewTimetable generateInterviewTimetable(@Argument Long postingId,
 		@AuthenticationPrincipal AuthUser authUser) {
 		return interviewTimetableService.generate(authUser.userId(), postingId);
+	}
+
+	@MutationMapping
+	public InterviewTimetable updateInterview(@Argument Long postingId, @Argument @Valid InterviewInput input,
+		@AuthenticationPrincipal AuthUser authUser) {
+		return interviewTimetableService.update(authUser.userId(), postingId, input);
+	}
+
+	@MutationMapping
+	public InterviewTimetable deleteInterview(@Argument Long id, @AuthenticationPrincipal AuthUser authUser) {
+		return interviewTimetableService.delete(authUser.userId(), id);
+	}
+
+	@MutationMapping
+	public InterviewTimetable confirmInterviewTimetable(@Argument Long postingId,
+		@AuthenticationPrincipal AuthUser authUser) {
+		return interviewTimetableService.confirm(authUser.userId(), postingId);
 	}
 
 	@BatchMapping(typeName = "Interview", field = "posting")

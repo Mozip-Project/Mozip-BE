@@ -32,7 +32,7 @@
 | `SubscriptionService.hasActivePlan(organizationId)` | A | A (`publishPosting`, #65) | 임시 구현 `TemporarySubscriptionService` (#65). 항상 true. 9단계(결제)에서 실제 구현으로 교체 |
 | `SubscriptionService.startFreeTrial(organizationId)` | A | B (단체 생성 직후) | 임시 구현 `TemporarySubscriptionService` (#65, 아무 것도 안 함). 9단계(결제)에서 A가 교체 |
 | 이용권 검사 (`ORG_402 SUBSCRIPTION_REQUIRED`) | A | B (유료 기능 호출 시) | 구현됨. `publishPosting`에서 사용 (#65) |
-| `NotificationService.send(userId, type, organizationId, title, linkUrl)` (messageId를 받는 오버로드 포함) | A | B (`inviteMember`→INVITATION, `assignReviewers`→EVALUATION_REQUEST, 결과 안내→DOC_RESULT/FINAL_RESULT) | 구현됨 (#48) |
+| `NotificationService.send(userId, type, organizationId, title, linkUrl)` (messageId를 받는 오버로드 포함) | A | B (`inviteMember`→INVITATION, `assignReviewers`→EVALUATION_REQUEST, 결과 안내→DOC_RESULT/FINAL_RESULT, `confirmInterviewTimetable`→POSTING_NOTICE) | 구현됨 (#48). 타임테이블 확정 알림은 전용 타입이 없어 POSTING_NOTICE로 보냄 (#107) |
 | `MailSender` | A | B (결과 안내 발송) | 미정. B 결과 안내 순서 전에 A가 만들거나 B가 임시 구현 |
 | `User.contactEmail` | A | B (결과 안내 수신 주소) | 미정. A가 컬럼만 먼저 추가하거나 B가 지원서 `profile_snapshot`에서 임시로 꺼냄 |
 | `PostingResultChecker.isDocResultConfirmed(postingId)` | B | A (`advancePostingStatus`의 DOC_REVIEW -> DOC_RESULT_NOTICE 조건, #66) | 임시 구현 `TemporaryPostingResultChecker` (#66). 항상 true. B가 서류 평가 결과 취합을 구현하면 실제 구현으로 교체 |
@@ -46,7 +46,7 @@
 | 엔티티 | 소유 | B가 쓰는 부분 | 상태 |
 |---|---|---|---|
 | `Application` | A | `doc_result`, `final_result` 컬럼과 변경 메서드 `decideDocResult`, `decideFinalResult`. `available_times` 컬럼과 `changeAvailableTimes` | 컬럼 존재 (#69). 변경 메서드는 아직 B가 안 만듦 (지금은 PENDING에서 안 바뀜). `changeAvailableTimes`는 B가 추가함 (#106) |
-| `Posting` | A | `doc_result_confirmed_at`, `final_result_confirmed_at`, `timetable_confirmed_at`, 면접 설정 컬럼 5개(`interviewMinutes`, `breakMinutes`, `assignRule`, `maxApplicantsPerInterview`, `maxParallelInterviews`) | 컬럼 추가됨 (#65). 변경 메서드(`decideDocResult` 등)는 아직 B가 안 만듦. `interviewMethod`(온라인/오프라인 구분)는 안 쓰기로 해서 제거됨 (#99) |
+| `Posting` | A | `doc_result_confirmed_at`, `final_result_confirmed_at`, `timetable_confirmed_at`, 면접 설정 컬럼 5개(`interviewMinutes`, `breakMinutes`, `assignRule`, `maxApplicantsPerInterview`, `maxParallelInterviews`) | 컬럼 추가됨 (#65). `timetable_confirmed_at`은 `InterviewRepository.confirmTimetable`의 조건부 UPDATE로 채움 (#107). 나머지 변경 메서드(`decideDocResult` 등)는 아직 B가 안 만듦. `interviewMethod`(온라인/오프라인 구분)는 안 쓰기로 해서 제거됨 (#99) |
 | `Posting.doc_score_per_question`, `Question.short_title` | A | B가 평가 화면에서 읽음 | 컬럼 추가됨 (#65). `short_title`은 아직 입력 경로 없어 항상 null |
 
 ## 아직 결정 안 된 것

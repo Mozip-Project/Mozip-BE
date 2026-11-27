@@ -6,6 +6,7 @@ import java.time.LocalDate;
 import java.time.LocalDateTime;
 import java.time.LocalTime;
 import java.util.List;
+import java.util.Map;
 import java.util.concurrent.ThreadLocalRandom;
 
 import org.junit.jupiter.api.DisplayName;
@@ -87,6 +88,41 @@ class InterviewGraphqlControllerTest {
 			interviewTimetable(postingId: $postingId) {
 				interviews { applicants { id } }
 				unassignedApplicants { id }
+			}
+		}
+		""";
+
+	private static final String UPDATE_INTERVIEW = """
+		mutation($postingId: ID!, $input: InterviewInput!) {
+			updateInterview(postingId: $postingId, input: $input) {
+				interviews {
+					id
+					startAt
+					track
+					location
+					interviewers { id }
+					applicants { id }
+				}
+				unassignedApplicants { id }
+				recentLocations
+			}
+		}
+		""";
+
+	private static final String DELETE_INTERVIEW = """
+		mutation($id: ID!) {
+			deleteInterview(id: $id) {
+				interviews { id }
+				unassignedApplicants { id }
+			}
+		}
+		""";
+
+	private static final String CONFIRM_INTERVIEW_TIMETABLE = """
+		mutation($postingId: ID!) {
+			confirmInterviewTimetable(postingId: $postingId) {
+				confirmedAt
+				interviews { id }
 			}
 		}
 		""";
@@ -251,6 +287,88 @@ class InterviewGraphqlControllerTest {
 			.satisfy(errors -> assertThat(errors.getFirst().getExtensions())
 				.containsEntry("code", "INTERVIEW_409")
 				.containsEntry("reason", "TIMETABLE_CONFIRMED"));
+	}
+
+	@Test
+	@DisplayName("운영진이 updateInterview로 칸을 만들어 배정하고 confirmInterviewTimetable로 확정하면 지원자에게 알림이 쌓인다")
+	void updateAndConfirmInterviewTimetable() {
+		LocalDate date = LocalDate.now().plusDays(10);
+		User operator = saveUser("운영진");
+		User applicant = saveUser("지원자");
+		Application application = submittedApplication(operator, applicant, date);
+		String postingId = String.valueOf(application.getPosting().getId());
+		String applicationId = String.valueOf(application.getId());
+		jdbcTemplate.update("update applications set doc_result = 'PASS' where id = ?", application.getId());
+		String memberId = String.valueOf(
+			jdbcTemplate.queryForObject("select id from members where user_id = ?", Long.class, operator.getId()));
+
+		String interviewId = asUser(operator).document(UPDATE_INTERVIEW)
+			.variable("postingId", postingId)
+			.variable("input", Map.of(
+				"startAt", date.atTime(10, 30) + ":00+09:00",
+				"location", "301호",
+				"applicationIds", List.of(applicationId),
+				"interviewerMemberIds", List.of(memberId)))
+			.execute()
+			.path("updateInterview.interviews[0].startAt").entity(String.class)
+			.isEqualTo(date.atTime(10, 30) + ":00+09:00")
+			.path("updateInterview.interviews[0].track").entity(Integer.class).isEqualTo(1)
+			.path("updateInterview.interviews[0].location").entity(String.class).isEqualTo("301호")
+			.path("updateInterview.interviews[0].interviewers[*].id").entityList(String.class)
+			.containsExactly(memberId)
+			.path("updateInterview.interviews[0].applicants[*].id").entityList(String.class)
+			.containsExactly(applicationId)
+			.path("updateInterview.unassignedApplicants").entityList(Object.class).hasSize(0)
+			.path("updateInterview.recentLocations").entityList(String.class).containsExactly("301호")
+			.path("updateInterview.interviews[0].id").entity(String.class).get();
+
+		asUser(operator).document(CONFIRM_INTERVIEW_TIMETABLE)
+			.variable("postingId", postingId)
+			.execute()
+			.path("confirmInterviewTimetable.confirmedAt").entity(String.class)
+			.satisfies(confirmedAt -> assertThat(confirmedAt).endsWith("+09:00"))
+			.path("confirmInterviewTimetable.interviews[*].id").entityList(String.class)
+			.containsExactly(interviewId);
+		assertThat(jdbcTemplate.queryForObject(
+			"select count(*) from notifications where user_id = ? and type = 'POSTING_NOTICE'", Integer.class,
+			applicant.getId())).isEqualTo(1);
+
+		asUser(operator).document(CONFIRM_INTERVIEW_TIMETABLE)
+			.variable("postingId", postingId)
+			.execute()
+			.errors()
+			.satisfy(errors -> assertThat(errors.getFirst().getExtensions())
+				.containsEntry("code", "INTERVIEW_409")
+				.containsEntry("reason", "ALREADY_CONFIRMED"));
+
+		// 확정 뒤에도 칸은 지울 수 있고 지원자는 미배정으로 돌아감
+		asUser(operator).document(DELETE_INTERVIEW)
+			.variable("id", interviewId)
+			.execute()
+			.path("deleteInterview.interviews").entityList(Object.class).hasSize(0)
+			.path("deleteInterview.unassignedApplicants[*].id").entityList(String.class)
+			.containsExactly(applicationId);
+	}
+
+	@Test
+	@DisplayName("그 단체의 운영진이 아닌 회원이 updateInterview나 confirmInterviewTimetable을 부르면 COMMON_403이다")
+	void updateInterviewOfOtherOrganization() {
+		LocalDate date = LocalDate.now().plusDays(10);
+		Application application = submittedApplication(saveUser("지원자"), date);
+		String postingId = String.valueOf(application.getPosting().getId());
+		User outsider = saveUser("외부인");
+
+		asUser(outsider).document(UPDATE_INTERVIEW)
+			.variable("postingId", postingId)
+			.variable("input", Map.of("startAt", date.atTime(10, 0) + ":00+09:00"))
+			.execute()
+			.errors()
+			.satisfy(errors -> assertThat(errors.getFirst().getExtensions()).containsEntry("code", "COMMON_403"));
+		asUser(outsider).document(CONFIRM_INTERVIEW_TIMETABLE)
+			.variable("postingId", postingId)
+			.execute()
+			.errors()
+			.satisfy(errors -> assertThat(errors.getFirst().getExtensions()).containsEntry("code", "COMMON_403"));
 	}
 
 	private Application submittedApplication(User applicant, LocalDate date) {

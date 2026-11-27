@@ -24,6 +24,7 @@ import com.mozip.domain.application.dto.AnswerInput;
 import com.mozip.domain.application.dto.ApplicationInput;
 import com.mozip.domain.application.entity.Application;
 import com.mozip.domain.application.service.ApplicationService;
+import com.mozip.domain.interview.dto.InterviewInput;
 import com.mozip.domain.interview.dto.InterviewTimetable;
 import com.mozip.domain.interview.entity.Interview;
 import com.mozip.domain.interview.entity.InterviewApplicant;
@@ -31,6 +32,7 @@ import com.mozip.domain.interview.exception.InterviewConflictReason;
 import com.mozip.domain.interview.exception.InterviewErrorCode;
 import com.mozip.domain.interview.exception.InterviewInputReason;
 import com.mozip.domain.interview.repository.InterviewApplicantRepository;
+import com.mozip.domain.interview.repository.InterviewerRepository;
 import com.mozip.domain.interview.timetable.Slot;
 import com.mozip.domain.organization.entity.Member;
 import com.mozip.domain.organization.entity.MemberRole;
@@ -100,8 +102,12 @@ class InterviewTimetableServiceTest {
 	@Autowired
 	private EntityManager entityManager;
 
+	@Autowired
+	private InterviewerRepository interviewerRepository;
+
 	private Organization organization;
 	private User operator;
+	private Member operatorMember;
 	private School school;
 	private Posting posting;
 
@@ -111,7 +117,7 @@ class InterviewTimetableServiceTest {
 			Organization.create("타임테이블 테스트 단체", OrganizationType.CLUB, null, OrganizationScope.CAMPUS, null, true,
 				null, null));
 		operator = saveUser("운영진");
-		memberRepository.save(Member.create(organization, operator, null, MemberRole.REPRESENTATIVE));
+		operatorMember = memberRepository.save(Member.create(organization, operator, null, MemberRole.REPRESENTATIVE));
 		school = schoolRepository.save(School.create("타임테이블 테스트대학교", null));
 		posting = recruitingPosting(true);
 	}
@@ -230,6 +236,236 @@ class InterviewTimetableServiceTest {
 		assertThatThrownBy(() -> interviewTimetableService.generate(operator.getId(), Long.MAX_VALUE))
 			.isInstanceOfSatisfying(BusinessException.class,
 				e -> assertThat(e.getErrorCode()).isEqualTo(PostingErrorCode.NOT_FOUND));
+	}
+
+	@Test
+	@DisplayName("새 칸을 추가하며 지원자를 넣으면 기존 칸에서 빠져 옮겨 오고 장소와 면접관이 저장된다")
+	void updateMovesApplicantToNewInterview() {
+		Application application = submit("합격자", List.of(FIRST_SLOT));
+		decideDocResult(application, "PASS");
+		Long before = interviewTimetableService.generate(operator.getId(), posting.getId())
+			.interviews().getFirst().getId();
+
+		InterviewTimetable timetable = interviewTimetableService.update(operator.getId(), posting.getId(),
+			new InterviewInput(null, SECOND_SLOT, " 301호 ", List.of(application.getId()),
+				List.of(operatorMember.getId())));
+
+		assertThat(timetable.interviews()).extracting(Interview::getStartAt).containsExactly(FIRST_SLOT, SECOND_SLOT);
+		Interview emptied = timetable.interviews().get(0);
+		Interview added = timetable.interviews().get(1);
+		assertThat(emptied.getId()).isEqualTo(before);
+		assertThat(applicationIdsOf(emptied)).isEmpty();
+		assertThat(applicationIdsOf(added)).containsExactly(application.getId());
+		assertThat(added.getLocation()).isEqualTo("301호");
+		assertThat(interviewerMemberIdsOf(added)).containsExactly(operatorMember.getId());
+		assertThat(timetable.unassignedApplicants()).isEmpty();
+		assertThat(timetable.recentLocations()).containsExactly("301호");
+	}
+
+	@Test
+	@DisplayName("칸의 지원자 목록에서 빼면 그 지원자는 미배정으로 돌아가고 보내지 않은 장소는 그대로다")
+	void updateRemovesApplicant() {
+		Application application = submit("합격자", List.of(FIRST_SLOT));
+		decideDocResult(application, "PASS");
+		Long interviewId = interviewTimetableService.generate(operator.getId(), posting.getId())
+			.interviews().getFirst().getId();
+		interviewTimetableService.update(operator.getId(), posting.getId(),
+			new InterviewInput(interviewId, null, "301호", null, null));
+
+		InterviewTimetable timetable = interviewTimetableService.update(operator.getId(), posting.getId(),
+			new InterviewInput(interviewId, null, null, List.of(), null));
+
+		assertThat(applicationIdsOf(timetable.interviews().getFirst())).isEmpty();
+		assertThat(timetable.interviews().getFirst().getLocation()).isEqualTo("301호");
+		assertThat(timetable.unassignedApplicants()).extracting(Application::getId)
+			.containsExactly(application.getId());
+	}
+
+	@Test
+	@DisplayName("같은 시각에 칸을 또 추가하면 track이 다음 번호로 매겨진다")
+	void addInterviewAtSameSlotGetsNextTrack() {
+		interviewTimetableService.update(operator.getId(), posting.getId(),
+			new InterviewInput(null, FIRST_SLOT, null, null, null));
+
+		InterviewTimetable timetable = interviewTimetableService.update(operator.getId(), posting.getId(),
+			new InterviewInput(null, FIRST_SLOT, null, null, null));
+
+		assertThat(timetable.interviews()).extracting(Interview::getTrack).containsExactly(1, 2);
+		assertThat(timetable.interviews()).extracting(Interview::getEndAt).containsOnly(FIRST_SLOT.plusMinutes(20));
+	}
+
+	@Test
+	@DisplayName("블록 시작 시각이 아닌 시각에 칸을 추가하면 COMMON_400(SLOT_NOT_OPEN), 시각이 없으면 START_AT_REQUIRED를 던진다")
+	void rejectAddAtNotOpenSlot() {
+		assertThatThrownBy(() -> interviewTimetableService.update(operator.getId(), posting.getId(),
+			new InterviewInput(null, DATE.atTime(10, 15), null, null, null)))
+			.isInstanceOfSatisfying(BusinessException.class, e -> {
+				assertThat(e.getErrorCode()).isEqualTo(CommonErrorCode.INVALID_INPUT);
+				assertThat(e.getReason()).isEqualTo(InterviewInputReason.SLOT_NOT_OPEN.name());
+			});
+		assertThatThrownBy(() -> interviewTimetableService.update(operator.getId(), posting.getId(),
+			new InterviewInput(null, null, null, null, null)))
+			.isInstanceOfSatisfying(BusinessException.class, e -> {
+				assertThat(e.getErrorCode()).isEqualTo(CommonErrorCode.INVALID_INPUT);
+				assertThat(e.getReason()).isEqualTo(InterviewInputReason.START_AT_REQUIRED.name());
+			});
+	}
+
+	@Test
+	@DisplayName("서류 합격자가 아닌 지원서를 배정하면 COMMON_400(APPLICANT_NOT_ELIGIBLE)을 던진다")
+	void rejectNotPassedApplicant() {
+		Application pending = submit("심사 전", List.of(FIRST_SLOT));
+
+		assertThatThrownBy(() -> interviewTimetableService.update(operator.getId(), posting.getId(),
+			new InterviewInput(null, FIRST_SLOT, null, List.of(pending.getId()), null)))
+			.isInstanceOfSatisfying(BusinessException.class, e -> {
+				assertThat(e.getErrorCode()).isEqualTo(CommonErrorCode.INVALID_INPUT);
+				assertThat(e.getReason()).isEqualTo(InterviewInputReason.APPLICANT_NOT_ELIGIBLE.name());
+			});
+	}
+
+	@Test
+	@DisplayName("다른 단체 운영진을 면접관으로 넣으면 COMMON_400(INTERVIEWER_NOT_MEMBER)을 던진다")
+	void rejectInterviewerOfOtherOrganization() {
+		Organization other = organizationRepository.save(
+			Organization.create("다른 단체", OrganizationType.CLUB, null, OrganizationScope.CAMPUS, null, true,
+				null, null));
+		Member outsider = memberRepository.save(
+			Member.create(other, saveUser("다른 단체 운영진"), null, MemberRole.REPRESENTATIVE));
+
+		assertThatThrownBy(() -> interviewTimetableService.update(operator.getId(), posting.getId(),
+			new InterviewInput(null, FIRST_SLOT, null, null, List.of(outsider.getId()))))
+			.isInstanceOfSatisfying(BusinessException.class, e -> {
+				assertThat(e.getErrorCode()).isEqualTo(CommonErrorCode.INVALID_INPUT);
+				assertThat(e.getReason()).isEqualTo(InterviewInputReason.INTERVIEWER_NOT_MEMBER.name());
+			});
+	}
+
+	@Test
+	@DisplayName("같은 시각의 다른 칸에 이미 들어간 면접관을 또 넣으면 INTERVIEW_409(INTERVIEWER_TIME_OVERLAP)를 던진다")
+	void rejectOverlappingInterviewer() {
+		interviewTimetableService.update(operator.getId(), posting.getId(),
+			new InterviewInput(null, FIRST_SLOT, null, null, List.of(operatorMember.getId())));
+
+		assertThatThrownBy(() -> interviewTimetableService.update(operator.getId(), posting.getId(),
+			new InterviewInput(null, FIRST_SLOT, null, null, List.of(operatorMember.getId()))))
+			.isInstanceOfSatisfying(BusinessException.class, e -> {
+				assertThat(e.getErrorCode()).isEqualTo(InterviewErrorCode.CONFLICT);
+				assertThat(e.getReason()).isEqualTo(InterviewConflictReason.INTERVIEWER_TIME_OVERLAP.name());
+			});
+	}
+
+	@Test
+	@DisplayName("같은 칸의 면접관을 같은 사람으로 다시 보내거나 시간이 안 겹치는 칸에 넣는 것은 된다")
+	void allowSameInterviewerWithoutOverlap() {
+		Long interviewId = interviewTimetableService.update(operator.getId(), posting.getId(),
+			new InterviewInput(null, FIRST_SLOT, null, null, List.of(operatorMember.getId())))
+			.interviews().getFirst().getId();
+
+		interviewTimetableService.update(operator.getId(), posting.getId(),
+			new InterviewInput(interviewId, null, null, null, List.of(operatorMember.getId())));
+		InterviewTimetable timetable = interviewTimetableService.update(operator.getId(), posting.getId(),
+			new InterviewInput(null, SECOND_SLOT, null, null, List.of(operatorMember.getId())));
+
+		assertThat(timetable.interviews()).hasSize(2)
+			.allSatisfy(interview -> assertThat(interviewerMemberIdsOf(interview))
+				.containsExactly(operatorMember.getId()));
+	}
+
+	@Test
+	@DisplayName("다른 공고의 칸을 고치려 하면 INTERVIEW_404를 던진다")
+	void rejectInterviewOfOtherPosting() {
+		Posting other = recruitingPosting(true);
+		Long otherInterviewId = interviewTimetableService.update(operator.getId(), other.getId(),
+			new InterviewInput(null, FIRST_SLOT, null, null, null)).interviews().getFirst().getId();
+
+		assertThatThrownBy(() -> interviewTimetableService.update(operator.getId(), posting.getId(),
+			new InterviewInput(otherInterviewId, null, "301호", null, null)))
+			.isInstanceOfSatisfying(BusinessException.class,
+				e -> assertThat(e.getErrorCode()).isEqualTo(InterviewErrorCode.NOT_FOUND));
+	}
+
+	@Test
+	@DisplayName("칸을 지우면 거기 있던 지원자는 미배정으로 돌아간다")
+	void deleteInterview() {
+		Application application = submit("합격자", List.of(FIRST_SLOT));
+		decideDocResult(application, "PASS");
+		Long interviewId = interviewTimetableService.generate(operator.getId(), posting.getId())
+			.interviews().getFirst().getId();
+		interviewTimetableService.update(operator.getId(), posting.getId(),
+			new InterviewInput(interviewId, null, null, null, List.of(operatorMember.getId())));
+
+		InterviewTimetable timetable = interviewTimetableService.delete(operator.getId(), interviewId);
+
+		assertThat(timetable.interviews()).isEmpty();
+		assertThat(timetable.unassignedApplicants()).extracting(Application::getId)
+			.containsExactly(application.getId());
+	}
+
+	@Test
+	@DisplayName("확정하면 확정 시각이 채워지고 배정된 지원자에게만 알림이 한 건씩 간다")
+	void confirmNotifiesAssignedApplicants() {
+		Application assigned = submit("배정된 지원자", List.of(FIRST_SLOT));
+		Application unassigned = submit("미배정 지원자", List.of(FIRST_SLOT));
+		decideDocResult(assigned, "PASS");
+		decideDocResult(unassigned, "PASS");
+		interviewTimetableService.generate(operator.getId(), posting.getId());
+
+		InterviewTimetable timetable = interviewTimetableService.confirm(operator.getId(), posting.getId());
+
+		assertThat(timetable.confirmedAt()).isNotNull();
+		assertThat(timetable.unassignedApplicants()).extracting(Application::getId)
+			.containsExactly(unassigned.getId());
+		entityManager.flush();
+		assertThat(noticeCount(assigned)).isEqualTo(1);
+		assertThat(noticeCount(unassigned)).isZero();
+	}
+
+	@Test
+	@DisplayName("확정한 뒤에는 다시 확정과 자동 생성이 INTERVIEW_409로 막히고 칸 수정은 된다")
+	void afterConfirm() {
+		Application application = submit("합격자", List.of(FIRST_SLOT));
+		decideDocResult(application, "PASS");
+		Long interviewId = interviewTimetableService.generate(operator.getId(), posting.getId())
+			.interviews().getFirst().getId();
+		interviewTimetableService.confirm(operator.getId(), posting.getId());
+
+		assertThatThrownBy(() -> interviewTimetableService.confirm(operator.getId(), posting.getId()))
+			.isInstanceOfSatisfying(BusinessException.class, e -> {
+				assertThat(e.getErrorCode()).isEqualTo(InterviewErrorCode.CONFLICT);
+				assertThat(e.getReason()).isEqualTo(InterviewConflictReason.ALREADY_CONFIRMED.name());
+			});
+		assertThatThrownBy(() -> interviewTimetableService.generate(operator.getId(), posting.getId()))
+			.isInstanceOfSatisfying(BusinessException.class, e -> {
+				assertThat(e.getErrorCode()).isEqualTo(InterviewErrorCode.CONFLICT);
+				assertThat(e.getReason()).isEqualTo(InterviewConflictReason.TIMETABLE_CONFIRMED.name());
+			});
+		InterviewTimetable timetable = interviewTimetableService.update(operator.getId(), posting.getId(),
+			new InterviewInput(interviewId, null, "301호", null, null));
+		assertThat(timetable.confirmedAt()).isNotNull();
+		assertThat(timetable.interviews().getFirst().getLocation()).isEqualTo("301호");
+	}
+
+	@Test
+	@DisplayName("배정된 지원자가 한 명도 없으면 확정이 INTERVIEW_409(NO_ASSIGNED_APPLICANT)로 막힌다")
+	void rejectConfirmWithoutAssignedApplicant() {
+		assertThatThrownBy(() -> interviewTimetableService.confirm(operator.getId(), posting.getId()))
+			.isInstanceOfSatisfying(BusinessException.class, e -> {
+				assertThat(e.getErrorCode()).isEqualTo(InterviewErrorCode.CONFLICT);
+				assertThat(e.getReason()).isEqualTo(InterviewConflictReason.NO_ASSIGNED_APPLICANT.name());
+			});
+	}
+
+	private int noticeCount(Application application) {
+		return jdbcTemplate.queryForObject(
+			"select count(*) from notifications where user_id = ? and type = 'POSTING_NOTICE'", Integer.class,
+			application.getUser().getId());
+	}
+
+	private List<Long> interviewerMemberIdsOf(Interview interview) {
+		return interviewerRepository.findAllWithMemberByInterviewIn(List.of(interview)).stream()
+			.map(interviewer -> interviewer.getMember().getId())
+			.toList();
 	}
 
 	private List<Long> applicationIdsOf(Interview interview) {

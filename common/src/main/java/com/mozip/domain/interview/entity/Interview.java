@@ -58,4 +58,9 @@ public class Interview extends BaseEntity {
 		return new Interview(posting, startAt, endAt, track);
 	}
 
+	// null이면 장소를 비움
+	public void changeLocation(String location) {
+		this.location = location;
+	}
+
 }
