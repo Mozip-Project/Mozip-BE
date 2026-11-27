@@ -20,7 +20,8 @@ import lombok.AccessLevel;
 import lombok.Getter;
 import lombok.NoArgsConstructor;
 
-// FILE_LINK 문항 답변의 첨부. FILE은 presigned URL(purpose=APPLICATION_ATTACHMENT)로 올린 파일의 키/URL, LINK는 지원자가 직접 입력한 링크
+// FILE_LINK 문항 답변의 첨부. FILE은 presigned URL(purpose=APPLICATION_ATTACHMENT)로 올린 파일의 fileKey (조회 시 GraphQL
+// 리졸버가 FileService.presignGet으로 GET presigned URL을 만들어 응답), LINK는 지원자가 직접 입력한 http(s) 링크 그대로
 @Getter
 @Entity
 @Table(name = "attachments")
@@ -51,15 +52,19 @@ public class Attachment extends BaseEntity {
 	@Column(length = 255)
 	private String fileName;
 
-	private Attachment(Answer answer, AttachmentType type, String url, String fileName) {
+	// 바이트 크기. 입력으로 안 받고 ApplicationService가 저장 시 S3 HeadObject로 직접 확인한 값을 씀, LINK는 항상 null
+	private Integer size;
+
+	private Attachment(Answer answer, AttachmentType type, String url, String fileName, Integer size) {
 		this.answer = answer;
 		this.type = type;
 		this.url = url;
 		this.fileName = fileName;
+		this.size = size;
 	}
 
-	public static Attachment create(Answer answer, AttachmentType type, String url, String fileName) {
-		return new Attachment(answer, type, url, fileName);
+	public static Attachment create(Answer answer, AttachmentType type, String url, String fileName, Integer size) {
+		return new Attachment(answer, type, url, fileName, size);
 	}
 
 }

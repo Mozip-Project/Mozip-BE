@@ -51,6 +51,10 @@
 
 ## 아직 결정 안 된 것
 
+- `SchoolVerification.certificateUrl`의 presigned GET 읽기, 본인/관리자 권한 확인은 #104에서 빠짐. 그 엔티티가 아직
+  `develop`에 없어서(#76이 별도 브랜치) `FilePurpose`에 재학증명서용 값도 아직 없음. #76이 머지된 뒤 같은 패턴
+  (결정 009)으로 이어서 연결해야 함
+
 - 위 표에서 "제안", "미정"인 항목은 A와 합의되면 "결정"으로 바꾸고 날짜를 적는다
 - 운영 DB `ddl-auto`를 `validate`로 바꿀지 (`db/README.md`)
 - 결정 006의 "Redis 리스너는 worker"는 비동기 작업 기준이고, 알림 SSE용 Redis 구독(`NotificationRedisListener`, #48)은
@@ -76,3 +80,7 @@
   - 지원 자격 검사는 학교 인증 여부만 함. 대학생·휴학생 허용 여부는 `User`에 재학 상태를 나타내는 필드가 없어서 검사 안 함
   - DRAFT 지원서를 지원자가 지우는 기능은 안 만듦 (할 일/API 목록에 없었음)
   - `Attachment.url`은 그냥 문자열로 저장만 함. #34(presigned URL)가 아직 안 머지돼서 실제 S3 발급/검증과는 연동 안 함
+    (#104에서 연동 완료. FILE 타입은 fileKey를 저장하고 조회 시 presigned GET URL로 변환)
+- 단체 로고(`Organization.logoUrl`) 저장 값이 전체 URL에서 S3 fileKey로 바뀜 (#104, 결정 009). 컬럼/필드 이름은 그대로지만
+  더 이상 바로 열리는 주소가 아니라서, B가 이 값을 직접 조합해서 쓰는 곳이 있으면 GraphQL `Organization.logoUrl`/
+  `OrganizationSummary.logoUrl` 조회로 바꿔야 함 (리졸버가 presigned GET URL로 변환해서 응답)

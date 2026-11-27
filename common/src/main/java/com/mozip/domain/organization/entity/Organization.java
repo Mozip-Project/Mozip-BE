@@ -63,7 +63,8 @@ public class Organization extends BaseEntity {
 	@Column(nullable = false, length = 30)
 	private ReviewStatus reviewStatus;
 
-	// 프로필, 등록 직후에는 전부 null
+	// 프로필, 등록 직후에는 전부 null. 필드명은 호환을 위해 유지하지만 전체 URL이 아닌 S3 fileKey를 저장함
+	// (조회 시 GraphQL 리졸버가 FileService.presignGet으로 GET presigned URL을 만들어 응답)
 	@Column(length = 500)
 	private String logoUrl;
 
@@ -101,13 +102,13 @@ public class Organization extends BaseEntity {
 		return new Organization(name, type, councilLevel, scope, school, noTeam, proofLink, proofFileUrl);
 	}
 
-	public void updateLogo(String logoUrl) {
-		this.logoUrl = logoUrl;
+	// fileKey를 저장 (updateOrganizationLogo 전용 입력 경로). 다른 purpose로 발급받은 키 재사용은 호출하는 쪽(OrganizationService)에서 막음
+	public void updateLogo(String logoFileKey) {
+		this.logoUrl = logoFileKey;
 	}
 
-	// logoUrl이 null이면 기본 이미지 (키워드, 분야, 링크는 OrganizationService에서 교체)
-	public void updateProfile(String logoUrl, String tagline, String description, String email) {
-		this.logoUrl = logoUrl;
+	// 로고는 updateLogo로만 바꿈 (키워드, 분야, 링크는 OrganizationService에서 교체)
+	public void updateProfile(String tagline, String description, String email) {
 		this.tagline = tagline;
 		this.description = description;
 		this.email = email;

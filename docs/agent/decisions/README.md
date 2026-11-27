@@ -32,3 +32,4 @@
 | 006 | 모듈 분리 기준: 엔티티는 common, 로직은 api, 둘 다 쓸 때만 내림 | accepted |
 | 007 | 운영진의 현재 단체는 쿠키로 전달, 선택과 전환은 REST | superseded (008) |
 | 008 | 운영진의 현재 단체는 프론트 쿠키, 백엔드는 organizationId 인자와 소속 검사 | accepted |
+| 009 | 업로드 파일 읽기는 조회마다 GET presigned URL 발급, CloudFront 안 씀 | accepted |

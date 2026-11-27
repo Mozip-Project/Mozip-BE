@@ -44,7 +44,6 @@ import com.mozip.domain.school.entity.School;
 import com.mozip.domain.school.repository.SchoolRepository;
 import com.mozip.domain.user.entity.User;
 import com.mozip.domain.user.repository.UserRepository;
-import com.mozip.global.config.S3Properties;
 import com.mozip.global.exception.BusinessException;
 import com.mozip.global.exception.CommonErrorCode;
 
@@ -76,9 +75,6 @@ class OrganizationServiceTest {
 
 	@Autowired
 	private JdbcTemplate jdbcTemplate;
-
-	@Autowired
-	private S3Properties s3Properties;
 
 	private User user;
 	private User other;
@@ -178,7 +174,6 @@ class OrganizationServiceTest {
 			List.of("instagram.com/mozip", "https://www.youtube.com/@mozip", "https://mozip.kr")));
 
 		assertThat(organization.getTagline()).isEqualTo("한 줄 소개");
-		assertThat(organization.getLogoUrl()).isEqualTo("https://cdn.example.com/logo.png");
 		assertThat(organization.getEmail()).isEqualTo("club@example.com");
 		assertThat(fieldTagRepository.findAllByOrganizationInOrderById(List.of(organization)))
 			.extracting(OrganizationFieldTag::getField)
@@ -256,7 +251,7 @@ class OrganizationServiceTest {
 			SeedFixtures.createOrganizationInput());
 
 		organizationService.updateOrganization(user.getId(), organization.getId(), new UpdateOrganizationInput(
-			null, "한 줄 소개", null, " ", List.of(OrganizationField.ETC), List.of("키워드"), List.of("https://mozip.kr")));
+			"한 줄 소개", null, " ", List.of(OrganizationField.ETC), List.of("키워드"), List.of("https://mozip.kr")));
 
 		assertThat(organization.getEmail()).isNull();
 	}
@@ -315,7 +310,7 @@ class OrganizationServiceTest {
 	}
 
 	@Test
-	@DisplayName("운영진이면 cdnDomain과 fileKey를 합쳐 logoUrl을 갱신한다")
+	@DisplayName("운영진이면 fileKey를 그대로 logoUrl 컬럼에 저장한다")
 	void updatesLogo() {
 		Organization organization = organizationService.createOrganization(user.getId(),
 			SeedFixtures.createOrganizationInput());
@@ -323,13 +318,12 @@ class OrganizationServiceTest {
 		Organization result = organizationService.updateLogo(organization.getId(), "org-logo/2026/01/a.png",
 			user.getId());
 
-		assertThat(result.getLogoUrl()).isEqualTo(s3Properties.cdnDomain() + "/org-logo/2026/01/a.png");
+		assertThat(result.getLogoUrl()).isEqualTo("org-logo/2026/01/a.png");
 	}
 
 	private static UpdateOrganizationInput profileInput(List<OrganizationField> fields, List<String> keywords,
 		List<String> links) {
-		return new UpdateOrganizationInput("https://cdn.example.com/logo.png", "한 줄 소개", "자세한 소개",
-			"club@example.com", fields, keywords, links);
+		return new UpdateOrganizationInput("한 줄 소개", "자세한 소개", "club@example.com", fields, keywords, links);
 	}
 
 	private void assertInvalidUpdate(Organization organization, UpdateOrganizationInput input,

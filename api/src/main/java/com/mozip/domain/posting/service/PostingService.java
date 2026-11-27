@@ -23,6 +23,8 @@ import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
 import com.mozip.domain.evaluation.service.PostingResultChecker;
+import com.mozip.domain.file.dto.FilePurpose;
+import com.mozip.domain.file.service.FileService;
 import com.mozip.domain.organization.entity.Organization;
 import com.mozip.domain.organization.entity.Team;
 import com.mozip.domain.organization.exception.OrganizationErrorCode;
@@ -77,6 +79,7 @@ public class PostingService {
 	private final OrganizationAccessChecker organizationAccessChecker;
 	private final SubscriptionService subscriptionService;
 	private final PostingResultChecker postingResultChecker;
+	private final FileService fileService;
 	private final Clock clock;
 
 	@Transactional
@@ -235,13 +238,13 @@ public class PostingService {
 		Map<Long, String> thumbnailByPostingId = new HashMap<>();
 		for (Posting posting : postings) {
 			List<PostingImage> images = imagesByPostingId.getOrDefault(posting.getId(), List.of());
-			String thumbnailUrl = images.stream()
+			String thumbnailFileKey = images.stream()
 				.filter(PostingImage::isRepresentative)
 				.findFirst()
 				.or(() -> images.stream().findFirst())
 				.map(PostingImage::getUrl)
 				.orElse(null);
-			thumbnailByPostingId.put(posting.getId(), thumbnailUrl);
+			thumbnailByPostingId.put(posting.getId(), thumbnailFileKey == null ? null : fileService.presignGet(thumbnailFileKey));
 		}
 		return thumbnailByPostingId;
 	}
@@ -369,9 +372,15 @@ public class PostingService {
 			throw new BusinessException(CommonErrorCode.INVALID_INPUT)
 				.addContext("reason", "대표 이미지는 한 장만 고를 수 있어요");
 		}
+		for (PostingImageInput i : imageInputs) {
+			// 발급 당시 purpose와 다른 fileKey가 들어오는 것을 막음 (예: 다른 purpose로 발급받은 키 재사용)
+			if (!i.fileKey().startsWith(FilePurpose.POSTING_IMAGE.keyPrefix() + "/")) {
+				throw new BusinessException(CommonErrorCode.INVALID_INPUT).addContext("fileKey", i.fileKey());
+			}
+		}
 		postingImageRepository.deleteAllByPosting(posting);
 		List<PostingImage> images = imageInputs.stream()
-			.map(i -> PostingImage.create(posting, i.url(), i.sortOrder(), i.isRepresentative()))
+			.map(i -> PostingImage.create(posting, i.fileKey(), i.sortOrder(), i.isRepresentative()))
 			.toList();
 		postingImageRepository.saveAll(images);
 	}

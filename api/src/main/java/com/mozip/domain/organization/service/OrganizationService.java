@@ -38,7 +38,6 @@ import com.mozip.domain.school.entity.School;
 import com.mozip.domain.school.repository.SchoolRepository;
 import com.mozip.domain.user.entity.User;
 import com.mozip.domain.user.repository.UserRepository;
-import com.mozip.global.config.S3Properties;
 import com.mozip.global.exception.BusinessException;
 import com.mozip.global.exception.CommonErrorCode;
 
@@ -59,7 +58,6 @@ public class OrganizationService {
 	private final OrganizationKeywordRepository keywordRepository;
 	private final OrganizationFieldTagRepository fieldTagRepository;
 	private final OrganizationLinkRepository linkRepository;
-	private final S3Properties s3Properties;
 	private final UserRepository userRepository;
 	private final SchoolRepository schoolRepository;
 	private final SubscriptionService subscriptionService;
@@ -74,7 +72,7 @@ public class OrganizationService {
 		if (!memberRepository.existsByOrganizationIdAndUserIdAndLeftAtIsNull(organizationId, requesterId)) {
 			throw new BusinessException(CommonErrorCode.FORBIDDEN).addContext("userId", requesterId);
 		}
-		organization.updateLogo(s3Properties.cdnDomain() + "/" + fileKey);
+		organization.updateLogo(fileKey);
 		return organization;
 	}
 
@@ -106,8 +104,7 @@ public class OrganizationService {
 		validateFields(organization, input.fields());
 		List<OrganizationLink> links = toLinks(organization, input.links());
 
-		organization.updateProfile(blankToNull(input.logoUrl()), input.tagline(), input.description(),
-			blankToNull(input.email()));
+		organization.updateProfile(input.tagline(), input.description(), blankToNull(input.email()));
 
 		fieldTagRepository.deleteAllByOrganization(organization);
 		fieldTagRepository.saveAll(new LinkedHashSet<>(input.fields()).stream()

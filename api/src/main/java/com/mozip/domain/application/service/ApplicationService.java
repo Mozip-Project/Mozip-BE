@@ -33,6 +33,8 @@ import com.mozip.domain.application.exception.ApplicationInputReason;
 import com.mozip.domain.application.repository.AnswerRepository;
 import com.mozip.domain.application.repository.ApplicationRepository;
 import com.mozip.domain.application.repository.AttachmentRepository;
+import com.mozip.domain.file.dto.FilePurpose;
+import com.mozip.domain.file.service.FileService;
 import com.mozip.domain.interview.service.InterviewAvailabilityService;
 import com.mozip.domain.interview.timetable.InterviewSetting;
 import com.mozip.domain.interview.timetable.InterviewSlotCalculator;
@@ -58,6 +60,7 @@ import com.mozip.global.exception.BusinessException;
 import com.mozip.global.exception.CommonErrorCode;
 
 import lombok.RequiredArgsConstructor;
+import software.amazon.awssdk.services.s3.model.NoSuchKeyException;
 import tools.jackson.core.type.TypeReference;
 import tools.jackson.databind.ObjectMapper;
 
@@ -76,6 +79,7 @@ public class ApplicationService {
 	private final UserRepository userRepository;
 	private final InterviewAvailabilityService interviewAvailabilityService;
 	private final OrganizationAccessChecker organizationAccessChecker;
+	private final FileService fileService;
 	private final ObjectMapper objectMapper;
 	private final Clock clock;
 
@@ -225,18 +229,15 @@ public class ApplicationService {
 			answerRepository.save(answer);
 			if (i.attachments() != null) {
 				for (AttachmentInput a : i.attachments()) {
-					attachmentRepository.save(Attachment.create(answer, a.type(), a.url(), a.fileName()));
+					Integer size = a.type() == AttachmentType.FILE ? headObjectSizeOrThrow(a.url()) : null;
+					attachmentRepository.save(Attachment.create(answer, a.type(), a.url(), a.fileName(), size));
 				}
 			}
 		}
 	}
 
-	// S3 presigned URL(#34)이 발급하는 키 접두어. FilePurpose.APPLICATION_ATTACHMENT.keyPrefix()와 같은 값이라
-	// #34가 머지되면 그쪽 enum을 직접 참조하도록 바꿔야 함
-	private static final String ATTACHMENT_FILE_PATH_PREFIX = "/application-attachment/";
-
 	// 어노테이션으로 표현 못 하는, 타입에 따라 달라지는 검사. FILE_LINK가 아닌 문항에 첨부가 오면 막고,
-	// LINK는 http(s) 주소만, FILE은 APPLICATION_ATTACHMENT 용도로 올린 경로만 허용
+	// LINK는 http(s) 주소만, FILE은 APPLICATION_ATTACHMENT 용도로 발급받은 fileKey만 허용
 	private void validateAttachments(Question question, List<AttachmentInput> attachments) {
 		if (attachments == null || attachments.isEmpty()) {
 			return;
@@ -247,7 +248,7 @@ public class ApplicationService {
 				.addContext("questionId", question.getId());
 		}
 		for (AttachmentInput a : attachments) {
-			boolean valid = a.type() == AttachmentType.LINK ? isHttpUrl(a.url()) : isAttachmentFileUrl(a.url());
+			boolean valid = a.type() == AttachmentType.LINK ? isHttpUrl(a.url()) : isAttachmentFileKey(a.url());
 			if (!valid) {
 				throw new BusinessException(CommonErrorCode.INVALID_INPUT, ApplicationInputReason.INVALID_ATTACHMENT_URL)
 					.addContext("questionId", question.getId())
@@ -265,12 +266,18 @@ public class ApplicationService {
 		}
 	}
 
-	private boolean isAttachmentFileUrl(String url) {
+	// 발급 당시 purpose와 다른 fileKey가 들어오는 것을 막음 (예: 다른 purpose로 발급받은 키 재사용)
+	private boolean isAttachmentFileKey(String fileKey) {
+		return fileKey.startsWith(FilePurpose.APPLICATION_ATTACHMENT.keyPrefix() + "/");
+	}
+
+	// 크기는 클라이언트가 신고한 값을 받지 않고 S3에 직접 물어봄. 업로드가 안 됐으면(NoSuchKey) 잘못된 첨부로 거절
+	private Integer headObjectSizeOrThrow(String fileKey) {
 		try {
-			String path = URI.create(url).getPath();
-			return path != null && path.startsWith(ATTACHMENT_FILE_PATH_PREFIX);
-		} catch (IllegalArgumentException e) {
-			return false;
+			return Math.toIntExact(fileService.headObjectSize(fileKey));
+		} catch (NoSuchKeyException e) {
+			throw new BusinessException(CommonErrorCode.INVALID_INPUT, ApplicationInputReason.INVALID_ATTACHMENT_URL)
+				.addContext("url", fileKey);
 		}
 	}
 
