@@ -19,7 +19,7 @@ import com.mozip.domain.organization.entity.Organization;
 import com.mozip.domain.organization.entity.OrganizationScope;
 import com.mozip.domain.organization.entity.OrganizationType;
 import com.mozip.domain.organization.repository.OrganizationRepository;
-import com.mozip.domain.posting.dto.PostingPage;
+import com.mozip.domain.posting.dto.ScrapPage;
 import com.mozip.domain.posting.dto.ScrapResult;
 import com.mozip.domain.posting.entity.Posting;
 import com.mozip.domain.posting.entity.PostingStatus;
@@ -59,7 +59,7 @@ class ScrapServiceTest {
 	@Test
 	@DisplayName("처음 toggleScrap하면 추가되고, 다시 toggleScrap하면 해제된다")
 	void togglesScrapOnAndOff() {
-		Posting posting = postingRepository.save(Posting.create(organization, "공고", false, false));
+		Posting posting = postingRepository.save(Posting.create(organization, "공고"));
 
 		ScrapResult added = scrapService.toggle(user.getId(), posting.getId());
 		assertThat(added.scrapped()).isTrue();
@@ -73,7 +73,7 @@ class ScrapServiceTest {
 	@Test
 	@DisplayName("여러 회원이 스크랩하면 scrapCount에 다 반영된다")
 	void scrapCountReflectsMultipleUsers() {
-		Posting posting = postingRepository.save(Posting.create(organization, "공고", false, false));
+		Posting posting = postingRepository.save(Posting.create(organization, "공고"));
 		User other = userRepository.save(User.create("01055550002", "encoded", "지원자2", false, LocalDateTime.now()));
 
 		scrapService.toggle(user.getId(), posting.getId());
@@ -96,14 +96,14 @@ class ScrapServiceTest {
 	void myScrapsIncludesAnyStatusOrderedByRecent() {
 		// 이 브랜치에는 아직 공고 상태 전환 API가 없어(다른 이슈 몫) DRAFT 상태로만 만들지만,
 		// findPostingsByUser 쿼리 자체가 상태로 거르지 않는지를 확인하는 테스트라 상태값은 상관없음
-		Posting first = postingRepository.save(Posting.create(organization, "공고1", false, false));
-		Posting second = postingRepository.save(Posting.create(organization, "공고2", false, false));
+		Posting first = postingRepository.save(Posting.create(organization, "공고1"));
+		Posting second = postingRepository.save(Posting.create(organization, "공고2"));
 		assertThat(first.getStatus()).isEqualTo(PostingStatus.DRAFT);
 
 		scrapService.toggle(user.getId(), first.getId());
 		scrapService.toggle(user.getId(), second.getId());
 
-		PostingPage page = scrapService.findMyScraps(user.getId(), 0, 20);
+		ScrapPage page = scrapService.findMyScraps(user.getId(), 0, 20);
 
 		assertThat(page.totalCount()).isEqualTo(2);
 		assertThat(page.items()).extracting(Posting::getId)

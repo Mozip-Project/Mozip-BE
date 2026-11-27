@@ -61,7 +61,7 @@ class ScrapReportGraphqlControllerTest {
 	void setUp() {
 		organization = organizationRepository.save(
 			Organization.create("테스트 단체", OrganizationType.CLUB, null, OrganizationScope.CAMPUS, null, false, null, null));
-		posting = postingRepository.save(Posting.create(organization, "공고", false, false));
+		posting = postingRepository.save(Posting.create(organization, "공고"));
 		// reportPosting은 DRAFT 공고를 POSTING_404로 거부함. 이 브랜치엔 상태 전환 API가 아직 없어(다른 이슈 몫)
 		// 테스트에서 직접 RECRUITING으로 바꿔서 "신고 가능한, 게시된 공고" 전제를 맞춤
 		ReflectionTestUtils.setField(posting, "status", PostingStatus.RECRUITING);

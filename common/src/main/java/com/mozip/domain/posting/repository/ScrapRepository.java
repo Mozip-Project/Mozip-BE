@@ -1,5 +1,7 @@
 package com.mozip.domain.posting.repository;
 
+import java.util.Collection;
+import java.util.List;
 import java.util.Optional;
 
 import org.springframework.data.domain.Page;
@@ -33,5 +35,10 @@ public interface ScrapRepository extends JpaRepository<Scrap, Long> {
 		+ "ON CONFLICT (user_id, posting_id) DO NOTHING",
 		nativeQuery = true)
 	void insertIfAbsent(@Param("userId") Long userId, @Param("postingId") Long postingId);
+
+	// 공고 카드 목록에서 스크랩 수/내 스크랩 여부를 묶어 조회할 때 씀 (PostingService)
+	List<Scrap> findAllByPostingIn(Collection<Posting> postings);
+
+	List<Scrap> findAllByUser_IdAndPostingIn(Long userId, Collection<Posting> postings);
 
 }

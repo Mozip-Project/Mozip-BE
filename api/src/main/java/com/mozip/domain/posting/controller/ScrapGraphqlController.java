@@ -6,7 +6,7 @@ import org.springframework.graphql.data.method.annotation.QueryMapping;
 import org.springframework.security.core.annotation.AuthenticationPrincipal;
 import org.springframework.stereotype.Controller;
 
-import com.mozip.domain.posting.dto.PostingPage;
+import com.mozip.domain.posting.dto.ScrapPage;
 import com.mozip.domain.posting.dto.ScrapResult;
 import com.mozip.domain.posting.service.ScrapService;
 import com.mozip.global.security.AuthUser;
@@ -25,7 +25,7 @@ public class ScrapGraphqlController {
 	}
 
 	@QueryMapping
-	public PostingPage myScraps(@Argument int page, @Argument int size, @AuthenticationPrincipal AuthUser authUser) {
+	public ScrapPage myScraps(@Argument int page, @Argument int size, @AuthenticationPrincipal AuthUser authUser) {
 		return scrapService.findMyScraps(authUser.userId(), page, size);
 	}
 

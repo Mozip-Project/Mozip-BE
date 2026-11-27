@@ -1,5 +1,6 @@
 package com.mozip.domain.auth.service;
 
+import java.time.Clock;
 import java.time.LocalDateTime;
 
 import org.springframework.dao.DataAccessException;
@@ -40,16 +41,19 @@ public class AuthService {
 	private final JwtProvider jwtProvider;
 	private final JwtProperties jwtProperties;
 
+	private final Clock clock;
+
 	// 없는 번호로 로그인해도 비밀번호 비교 수행 (응답 시간으로 가입 여부 추측 방지)
 	private final String dummyPasswordHash;
 
 	public AuthService(UserRepository userRepository, RefreshTokenRepository refreshTokenRepository,
-		PasswordEncoder passwordEncoder, JwtProvider jwtProvider, JwtProperties jwtProperties) {
+		PasswordEncoder passwordEncoder, JwtProvider jwtProvider, JwtProperties jwtProperties, Clock clock) {
 		this.userRepository = userRepository;
 		this.refreshTokenRepository = refreshTokenRepository;
 		this.passwordEncoder = passwordEncoder;
 		this.jwtProvider = jwtProvider;
 		this.jwtProperties = jwtProperties;
+		this.clock = clock;
 		this.dummyPasswordHash = passwordEncoder.encode("dummy-password-for-timing");
 	}
 
@@ -59,7 +63,7 @@ public class AuthService {
 			throw new BusinessException(UserErrorCode.DUPLICATE_PHONE);
 		}
 		User user = User.create(request.phone(), passwordEncoder.encode(request.password()), request.name(),
-			request.marketingAgreed(), LocalDateTime.now());
+			request.marketingAgreed(), LocalDateTime.now(clock));
 		try {
 			// 동시 가입으로 unique 제약 위반 시 DUPLICATE_PHONE 응답
 			userRepository.saveAndFlush(user);

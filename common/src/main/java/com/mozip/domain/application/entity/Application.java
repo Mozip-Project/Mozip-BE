@@ -1,6 +1,10 @@
 package com.mozip.domain.application.entity;
 
 import java.time.LocalDateTime;
+import java.util.List;
+
+import org.hibernate.annotations.JdbcTypeCode;
+import org.hibernate.type.SqlTypes;
 
 import com.mozip.domain.posting.entity.Position;
 import com.mozip.domain.posting.entity.Posting;
@@ -62,6 +66,15 @@ public class Application extends BaseEntity {
 
 	private LocalDateTime submittedAt;
 
+	// 제출 시점 프로필 (JSON 문자열). GraphQL JSON 스칼라로 내보낼 때 파싱함
+	@Column(columnDefinition = "TEXT")
+	private String profileSnapshot;
+
+	// 면접 가능 시간 블록의 시작 시각 목록
+	@JdbcTypeCode(SqlTypes.ARRAY)
+	@Column(columnDefinition = "timestamp[]")
+	private List<LocalDateTime> availableTimes;
+
 	private Application(Posting posting, Position position, User user) {
 		this.posting = posting;
 		this.position = position;
@@ -69,10 +82,31 @@ public class Application extends BaseEntity {
 		this.status = ApplicationStatus.DRAFT;
 		this.docResult = DocResult.PENDING;
 		this.finalResult = FinalResult.PENDING;
+		this.availableTimes = List.of();
 	}
 
 	public static Application create(Posting posting, Position position, User user) {
 		return new Application(posting, position, user);
+	}
+
+	// DRAFT 재저장. 포지션과 면접 가능 시간을 통째로 덮어씀 (답변 목록 자체는 리포지토리에서 교체)
+	public void updateDraft(Position position, List<LocalDateTime> availableTimes) {
+		this.position = position;
+		this.availableTimes = availableTimes == null ? List.of() : availableTimes;
+	}
+
+	public void submit(String profileSnapshot, LocalDateTime now) {
+		this.status = ApplicationStatus.SUBMITTED;
+		this.submittedAt = now;
+		this.profileSnapshot = profileSnapshot;
+	}
+
+	public boolean isDraft() {
+		return status == ApplicationStatus.DRAFT;
+	}
+
+	public boolean isOwnedBy(Long userId) {
+		return user.getId().equals(userId);
 	}
 
 }

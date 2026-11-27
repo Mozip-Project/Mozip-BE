@@ -62,7 +62,7 @@ class ReportServiceTest {
 		user = userRepository.save(User.create("01066660001", "encoded", "지원자", false, LocalDateTime.now()));
 		// 이 브랜치에는 아직 공고 상태 전환 API가 없어(다른 이슈 몫) 테스트에서 직접 RECRUITING으로 바꿔서
 		// "신고 가능한, 게시된 공고" 전제를 맞춤. DRAFT 거부 자체는 rejectsReportingDraftPosting에서 따로 확인
-		posting = postingRepository.save(Posting.create(organization, "공고", false, false));
+		posting = postingRepository.save(Posting.create(organization, "공고"));
 		ReflectionTestUtils.setField(posting, "status", PostingStatus.RECRUITING);
 		postingRepository.flush();
 	}
@@ -110,7 +110,7 @@ class ReportServiceTest {
 	@Test
 	@DisplayName("아직 게시 전(DRAFT)인 공고를 신고하면 POSTING_404를 던진다")
 	void rejectsReportingDraftPosting() {
-		Posting draft = postingRepository.save(Posting.create(organization, "초안 공고", false, false));
+		Posting draft = postingRepository.save(Posting.create(organization, "초안 공고"));
 
 		assertThatThrownBy(() -> reportService.report(user.getId(), draft.getId(), ReportReason.ETC, null))
 			.isInstanceOf(BusinessException.class)

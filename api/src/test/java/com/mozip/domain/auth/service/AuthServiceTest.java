@@ -5,6 +5,7 @@ import static org.mockito.ArgumentMatchers.anyString;
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.when;
 
+import java.time.Clock;
 import java.time.Duration;
 import java.util.Optional;
 
@@ -29,7 +30,8 @@ class AuthServiceTest {
 	private final RefreshTokenRepository refreshTokenRepository = mock(RefreshTokenRepository.class);
 	private final JwtProvider jwtProvider = mock(JwtProvider.class);
 	private final AuthService authService = new AuthService(userRepository, refreshTokenRepository,
-		mock(PasswordEncoder.class), jwtProvider, new JwtProperties("secret", Duration.ofMinutes(30), Duration.ofDays(14)));
+		mock(PasswordEncoder.class), jwtProvider, new JwtProperties("secret", Duration.ofMinutes(30), Duration.ofDays(14)),
+		Clock.systemDefaultZone());
 
 	@Test
 	@DisplayName("토큰을 소비한 뒤 회원 조회 DB가 실패하면 쿠키를 지우도록 소비 후 예외(500)로 감싼다")

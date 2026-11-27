@@ -7,7 +7,7 @@ import org.springframework.data.domain.PageRequest;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
-import com.mozip.domain.posting.dto.PostingPage;
+import com.mozip.domain.posting.dto.ScrapPage;
 import com.mozip.domain.posting.dto.ScrapResult;
 import com.mozip.domain.posting.entity.Posting;
 import com.mozip.domain.posting.entity.Scrap;
@@ -50,7 +50,7 @@ public class ScrapService {
 		return new ScrapResult(scrapped, (int)scrapRepository.countByPosting(posting));
 	}
 
-	public PostingPage findMyScraps(Long userId, int page, int size) {
+	public ScrapPage findMyScraps(Long userId, int page, int size) {
 		if (page < 0 || size < 1 || size > MAX_PAGE_SIZE) {
 			throw new BusinessException(CommonErrorCode.INVALID_INPUT)
 				.addContext("page", page)
@@ -58,7 +58,7 @@ public class ScrapService {
 		}
 		User user = findUser(userId);
 		Page<Posting> result = scrapRepository.findPostingsByUser(user, PageRequest.of(page, size));
-		return new PostingPage(result.getContent(), result.getTotalElements(), result.hasNext());
+		return new ScrapPage(result.getContent(), result.getTotalElements(), result.hasNext());
 	}
 
 	private Posting findPosting(Long postingId) {
