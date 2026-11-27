@@ -87,6 +87,12 @@
 | `APPLICATION_409` | 409 | `CONFLICT` | `reason`으로 구분 (`ApplicationConflictReason`) |
 | `APPLICATION_400` | 400 | `INVALID_INPUT` | `submitApplication`에서 필수 문항 누락·글자 수·선택지·첨부 개수 위반. `fieldErrors`에 questionId별 메시지가 담김 |
 
+## 면접 (`InterviewErrorCode`, #106)
+
+| 코드 | HTTP | 상수 | 언제 |
+|---|---|---|---|
+| `INTERVIEW_409` | 409 | `CONFLICT` | `reason`으로 구분 (`InterviewConflictReason`) |
+
 ## reason enum
 
 같은 코드 안에서 상황을 나누는 값. 응답의 `extensions.reason`에 enum 이름이 들어간다. `BusinessException(errorCode, reason)`
@@ -100,7 +106,9 @@
 | `PostingConflictReason` | `POSTING_409` | `NOT_DRAFT`(DRAFT 아닌 공고 수정 또는 삭제), `ALREADY_PUBLISHED`(이미 게시된 공고 재게시), `INVALID_STATUS_TRANSITION`(정해진 다음 단계가 아님, #66), `DOC_RESULT_NOT_CONFIRMED`(서류 결과 미확정, #66), `FINAL_RESULT_NOT_CONFIRMED`(최종 결과 미확정, #66), `NOT_RECRUITING`(모집 기간이 아님, #69) |
 | `ApplicationConflictReason` | `APPLICATION_409` | `ALREADY_SUBMITTED`(이미 제출된 지원서를 다시 저장·제출하려 함, #69), `CONCURRENT_SAVE`(동시 요청으로 지원서가 막 생성됨, 다시 요청하면 됨, #69) |
 | `ApplicationForbiddenReason` | `APPLICATION_403` | `SCHOOL_NOT_VERIFIED`(학교 인증을 하지 않은 회원, #69) |
-| `ApplicationInputReason` | `COMMON_400` | `POSITION_FROM_ANOTHER_POSTING`, `QUESTION_FROM_ANOTHER_POSTING`, `QUESTION_NOT_FOR_POSITION`, `AVAILABLE_TIME_NOT_OPEN`(면접 가능 시간이 열려 있는 블록의 시작 시각이 아님), `ATTACHMENT_NOT_ALLOWED_FOR_QUESTION_TYPE`(FILE_LINK가 아닌 문항에 첨부를 보냄), `INVALID_ATTACHMENT_URL`(LINK가 http/https가 아니거나 FILE이 presigned 경로가 아님) (#69) |
+| `ApplicationInputReason` | `COMMON_400` | `POSITION_FROM_ANOTHER_POSTING`, `QUESTION_FROM_ANOTHER_POSTING`, `QUESTION_NOT_FOR_POSITION`, `AVAILABLE_TIME_NOT_OPEN`(면접 가능 시간이 열려 있는 블록의 시작 시각이 아님. `selectInterviewTimes`도 같은 값을 씀, #106), `ATTACHMENT_NOT_ALLOWED_FOR_QUESTION_TYPE`(FILE_LINK가 아닌 문항에 첨부를 보냄), `INVALID_ATTACHMENT_URL`(LINK가 http/https가 아니거나 FILE이 presigned 경로가 아님) (#69) |
+| `InterviewInputReason` | `COMMON_400` | `NO_INTERVIEW`(면접 없는 공고의 지원서), `AVAILABLE_TIMES_REQUIRED`(면접 가능 시간을 하나도 안 고름) (#106) |
+| `InterviewConflictReason` | `INTERVIEW_409` | `TIMETABLE_CONFIRMED`(타임테이블 확정 뒤 면접 가능 시간을 바꾸려 함, #106) |
 
 ## fieldErrors를 응답에 담는 BusinessException
 

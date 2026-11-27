@@ -95,6 +95,11 @@ public class Application extends BaseEntity {
 		this.availableTimes = availableTimes == null ? List.of() : availableTimes;
 	}
 
+	// 면접 가능 시간만 통째로 교체. 제출 뒤 재선택에서도 써서 상태를 가리지 않음
+	public void changeAvailableTimes(List<LocalDateTime> availableTimes) {
+		this.availableTimes = availableTimes == null ? List.of() : availableTimes;
+	}
+
 	public void submit(String profileSnapshot, LocalDateTime now) {
 		this.status = ApplicationStatus.SUBMITTED;
 		this.submittedAt = now;
