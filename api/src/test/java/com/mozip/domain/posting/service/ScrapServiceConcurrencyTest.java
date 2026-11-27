@@ -71,6 +71,8 @@ class ScrapServiceConcurrencyTest {
 			Organization.create("테스트 단체", OrganizationType.CLUB, null, OrganizationScope.CAMPUS, null, false, null, null));
 		user = userRepository.save(User.create("01077770001", "encoded", "지원자", false, LocalDateTime.now()));
 		posting = postingRepository.save(Posting.create(organization, "공고"));
+		posting.publishNow(LocalDateTime.now());
+		posting = postingRepository.save(posting);
 		scrapService.toggle(user.getId(), posting.getId());
 
 		ExecutorService executor = Executors.newFixedThreadPool(2);

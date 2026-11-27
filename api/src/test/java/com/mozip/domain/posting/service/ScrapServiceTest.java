@@ -62,7 +62,7 @@ class ScrapServiceTest {
 	@Test
 	@DisplayName("처음 toggleScrap하면 추가되고, 다시 toggleScrap하면 해제된다")
 	void togglesScrapOnAndOff() {
-		Posting posting = postingRepository.save(Posting.create(organization, "공고"));
+		Posting posting = publishedPosting("공고");
 
 		ScrapResult added = scrapService.toggle(user.getId(), posting.getId());
 		assertThat(added.scrapped()).isTrue();
@@ -76,7 +76,7 @@ class ScrapServiceTest {
 	@Test
 	@DisplayName("여러 회원이 스크랩하면 scrapCount에 다 반영된다")
 	void scrapCountReflectsMultipleUsers() {
-		Posting posting = postingRepository.save(Posting.create(organization, "공고"));
+		Posting posting = publishedPosting("공고");
 		User other = userRepository.save(User.create("01055550002", "encoded", "지원자2", false, LocalDateTime.now()));
 
 		scrapService.toggle(user.getId(), posting.getId());
@@ -107,10 +107,13 @@ class ScrapServiceTest {
 	@Test
 	@DisplayName("myScraps는 공고 상태로 거르지 않고(마감된 공고 포함) 최근 스크랩 순으로 돌려준다")
 	void myScrapsIncludesAnyStatusOrderedByRecent() {
-		// DRAFT 상태로만 만들지만, findPostingsByUser 쿼리 자체가 상태로 거르지 않는지를 확인하는 테스트라 상태값은 상관없음
-		Posting first = postingRepository.save(Posting.create(organization, "공고1"));
-		Posting second = postingRepository.save(Posting.create(organization, "공고2"));
-		assertThat(first.getStatus()).isEqualTo(PostingStatus.DRAFT);
+		Posting first = publishedPosting("공고1");
+		Posting second = publishedPosting("공고2");
+		// 마감(ENDED)된 공고도 포함되는지 같이 확인
+		second.advanceStatus(PostingStatus.DOC_REVIEW, LocalDateTime.now());
+		second.advanceStatus(PostingStatus.DOC_RESULT_NOTICE, LocalDateTime.now());
+		second.advanceStatus(PostingStatus.FINAL_RESULT, LocalDateTime.now());
+		second.advanceStatus(PostingStatus.ENDED, LocalDateTime.now());
 
 		scrapService.toggle(user.getId(), first.getId());
 		scrapService.toggle(user.getId(), second.getId());
@@ -123,6 +126,16 @@ class ScrapServiceTest {
 		assertThat(page.hasNext()).isFalse();
 	}
 
+	@Test
+	@DisplayName("아직 게시 전(DRAFT)인 공고를 스크랩하면 POSTING_404를 던진다")
+	void rejectsScrapingDraftPosting() {
+		Posting draft = postingRepository.save(Posting.create(organization, "초안 공고"));
+
+		assertThatThrownBy(() -> scrapService.toggle(user.getId(), draft.getId()))
+			.isInstanceOfSatisfying(BusinessException.class,
+				e -> assertThat(e.getErrorCode()).isEqualTo(PostingErrorCode.NOT_FOUND));
+	}
+
 	@ParameterizedTest
 	@DisplayName("myScraps의 page나 size가 범위를 벗어나면 COMMON_400을 던진다")
 	@CsvSource({"0, 0", "0, 51", "-1, 20"})
@@ -130,6 +143,13 @@ class ScrapServiceTest {
 		assertThatThrownBy(() -> scrapService.findMyScraps(user.getId(), page, size))
 			.isInstanceOfSatisfying(BusinessException.class,
 				e -> assertThat(e.getErrorCode()).isEqualTo(CommonErrorCode.INVALID_INPUT));
+	}
+
+	// toggle은 DRAFT를 POSTING_404로 막아서, 스크랩 가능한 공고가 필요한 테스트는 게시까지 해 둠
+	private Posting publishedPosting(String title) {
+		Posting posting = postingRepository.save(Posting.create(organization, title));
+		posting.publishNow(LocalDateTime.now());
+		return posting;
 	}
 
 }

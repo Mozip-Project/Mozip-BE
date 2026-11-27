@@ -45,4 +45,7 @@ public interface ScrapRepository extends JpaRepository<Scrap, Long> {
 
 	List<Scrap> findAllByUser_IdAndPostingIn(Long userId, Collection<Posting> postings);
 
+	// 공고 삭제 시 같이 지움 (PostingService.delete). FK(fk_scraps_posting_id)만 있고 cascade는 없음
+	void deleteAllByPosting(Posting posting);
+
 }

@@ -56,8 +56,9 @@ public class ScrapService {
 		return new ScrapPage(result.getContent(), result.getTotalElements(), result.hasNext());
 	}
 
+	// DRAFT는 아직 게시 전이라 지원자에게 없는 공고와 같게 취급
 	private Posting findPosting(Long postingId) {
-		return postingRepository.findById(postingId)
+		return postingRepository.findPublishedById(postingId)
 			.orElseThrow(() -> new BusinessException(PostingErrorCode.NOT_FOUND).addContext("postingId", postingId));
 	}
 

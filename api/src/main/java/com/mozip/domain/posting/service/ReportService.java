@@ -6,7 +6,6 @@ import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
 import com.mozip.domain.posting.entity.Posting;
-import com.mozip.domain.posting.entity.PostingStatus;
 import com.mozip.domain.posting.entity.Report;
 import com.mozip.domain.posting.entity.ReportReason;
 import com.mozip.domain.posting.exception.PostingErrorCode;
@@ -51,12 +50,8 @@ public class ReportService {
 
 	// DRAFT는 아직 게시 전이라 지원자에게 없는 공고와 같게 취급
 	private Posting findPosting(Long postingId) {
-		Posting posting = postingRepository.findById(postingId)
+		return postingRepository.findPublishedById(postingId)
 			.orElseThrow(() -> new BusinessException(PostingErrorCode.NOT_FOUND).addContext("postingId", postingId));
-		if (posting.getStatus() == PostingStatus.DRAFT) {
-			throw new BusinessException(PostingErrorCode.NOT_FOUND).addContext("postingId", postingId);
-		}
-		return posting;
 	}
 
 	// 토큰의 회원이 DB에 없는 건 입력 실수가 아니라 세션이 더는 유효하지 않다는 뜻이라 401로 응답
