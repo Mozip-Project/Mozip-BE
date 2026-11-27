@@ -67,14 +67,14 @@ class NotificationServiceTest {
 	}
 
 	@Test
-	@DisplayName("notifications는 role 탭에 해당하는 type만, 최신순으로, 페이지 크기만큼 반환한다")
+	@DisplayName("notifications는 role 탭에 해당하는 type만 최신순으로 페이지 크기만큼 반환한다")
 	void notificationsOrderedByLatestWithPaging() throws InterruptedException {
 		notificationService.send(user.getId(), NotificationType.DOC_RESULT, null, "서류 결과 1", null);
 		Thread.sleep(5);
 		notificationService.send(user.getId(), NotificationType.FINAL_RESULT, null, "서류 결과 2", null);
 		Thread.sleep(5);
 		notificationService.send(user.getId(), NotificationType.SCRAP_OPEN, null, "서류 결과 3", null);
-		// 운영진 탭이라 지원자 목록에는 안 보여야 함
+		// 운영진 탭이라 지원자 목록에는 안 들어가야 함
 		notificationService.send(user.getId(), NotificationType.EVALUATION_REQUEST, null, "운영진 알림", null);
 
 		List<Notification> page = notificationService.notifications(user.getId(), Role.APPLICANT, 0, 2);
@@ -85,12 +85,24 @@ class NotificationServiceTest {
 	}
 
 	@Test
+	@DisplayName("role 없이 조회하면 지원자/운영진 탭 알림이 같이 나오고, 다른 회원 알림은 안 섞인다")
+	void notificationsWithoutRoleIncludesBothTabsAndExcludesOthers() throws InterruptedException {
+		User other = userRepository.save(User.create("01011110003", "encoded", "다른회원", false, LocalDateTime.now()));
+		notificationService.send(user.getId(), NotificationType.DOC_RESULT, null, "지원자 알림", null);
+		Thread.sleep(5);
+		notificationService.send(user.getId(), NotificationType.EVALUATION_REQUEST, null, "운영진 알림", null);
+		notificationService.send(other.getId(), NotificationType.DOC_RESULT, null, "남의 알림", null);
+
+		List<Notification> all = notificationService.notifications(user.getId(), null, 0, 10);
+
+		assertThat(all).extracting(Notification::getTitle).containsExactly("운영진 알림", "지원자 알림");
+	}
+
+	@Test
 	@DisplayName("본인 알림만 읽음 처리할 수 있다")
 	void marksOwnNotificationsRead() {
 		notificationService.send(user.getId(), NotificationType.DOC_RESULT, null, "서류 결과", null);
-		Long notificationId = notificationService.notifications(user.getId(), Role.APPLICANT, 0, 10)
-			.get(0)
-			.getId();
+		Long notificationId = notificationService.notifications(user.getId(), Role.APPLICANT, 0, 10).get(0).getId();
 
 		notificationService.markRead(user.getId(), List.of(notificationId));
 
@@ -194,6 +206,24 @@ class NotificationServiceTest {
 		assertThat(updated.notifyResult()).isFalse();
 		assertThat(updated.notifyScrap()).isTrue();
 		assertThat(updated.notifyOperator()).isFalse();
+	}
+
+	@Test
+	@DisplayName("unreadCount는 tab이 없으면 전체, 있으면 그 탭만 세고, 읽음 처리하면 줄어든다")
+	void unreadCountCountsByTabAndDecreasesAfterMarkingRead() {
+		notificationService.send(user.getId(), NotificationType.DOC_RESULT, null, "지원자 알림 1", null);
+		notificationService.send(user.getId(), NotificationType.FINAL_RESULT, null, "지원자 알림 2", null);
+		notificationService.send(user.getId(), NotificationType.EVALUATION_REQUEST, null, "운영진 알림", null);
+
+		assertThat(notificationService.unreadCount(user.getId(), null)).isEqualTo(3);
+		assertThat(notificationService.unreadCount(user.getId(), Role.APPLICANT)).isEqualTo(2);
+		assertThat(notificationService.unreadCount(user.getId(), Role.OPERATOR)).isEqualTo(1);
+
+		Long toRead = notificationService.notifications(user.getId(), Role.APPLICANT, 0, 10).get(0).getId();
+		notificationService.markRead(user.getId(), List.of(toRead));
+
+		assertThat(notificationService.unreadCount(user.getId(), null)).isEqualTo(2);
+		assertThat(notificationService.unreadCount(user.getId(), Role.APPLICANT)).isEqualTo(1);
 	}
 
 }

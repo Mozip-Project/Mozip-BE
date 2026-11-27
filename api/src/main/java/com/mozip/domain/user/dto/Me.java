@@ -24,7 +24,6 @@ public record Me(
 	// 운영진으로 소속된 단체 목록 (단체 전환 선택 UI에 사용)
 	List<Organization> organizations,
 	NotificationSettings notificationSettings,
-	int unreadNotificationCount,
 	LocalDateTime createdAt
 ) {
 }

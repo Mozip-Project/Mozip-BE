@@ -58,7 +58,6 @@ public class UserService {
 			user.getTermsAgreedAt(),
 			organizations,
 			NotificationSettings.from(user),
-			0,
 			user.getCreatedAt()
 		);
 	}

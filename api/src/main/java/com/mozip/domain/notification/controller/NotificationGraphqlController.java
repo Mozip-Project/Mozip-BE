@@ -1,5 +1,6 @@
 package com.mozip.domain.notification.controller;
 
+import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.Objects;
@@ -49,6 +50,20 @@ public class NotificationGraphqlController {
 		@AuthenticationPrincipal AuthUser authUser) {
 		return notificationService.updateSettings(authUser.userId(), input.notifyResult(), input.notifyScrap(),
 			input.notifyOperator());
+	}
+
+	// 각 알림이 속한 탭(지원자/운영진)의 읽지 않은 개수. role 없이 조회해 두 탭이 섞여도 항목마다 자기 탭 기준으로 셈
+	// (userId, tab) 조합별로 한 번만 세어 같은 탭 항목끼리 캐시 공유 (N+1 방지)
+	@BatchMapping(typeName = "Notification", field = "unreadCount")
+	public Map<Notification, Integer> unreadCount(List<Notification> notifications) {
+		Map<List<Object>, Integer> countsByUserAndTab = new HashMap<>();
+		return notifications.stream()
+			.collect(Collectors.toMap(Function.identity(), notification -> {
+				Long userId = notification.getUser().getId();
+				Role tab = notification.getType().tab();
+				return countsByUserAndTab.computeIfAbsent(List.of(userId, tab),
+					key -> notificationService.unreadCount(userId, tab));
+			}));
 	}
 
 	// 알림 목록을 조회할 때 각 알림의 organization을 한 번에 로딩 (N+1 방지)
