@@ -12,7 +12,6 @@ import java.util.Set;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
 
-import com.mozip.domain.posting.entity.AssignRule;
 
 class InterviewSlotCalculatorTest {
 
@@ -129,14 +128,14 @@ class InterviewSlotCalculatorTest {
 			.isInstanceOf(IllegalArgumentException.class);
 		assertThatThrownBy(() -> setting(0, 10)).isInstanceOf(IllegalArgumentException.class);
 		assertThatThrownBy(() -> setting(20, -1)).isInstanceOf(IllegalArgumentException.class);
-		assertThatThrownBy(() -> new InterviewSetting(20, 10, 0, 1, AssignRule.ALL_MEMBERS))
+		assertThatThrownBy(() -> new InterviewSetting(20, 10, 0, 1))
 			.isInstanceOf(IllegalArgumentException.class);
-		assertThatThrownBy(() -> new InterviewSetting(20, 10, 1, 0, AssignRule.ALL_MEMBERS))
+		assertThatThrownBy(() -> new InterviewSetting(20, 10, 1, 0))
 			.isInstanceOf(IllegalArgumentException.class);
 	}
 
 	private static InterviewSetting setting(int interviewMinutes, int breakMinutes) {
-		return new InterviewSetting(interviewMinutes, breakMinutes, 3, 1, AssignRule.ALL_MEMBERS);
+		return new InterviewSetting(interviewMinutes, breakMinutes, 3, 1);
 	}
 
 	private static LocalDateTime at(LocalDate date, int hour, int minute) {
