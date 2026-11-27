@@ -384,8 +384,7 @@ public class ApplicationService {
 
 	private Set<LocalDateTime> openSlotStartTimes(Posting posting, Position position) {
 		if (posting.getInterviewMinutes() == null || posting.getBreakMinutes() == null
-			|| posting.getMaxApplicantsPerInterview() == null || posting.getMaxParallelInterviews() == null
-			|| posting.getAssignRule() == null) {
+			|| posting.getMaxApplicantsPerInterview() == null || posting.getMaxParallelInterviews() == null) {
 			return Set.of();
 		}
 		List<TimeRange> ranges = interviewTimeRangeRepository.findAllByPostingOrderByDateAscStartTimeAsc(posting)
@@ -398,7 +397,7 @@ public class ApplicationService {
 			return Set.of();
 		}
 		InterviewSetting setting = new InterviewSetting(posting.getInterviewMinutes(), posting.getBreakMinutes(),
-			posting.getMaxApplicantsPerInterview(), posting.getMaxParallelInterviews(), posting.getAssignRule());
+			posting.getMaxApplicantsPerInterview(), posting.getMaxParallelInterviews());
 		return InterviewSlotCalculator.calculate(ranges, setting).stream()
 			.filter(slot -> !slot.closed())
 			.map(Slot::startAt)

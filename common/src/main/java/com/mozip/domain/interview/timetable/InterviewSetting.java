@@ -1,10 +1,8 @@
 package com.mozip.domain.interview.timetable;
 
-import com.mozip.domain.posting.entity.AssignRule;
-
 // 공고의 면접 설정. 블록 하나 = 면접 1회 시간 + 쉬는 시간
 public record InterviewSetting(int interviewMinutes, int breakMinutes, int maxApplicantsPerInterview,
-	int maxParallelInterviews, AssignRule assignRule) {
+	int maxParallelInterviews) {
 
 	public InterviewSetting {
 		if (interviewMinutes <= 0) {

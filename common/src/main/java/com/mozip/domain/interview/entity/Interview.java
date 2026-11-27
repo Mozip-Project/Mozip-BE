@@ -39,7 +39,7 @@ public class Interview extends BaseEntity {
 	@Column(nullable = false)
 	private LocalDateTime endAt;
 
-	// 같은 시간대에 동시에 진행하는 면접 열 (면접 1, 면접 2)
+	// 같은 시간대에 동시에 진행하는 면접실 열 (면접실 1, 면접실 2), 1부터
 	@Column(nullable = false)
 	private int track;
 
