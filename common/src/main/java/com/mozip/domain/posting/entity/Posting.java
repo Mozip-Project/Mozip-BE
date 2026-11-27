@@ -1,5 +1,6 @@
 package com.mozip.domain.posting.entity;
 
+import java.time.LocalDate;
 import java.time.LocalDateTime;
 
 import com.mozip.domain.organization.entity.Organization;
@@ -35,8 +36,17 @@ public class Posting extends BaseEntity {
 	@JoinColumn(name = "organization_id", nullable = false)
 	private Organization organization;
 
+	// 이전 기수 불러오기로 만든 공고의 원본
+	@ManyToOne(fetch = FetchType.LAZY)
+	@JoinColumn(name = "source_posting_id")
+	private Posting sourcePosting;
+
 	@Column(nullable = false, length = 100)
 	private String title;
+
+	// 모집 학기 (예: 2026-2)
+	@Column(length = 20)
+	private String semester;
 
 	// 모집 안내 (HTML)
 	@Column(columnDefinition = "TEXT")
@@ -46,27 +56,193 @@ public class Posting extends BaseEntity {
 	@Column(nullable = false, length = 30)
 	private PostingStatus status;
 
+	// 작성 중 단계 1~4. DRAFT가 아니면 더 안 바뀜
+	private Integer draftStep;
+
 	@Column(nullable = false)
 	private boolean hasInterview;
 
 	@Column(nullable = false)
 	private boolean noPosition;
 
+	// null = 비공개
+	@Column(length = 100)
+	private String region;
+
+	// null = 비공개
+	@Column(length = 50)
+	private String fee;
+
+	@Column(nullable = false)
+	private boolean allowEnrolled;
+
+	@Column(nullable = false)
+	private boolean allowOnLeave;
+
+	// 지원 자격 직접 입력 (예: 1~3학년, 졸업 예정자 가능)
+	@Column(length = 200)
+	private String eligibilityNote;
+
+	private LocalDate activityStartedOn;
+
+	private LocalDate activityEndedOn;
+
+	private LocalDateTime publishedAt;
+
 	// 지원 접수 시작, 게시 후 이 시각 전까지는 공고만 보이고 지원 불가
 	private LocalDateTime recruitStartAt;
 
 	private LocalDateTime recruitEndAt;
 
-	private Posting(Organization organization, String title, boolean hasInterview, boolean noPosition) {
+	private LocalDateTime docResultAt;
+
+	private LocalDateTime finalResultAt;
+
+	// TODO(B 서류 평가): decideDocResult 메서드가 생기면 그쪽에서 채움. 지금은 컬럼만 둠
+	private LocalDateTime docResultConfirmedAt;
+
+	// TODO(B 면접): decideFinalResult 메서드가 생기면 그쪽에서 채움. 지금은 컬럼만 둠
+	private LocalDateTime finalResultConfirmedAt;
+
+	private Integer interviewMinutes;
+
+	private Integer breakMinutes;
+
+	@Enumerated(EnumType.STRING)
+	@Column(length = 30)
+	private AssignRule assignRule;
+
+	private Integer maxApplicantsPerInterview;
+
+	private Integer maxParallelInterviews;
+
+	// 서류 평가에 문항별 점수(1~5점) 사용. 4단계 전에는 null
+	private Boolean docScorePerQuestion;
+
+	// 면접 평가에 질문별 점수 사용
+	private Boolean interviewScorePerQuestion;
+
+	// 지원자에게 보여줄 면접 안내 (준비물 등)
+	@Column(columnDefinition = "TEXT")
+	private String interviewGuide;
+
+	// TODO(B 면접): 타임테이블 확정 메서드가 생기면 그쪽에서 채움. 지금은 컬럼만 둠
+	private LocalDateTime timetableConfirmedAt;
+
+	@Column(nullable = false)
+	private int viewCount;
+
+	// 최신순 정렬 기준 (게시, UP 시 갱신)
+	private LocalDateTime bumpedAt;
+
+	private Posting(Organization organization, String title) {
 		this.organization = organization;
 		this.title = title;
 		this.status = PostingStatus.DRAFT;
-		this.hasInterview = hasInterview;
-		this.noPosition = noPosition;
+		this.draftStep = 1;
+		this.hasInterview = false;
+		this.noPosition = false;
+		this.allowEnrolled = true;
+		this.allowOnLeave = false;
+		this.viewCount = 0;
 	}
 
-	public static Posting create(Organization organization, String title, boolean hasInterview, boolean noPosition) {
-		return new Posting(organization, title, hasInterview, noPosition);
+	public static Posting create(Organization organization, String title) {
+		return new Posting(organization, title);
+	}
+
+	// 1단계: 기본 정보
+	public void updateBasicStep(String title, String content, String semester, String region, String fee,
+		boolean allowEnrolled, boolean allowOnLeave, String eligibilityNote, LocalDate activityStartedOn,
+		LocalDate activityEndedOn, LocalDateTime recruitStartAt, LocalDateTime recruitEndAt) {
+		this.title = title;
+		this.content = content;
+		this.semester = semester;
+		this.region = region;
+		this.fee = fee;
+		this.allowEnrolled = allowEnrolled;
+		this.allowOnLeave = allowOnLeave;
+		this.eligibilityNote = eligibilityNote;
+		this.activityStartedOn = activityStartedOn;
+		this.activityEndedOn = activityEndedOn;
+		this.recruitStartAt = recruitStartAt;
+		this.recruitEndAt = recruitEndAt;
+		advanceDraftStep(1);
+	}
+
+	// 2단계: 포지션 (Position 목록 자체는 리포지토리에서 통째로 교체)
+	public void updatePositionsStep(boolean noPosition) {
+		this.noPosition = noPosition;
+		advanceDraftStep(2);
+	}
+
+	// 3단계: 면접 (InterviewTimeRange 목록은 리포지토리에서 통째로 교체)
+	public void updateInterviewStep(boolean hasInterview, Integer interviewMinutes,
+		Integer breakMinutes, AssignRule assignRule, Integer maxApplicantsPerInterview,
+		Integer maxParallelInterviews) {
+		this.hasInterview = hasInterview;
+		this.interviewMinutes = hasInterview ? interviewMinutes : null;
+		this.breakMinutes = hasInterview ? breakMinutes : null;
+		this.assignRule = hasInterview ? assignRule : null;
+		this.maxApplicantsPerInterview = hasInterview ? maxApplicantsPerInterview : null;
+		this.maxParallelInterviews = hasInterview ? maxParallelInterviews : null;
+		advanceDraftStep(3);
+	}
+
+	// 4단계: 문항 (Question 목록은 리포지토리에서 통째로 교체)
+	public void updateQuestionsStep(boolean docScorePerQuestion) {
+		this.docScorePerQuestion = docScorePerQuestion;
+		advanceDraftStep(4);
+	}
+
+	// publishedAt/bumpedAt은 LocalDateTimeScalar가 서울 시각으로 저장한 recruitStartAt/recruitEndAt과 비교되므로,
+	// now도 호출하는 쪽(PostingService)에서 서울 시각 기준으로 넘겨받음 (closingSoon과 같은 이유)
+	public void publishNow(LocalDateTime now) {
+		this.status = PostingStatus.RECRUITING;
+		this.publishedAt = now;
+		this.bumpedAt = now;
+	}
+
+	public boolean isDraft() {
+		return status == PostingStatus.DRAFT;
+	}
+
+	// advancePostingStatus에서 씀. DOC_RESULT_NOT_CONFIRMED 등 서비스 레벨 조건은 호출하는 쪽(PostingService)에서 끝내고 넘어옴.
+	// 상태 전이 자체는 여기서 막아서, PostingService를 거치지 않고 공유 엔티티를 직접 다루는 호출(예: B 도메인)도 잘못된 전이를 할 수 없게 함
+	// 스케줄러의 자동 전환은 조건부 UPDATE(PostingRepository)로 따로 처리해 이 메서드를 안 탐
+	public void advanceStatus(PostingStatus to, LocalDateTime now) {
+		if (!canAdvanceTo(to)) {
+			throw new IllegalArgumentException("허용되지 않는 전환: " + status + " -> " + to);
+		}
+		this.status = to;
+		if (to == PostingStatus.DOC_RESULT_NOTICE) {
+			this.docResultAt = now;
+		} else if (to == PostingStatus.FINAL_RESULT) {
+			this.finalResultAt = now;
+		}
+	}
+
+	// 다음 단계로 가는 전이이거나, 임시저장으로 되돌리는 DRAFT 복귀면 허용
+	public boolean canAdvanceTo(PostingStatus to) {
+		return to != null && (to == PostingStatus.DRAFT || to == nextStatus());
+	}
+
+	// 허용하는 단 하나의 다음 단계. 없으면(DRAFT, ENDED) null
+	private PostingStatus nextStatus() {
+		return switch (status) {
+			case RECRUITING -> PostingStatus.DOC_REVIEW;
+			case DOC_REVIEW -> PostingStatus.DOC_RESULT_NOTICE;
+			case DOC_RESULT_NOTICE -> hasInterview ? PostingStatus.INTERVIEW : PostingStatus.FINAL_RESULT;
+			case INTERVIEW -> PostingStatus.FINAL_RESULT;
+			case FINAL_RESULT -> PostingStatus.ENDED;
+			case DRAFT, ENDED -> null;
+		};
+	}
+
+	private void advanceDraftStep(int step) {
+		if (draftStep == null || draftStep < step) {
+			this.draftStep = step;
+		}
 	}
 
 }

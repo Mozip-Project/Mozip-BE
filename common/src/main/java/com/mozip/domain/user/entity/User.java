@@ -64,6 +64,30 @@ public class User extends BaseEntity {
 	@Column(nullable = false)
 	private LocalDateTime termsAgreedAt;
 
+	// 아래 프로필 필드는 전부 선택 입력이라 가입 시점엔 비어 있고, 프로필 수정 기능에서 채워짐
+	@Column(length = 500)
+	private String profileImageUrl;
+
+	@Column(length = 100)
+	private String department;
+
+	private Integer grade;
+
+	@Column(length = 100)
+	private String contactEmail;
+
+	// 지원 결과, 면접 일정 알림
+	@Column(nullable = false)
+	private boolean notifyResult;
+
+	// 스크랩 공고 지원 시작 알림
+	@Column(nullable = false)
+	private boolean notifyScrap;
+
+	// 대표자 인수 요청, 평가 마감 알림
+	@Column(nullable = false)
+	private boolean notifyOperator;
+
 	private User(String phone, String encodedPassword, String name, Authority authority, Role lastRole,
 		boolean marketingAgreed, LocalDateTime termsAgreedAt) {
 		this.phone = phone;
@@ -74,6 +98,9 @@ public class User extends BaseEntity {
 		this.lastRole = lastRole;
 		this.marketingAgreed = marketingAgreed;
 		this.termsAgreedAt = termsAgreedAt;
+		this.notifyResult = true;
+		this.notifyScrap = true;
+		this.notifyOperator = true;
 	}
 
 	// 일반 가입 (비밀번호는 암호화한 값으로 전달)
@@ -90,6 +117,29 @@ public class User extends BaseEntity {
 
 	public boolean isActive() {
 		return status == UserStatus.ACTIVE;
+	}
+
+	// 내보내진 뒤 남은 소속이 없으면 lastRole을 APPLICANT로
+	public void leaveOrganization(boolean stillOperator) {
+		if (!stillOperator) {
+			this.lastRole = Role.APPLICANT;
+		}
+	}
+
+	public void updateNotificationSettings(boolean notifyResult, boolean notifyScrap, boolean notifyOperator) {
+		this.notifyResult = notifyResult;
+		this.notifyScrap = notifyScrap;
+		this.notifyOperator = notifyOperator;
+	}
+
+	// 지원자/운영진 홈 전환
+	public void updateLastRole(Role lastRole) {
+		this.lastRole = lastRole;
+	}
+
+	// TODO(학교 인증 이슈): 실제 인증 흐름이 생기기 전까지 테스트·시드에서 학교 인증 상태를 만들 때 씀
+	public void verifySchool(School school) {
+		this.school = school;
 	}
 
 }

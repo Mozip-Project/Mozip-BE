@@ -104,6 +104,18 @@ type Organization {
     createdAt: DateTime!
 }
 
+"공고 카드 등에서 쓰는 단체 요약 정보"
+type OrganizationSummary {
+    id: ID!
+    name: String!
+    logoUrl: String
+    "연합이면 null"
+    school: School
+    type: OrganizationType!
+    "학생회가 아니면 null"
+    councilLevel: CouncilLevel
+}
+
 type OrganizationLink {
     id: ID!
     type: OrganizationLinkType!
@@ -132,32 +144,48 @@ type Invitation {
     id: ID!
     organization: Organization!
     inviter: User!
-    "가입자면 바로 채움, 미가입이면 가입 시 contact로 찾아 채움"
+    "가입자면 바로 채움, 미가입이면 수락 시 로그인 회원과 연락처를 비교해 채움"
     invitee: User
-    "휴대폰 번호 또는 이메일"
+    "휴대폰 번호(숫자만) 또는 이메일(소문자)"
     inviteeContact: String!
+    "합류 시 배정할 팀, null = 팀 미지정"
+    team: Team
+    "초대 수락 코드 (acceptInvitation의 code). 초대받은 사람 알림 링크에 실림"
+    code: String!
     status: InvitationStatus!
     "발송 후 7일"
     expiresAt: DateTime!
     createdAt: DateTime!
 }
 
-"초대 링크 (mozip.kr/invite/{token})"
+"초대 링크 (mo-zip.com/invite/{token})"
 type InviteLink {
     id: ID!
     organization: Organization!
+    "acceptInvitation의 code로 씀"
     token: String!
+    "공유할 링크 주소"
+    url: String!
     "생성 후 7일"
     expiresAt: DateTime!
 }
 
+"대표자 인수 요청. 대표자(from)가 운영진(to)에게 요청하고 to가 수락하면 두 사람의 역할이 바뀜"
 type RepresentativeTransfer {
     id: ID!
     organization: Organization!
-    requester: User!
-    message: String
+    "요청한 대표자"
+    from: Member!
+    "넘겨받을 운영진"
+    to: Member!
     status: TransferStatus!
+    respondedAt: DateTime
     createdAt: DateTime!
+}
+
+input UpdateOrganizationLogoInput {
+    organizationId: ID!
+    fileKey: String!
 }
 
 input CreateOrganizationInput {
@@ -190,16 +218,41 @@ input UpdateOrganizationInput {
     links: [String!]!
 }
 
+"팀 목록 저장 한 줄. id가 있으면 그 팀 수정, 없으면 새 팀"
+input TeamInput {
+    id: ID
+    "앞뒤 공백 제거 후 1~50자, 한 요청 안에서 중복 불가"
+    name: String!
+}
+
 extend type Query {
     "단체 상세, 로그인 없이 조회 가능. 없거나 심사 승인 전인데 소속 운영진이 아니면 ORG_404"
     organization(id: ID!): Organization! @public
     "키워드 자동완성, 심사 승인된 단체 키워드 중 접두 일치 상위 10개 (많이 쓰인 순). 빈 접두어거나 20자를 넘으면 빈 목록"
     keywordSuggestions(prefix: String!): [String!]!
+    "운영진 관리 표. 그 단체 운영진만 조회 가능 (아니면 COMMON_403), 없으면 ORG_404. 내보내진 운영진은 빼고 대표자 먼저, 그 뒤 합류일 오름차순"
+    members(organizationId: ID!): [Member!]!
 }
 
 extend type Mutation {
+    "단체 로고를 변경합니다. fileKey는 파일 업로드 URL 발급(POST /api/files/presigned-url, purpose=ORG_LOGO)으로 받아 S3에 업로드를 마친 값입니다."
+    updateOrganizationLogo(input: UpdateOrganizationLogoInput!): Organization!
     "단체를 만들고 호출자를 대표자로 등록, 심사 상태는 PENDING"
     createOrganization(input: CreateOrganizationInput!): Organization!
     "단체 프로필 수정, 그 단체의 운영진만 가능 (아니면 COMMON_403). 없으면 ORG_404"
     updateOrganization(id: ID!, input: UpdateOrganizationInput!): Organization!
+    "운영진 내보내기, 대표자만 가능 (아니면 COMMON_403). 대표자 행은 못 내보냄 (MEMBER_409, reason REPRESENTATIVE), 없거나 이미 나간 운영진이면 MEMBER_404, 그 단체 소속이 아닌 사람이 부르면 운영진이 있어도 MEMBER_404. 행은 남기고 leftAt을 찍으며 남은 소속이 없으면 그 회원의 lastRole을 APPLICANT로 돌림"
+    removeMember(memberId: ID!): Boolean!
+    "운영진 개인 초대, 그 단체 운영진만 (아니면 COMMON_403). contact는 휴대폰 번호(하이픈 허용) 또는 이메일, 형식이 틀리면 COMMON_400 (reason CONTACT_INVALID). 가입자면 invitee를 채우고 INVITATION 알림. 7일 뒤 만료. 이미 운영진이면 MEMBER_409 (reason ALREADY_MEMBER), 대기 중 초대가 있으면 MEMBER_409 (reason ALREADY_INVITED). teamId는 그 단체 팀만 (reason TEAM_NOT_FOUND), 팀 없는 단체면 reason NO_TEAM_ORGANIZATION"
+    inviteMember(organizationId: ID!, contact: String!, teamId: ID): Invitation!
+    "공용 초대 링크 발급, 그 단체 운영진만. 유효한 링크가 있으면 그 링크를 돌려주고 없으면 7일짜리 새 링크"
+    createInviteLink(organizationId: ID!): InviteLink!
+    "개인 초대 코드 또는 공용 링크 토큰으로 합류해 OPERATOR가 됨. 없는 코드 MEMBER_404, 만료 MEMBER_410, 처리된 초대 MEMBER_409 (reason ALREADY_HANDLED), 이미 운영진 MEMBER_409 (reason ALREADY_MEMBER). 개인 초대는 초대받은 회원(휴대폰 일치)만 수락 가능 (아니면 COMMON_403). 합류하면 그 단체에서 같은 회원에게 걸려 있던 다른 대기 초대는 CANCELED가 됨"
+    acceptInvitation(code: String!): Member!
+    "팀 목록 전체 교체, 그 단체 운영진만. 배열 순서가 sortOrder. 목록에서 빠진 팀은 삭제하고 소속 운영진은 팀 미지정으로. 팀 없는 단체면 COMMON_400 (reason NO_TEAM_ORGANIZATION), 공고 포지션이 쓰는 팀을 빼면 TEAM_409. 이름 규칙 위반 reason TEAM_NAME_INVALID / TEAM_DUPLICATED, 다른 단체 팀 id는 TEAM_NOT_FOUND"
+    saveTeams(organizationId: ID!, teams: [TeamInput!]!): [Team!]!
+    "대표자 인수 요청, 그 단체 대표자만 (아니면 COMMON_403). 대상은 같은 단체 운영진 (없거나 나갔으면 MEMBER_404, 본인이면 COMMON_400 reason TRANSFER_TO_SELF). 대기 중 요청이 있으면 MEMBER_409 (reason TRANSFER_IN_PROGRESS). 대상에게 TRANSFER_REQUEST 알림"
+    requestRepresentativeTransfer(memberId: ID!): RepresentativeTransfer!
+    "대표자 인수 응답, 요청 대상만 (아니면 COMMON_403). 없는 요청 MEMBER_404, 처리된 요청 MEMBER_409 (reason ALREADY_HANDLED). 수락하면 기존 대표자는 OPERATOR, 대상은 REPRESENTATIVE가 되고 요청자에게 TRANSFER_APPROVED, 거절하면 TRANSFER_REJECTED 알림. 요청자나 대상이 단체를 나가면 대기 요청은 CANCELED"
+    respondRepresentativeTransfer(id: ID!, accept: Boolean!): RepresentativeTransfer!
 }
