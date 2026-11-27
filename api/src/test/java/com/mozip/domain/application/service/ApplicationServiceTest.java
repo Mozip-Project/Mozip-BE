@@ -2,6 +2,7 @@ package com.mozip.domain.application.service;
 
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
+import static org.mockito.Mockito.when;
 
 import java.time.LocalDate;
 import java.time.LocalDateTime;
@@ -16,6 +17,7 @@ import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.context.SpringBootTest;
 import org.springframework.context.annotation.Import;
 import org.springframework.graphql.data.ArgumentValue;
+import org.springframework.test.context.bean.override.mockito.MockitoBean;
 import org.springframework.transaction.annotation.Transactional;
 
 import com.mozip.TestcontainersConfiguration;
@@ -25,6 +27,7 @@ import com.mozip.domain.application.dto.AttachmentInput;
 import com.mozip.domain.application.entity.Answer;
 import com.mozip.domain.application.entity.Application;
 import com.mozip.domain.application.entity.ApplicationStatus;
+import com.mozip.domain.application.entity.Attachment;
 import com.mozip.domain.application.entity.AttachmentType;
 import com.mozip.domain.application.exception.ApplicationConflictReason;
 import com.mozip.domain.application.exception.ApplicationErrorCode;
@@ -33,6 +36,7 @@ import com.mozip.domain.application.exception.ApplicationInputReason;
 import com.mozip.domain.application.repository.AnswerRepository;
 import com.mozip.domain.application.repository.ApplicationRepository;
 import com.mozip.domain.application.repository.AttachmentRepository;
+import com.mozip.domain.file.service.FileService;
 import com.mozip.domain.organization.entity.Member;
 import com.mozip.domain.organization.entity.MemberRole;
 import com.mozip.domain.organization.entity.Organization;
@@ -62,6 +66,8 @@ import com.mozip.global.common.response.FieldErrorResponse;
 import com.mozip.global.config.graphql.LocalDateTimeScalar;
 import com.mozip.global.exception.BusinessException;
 import com.mozip.global.exception.CommonErrorCode;
+
+import software.amazon.awssdk.services.s3.model.NoSuchKeyException;
 
 @Import(TestcontainersConfiguration.class)
 @SpringBootTest
@@ -100,6 +106,9 @@ class ApplicationServiceTest {
 
 	@Autowired
 	private SchoolRepository schoolRepository;
+
+	@MockitoBean
+	private FileService fileService;
 
 	private Organization organization;
 	private User operator;
@@ -757,7 +766,8 @@ class ApplicationServiceTest {
 		Posting posting = recruitingPostingWithQuestion(QuestionType.TEXT, false, 500, null);
 		Position position = onlyPosition(posting);
 		Long questionId = onlyQuestionId(posting);
-		List<AttachmentInput> attachments = List.of(new AttachmentInput(AttachmentType.LINK, "https://a.com", null));
+		List<AttachmentInput> attachments = List.of(
+			new AttachmentInput(AttachmentType.LINK, "https://a.com", null));
 
 		assertThatThrownBy(() -> applicationService.saveDraft(applicant.getId(), posting.getId(),
 			new ApplicationInput(position.getId(), List.of(new AnswerInput(questionId, "답변", attachments)), null)))
@@ -804,22 +814,49 @@ class ApplicationServiceTest {
 	}
 
 	@Test
-	@DisplayName("FILE 첨부가 application-attachment 경로이고 LINK 첨부가 https면 정상 저장된다")
+	@DisplayName("FILE 첨부가 application-attachment fileKey이고 LINK 첨부가 https면 정상 저장되고, FILE은 S3 HeadObject로 확인한 size가 저장된다")
 	void savesValidLinkAndFileAttachments() {
 		Posting posting = recruitingPostingWithQuestion(QuestionType.FILE_LINK, true, null,
 			new QuestionOptionsInput(null, null, null, 5));
 		Position position = onlyPosition(posting);
 		Long questionId = onlyQuestionId(posting);
+		String fileKey = "application-attachment/2026/02/uuid.pdf";
+		when(fileService.headObjectSize(fileKey)).thenReturn(204800L);
 		List<AttachmentInput> attachments = List.of(
 			new AttachmentInput(AttachmentType.LINK, "https://a.com", null),
-			new AttachmentInput(AttachmentType.FILE,
-				"https://cdn.mozip.kr/application-attachment/2026/02/uuid.pdf", "결과.pdf"));
+			new AttachmentInput(AttachmentType.FILE, fileKey, "결과.pdf"));
 
 		Application application = applicationService.saveDraft(applicant.getId(), posting.getId(),
 			new ApplicationInput(position.getId(), List.of(new AnswerInput(questionId, null, attachments)), null));
 
-		assertThat(attachmentRepository.findAllByAnswerInOrderById(
-			answerRepository.findAllByApplicationOrderById(application))).hasSize(2);
+		List<Attachment> saved = attachmentRepository.findAllByAnswerInOrderById(
+			answerRepository.findAllByApplicationOrderById(application));
+		assertThat(saved).hasSize(2);
+		assertThat(saved).filteredOn(a -> a.getType() == AttachmentType.FILE)
+			.extracting(Attachment::getSize)
+			.containsExactly(204800);
+		assertThat(saved).filteredOn(a -> a.getType() == AttachmentType.LINK)
+			.extracting(Attachment::getSize)
+			.containsExactly((Integer)null);
+	}
+
+	@Test
+	@DisplayName("FILE 첨부의 fileKey로 실제 업로드된 S3 객체가 없으면(NoSuchKey) COMMON_400을 던진다")
+	void rejectsFileAttachmentWhenObjectNotUploaded() {
+		Posting posting = recruitingPostingWithQuestion(QuestionType.FILE_LINK, true, null,
+			new QuestionOptionsInput(null, null, null, 5));
+		Position position = onlyPosition(posting);
+		Long questionId = onlyQuestionId(posting);
+		String fileKey = "application-attachment/2026/02/not-uploaded.pdf";
+		when(fileService.headObjectSize(fileKey)).thenThrow(NoSuchKeyException.builder().build());
+		List<AttachmentInput> attachments = List.of(new AttachmentInput(AttachmentType.FILE, fileKey, null));
+
+		assertThatThrownBy(() -> applicationService.saveDraft(applicant.getId(), posting.getId(),
+			new ApplicationInput(position.getId(), List.of(new AnswerInput(questionId, null, attachments)), null)))
+			.isInstanceOfSatisfying(BusinessException.class, e -> {
+				assertThat(e.getErrorCode()).isEqualTo(CommonErrorCode.INVALID_INPUT);
+				assertThat(e.getReason()).isEqualTo(ApplicationInputReason.INVALID_ATTACHMENT_URL.name());
+			});
 	}
 
 	@Test

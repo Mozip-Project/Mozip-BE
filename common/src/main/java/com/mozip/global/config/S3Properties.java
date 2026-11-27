@@ -11,6 +11,6 @@ public record S3Properties(
 	String bucket,
 	String region,
 	@DefaultValue("PT10M") Duration presignedUrlExpiration,
-	String cdnDomain
+	@DefaultValue("PT10M") Duration presignedGetExpiration
 ) {
 }

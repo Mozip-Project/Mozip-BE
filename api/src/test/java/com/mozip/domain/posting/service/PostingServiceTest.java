@@ -219,13 +219,13 @@ class PostingServiceTest {
 			basicInput("제목"));
 
 		postingService.saveDraft(operator.getId(), organization.getId(), posting.getId(),
-			withImages(List.of(new PostingImageInput("https://img/a.png", 0, false),
-				new PostingImageInput("https://img/b.png", 1, true))));
+			withImages(List.of(new PostingImageInput("posting-image/a.png", 0, false),
+				new PostingImageInput("posting-image/b.png", 1, true))));
 
 		List<PostingImage> images = postingImageRepository.findAllByPostingOrderBySortOrder(posting);
 		assertThat(images).filteredOn(PostingImage::isRepresentative)
 			.extracting(PostingImage::getUrl)
-			.containsExactly("https://img/b.png");
+			.containsExactly("posting-image/b.png");
 	}
 
 	@Test
@@ -234,17 +234,17 @@ class PostingServiceTest {
 		Posting posting = postingService.saveDraft(operator.getId(), organization.getId(), null,
 			basicInput("제목"));
 		postingService.saveDraft(operator.getId(), organization.getId(), posting.getId(),
-			withImages(List.of(new PostingImageInput("https://img/a.png", 0, true),
-				new PostingImageInput("https://img/b.png", 1, false))));
+			withImages(List.of(new PostingImageInput("posting-image/a.png", 0, true),
+				new PostingImageInput("posting-image/b.png", 1, false))));
 
 		postingService.saveDraft(operator.getId(), organization.getId(), posting.getId(),
-			withImages(List.of(new PostingImageInput("https://img/a.png", 0, false),
-				new PostingImageInput("https://img/b.png", 1, true))));
+			withImages(List.of(new PostingImageInput("posting-image/a.png", 0, false),
+				new PostingImageInput("posting-image/b.png", 1, true))));
 
 		List<PostingImage> updated = postingImageRepository.findAllByPostingOrderBySortOrder(posting);
 		assertThat(updated).filteredOn(PostingImage::isRepresentative)
 			.extracting(PostingImage::getUrl)
-			.containsExactly("https://img/b.png");
+			.containsExactly("posting-image/b.png");
 	}
 
 	@Test
@@ -254,8 +254,8 @@ class PostingServiceTest {
 			basicInput("제목"));
 
 		assertThatThrownBy(() -> postingService.saveDraft(operator.getId(), organization.getId(), posting.getId(),
-			withImages(List.of(new PostingImageInput("https://img/a.png", 0, true),
-				new PostingImageInput("https://img/b.png", 1, true)))))
+			withImages(List.of(new PostingImageInput("posting-image/a.png", 0, true),
+				new PostingImageInput("posting-image/b.png", 1, true)))))
 			.isInstanceOf(BusinessException.class)
 			.extracting(e -> ((BusinessException)e).getErrorCode())
 			.isEqualTo(CommonErrorCode.INVALID_INPUT);
@@ -852,7 +852,7 @@ class PostingServiceTest {
 		Posting posting = postingService.saveDraft(operator.getId(), organization.getId(), null,
 			basicInput("이미지 테스트"));
 		List<PostingImageInput> images = IntStream.range(0, 6)
-			.mapToObj(i -> new PostingImageInput("https://img/" + i + ".png", i, false))
+			.mapToObj(i -> new PostingImageInput("posting-image/" + i + ".png", i, false))
 			.toList();
 
 		assertThatThrownBy(() -> postingService.saveDraft(operator.getId(), organization.getId(), posting.getId(),

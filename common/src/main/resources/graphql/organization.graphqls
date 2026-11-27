@@ -77,6 +77,7 @@ type Organization {
     scope: OrganizationScope!
     "연합이면 null"
     school: School
+    "조회마다 새로 발급되는 GET presigned URL. 오래 저장하지 말고 다시 조회해서 사용"
     logoUrl: String
     "한 줄 소개"
     tagline: String
@@ -108,6 +109,7 @@ type Organization {
 type OrganizationSummary {
     id: ID!
     name: String!
+    "조회마다 새로 발급되는 GET presigned URL. 오래 저장하지 말고 다시 조회해서 사용"
     logoUrl: String
     "연합이면 null"
     school: School
@@ -201,10 +203,8 @@ input CreateOrganizationInput {
     proofFileUrl: String
 }
 
-"단체 프로필 수정 입력. 단체명은 바꿀 수 없음 (관리자 문의). 키워드/분야/링크는 보낸 목록으로 전체 교체"
+"단체 프로필 수정 입력. 단체명은 바꿀 수 없음 (관리자 문의). 키워드/분야/링크는 보낸 목록으로 전체 교체. 로고는 updateOrganizationLogo로 따로 바꿈"
 input UpdateOrganizationInput {
-    "업로드 URL 발급으로 받은 fileUrl, null이나 빈 문자열이면 기본 이미지로 초기화. http/https 주소만 받음"
-    logoUrl: String
     "한 줄 소개, 최대 40자"
     tagline: String!
     description: String

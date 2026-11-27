@@ -8,13 +8,10 @@ import jakarta.validation.constraints.Email;
 import jakarta.validation.constraints.NotBlank;
 import jakarta.validation.constraints.NotEmpty;
 import jakarta.validation.constraints.NotNull;
-import jakarta.validation.constraints.Pattern;
 import jakarta.validation.constraints.Size;
 
+// 로고는 updateOrganizationLogo(fileKey)로만 바꾼다. 여기서 URL 문자열을 받지 않음 (#104, 입력 경로 통일)
 public record UpdateOrganizationInput(
-	// http, https 주소나 빈 문자열(로고 삭제)만 받음
-	@Size(max = 500, message = "로고 주소는 500자 이하여야 합니다.")
-	@Pattern(regexp = "(?i)^(|https?://\\S+)$", message = "로고 주소는 http 또는 https 주소여야 합니다.") String logoUrl,
 	@NotBlank(message = "한 줄 소개를 입력해 주세요") @Size(max = 40, message = "최대 40자까지 입력할 수 있어요") String tagline,
 	@Size(max = 2000, message = "소개는 2000자 이하여야 합니다.") String description,
 	@Email(message = "올바른 이메일 주소를 입력해 주세요") @Size(max = 255, message = "이메일은 255자 이하여야 합니다.") String email,

@@ -14,6 +14,7 @@ import org.springframework.graphql.data.method.annotation.QueryMapping;
 import org.springframework.security.core.annotation.AuthenticationPrincipal;
 import org.springframework.stereotype.Controller;
 
+import com.mozip.domain.file.service.FileService;
 import com.mozip.domain.organization.entity.Organization;
 import com.mozip.domain.organization.entity.Team;
 import com.mozip.domain.organization.repository.OrganizationRepository;
@@ -52,6 +53,7 @@ public class PostingGraphqlController {
 	private final PostingImageRepository postingImageRepository;
 	private final InterviewTimeRangeRepository interviewTimeRangeRepository;
 	private final TeamRepository teamRepository;
+	private final FileService fileService;
 
 	@QueryMapping
 	public Posting posting(@Argument Long id, @AuthenticationPrincipal AuthUser authUser) {
@@ -122,6 +124,13 @@ public class PostingGraphqlController {
 	public Map<Posting, List<PostingImage>> images(List<Posting> postings) {
 		return groupByPosting(postings, postingImageRepository.findAllByPostingInOrderBySortOrder(postings),
 			PostingImage::getPosting);
+	}
+
+	// url 컬럼은 fileKey를 저장하므로 조회마다 presigned GET URL로 변환. 서명은 로컬 계산이라 S3 호출 없음
+	@BatchMapping(typeName = "PostingImage", field = "url")
+	public Map<PostingImage, String> postingImageUrl(List<PostingImage> images) {
+		return images.stream().collect(HashMap::new,
+			(map, image) -> map.put(image, fileService.presignGet(image.getUrl())), Map::putAll);
 	}
 
 	@BatchMapping(typeName = "Posting", field = "interviewTimeRanges")

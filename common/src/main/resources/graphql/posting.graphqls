@@ -103,6 +103,7 @@ type Posting {
 
 type PostingImage {
     id: ID!
+    "조회마다 새로 발급되는 GET presigned URL. 오래 저장하지 말고 다시 조회해서 사용"
     url: String!
     "대표 이미지 (전체 공고 카드 썸네일), 안 고르면 첫 번째 사진"
     isRepresentative: Boolean!
@@ -247,8 +248,8 @@ type PostingCard {
 }
 
 input PostingImageInput {
-    "최대 500자"
-    url: String!
+    "파일 업로드 URL 발급(purpose=POSTING_IMAGE)으로 받은 fileKey"
+    fileKey: String!
     sortOrder: Int!
     "대표 이미지(전체 공고 카드 썸네일)로 지정. 여러 장에 true를 보내면 COMMON_400, 하나도 없으면 안 고른 것으로 처리(안 고르면 첫 번째 사진)"
     isRepresentative: Boolean = false
